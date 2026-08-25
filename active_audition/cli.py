@@ -1,4 +1,4 @@
-"""M0/M1 command-line precheck and planning entry points."""
+"""Pipeline V0 precheck, planning, M2 rendering and validation entry points."""
 
 import argparse
 import json
@@ -12,6 +12,9 @@ from active_audition.navigation.candidates import generate_candidates
 from active_audition.navigation.pathfinder import PathFinderAdapter
 from active_audition.scene.episode import fixed_golden_episode
 from active_audition.scene.simulator import create_scene_simulator
+from active_audition.acoustics.rir import run_channel_order_gate
+from active_audition.pipeline.v0 import finalize_dataset, render_dataset
+from active_audition.data.validation import validate_dataset
 
 
 def precheck(config_path: str) -> dict:
@@ -74,6 +77,17 @@ def main() -> None:
     plan_command = subparsers.add_parser("plan")
     plan_command.add_argument("--config", required=True)
     plan_command.add_argument("--output-root", default="")
+    render_command = subparsers.add_parser("render")
+    render_command.add_argument("--config", required=True)
+    render_command.add_argument("--resume", action="store_true")
+    validate_command = subparsers.add_parser("validate")
+    validate_command.add_argument("--dataset", required=True)
+    validate_command.add_argument("--config", default="configs/active_audition/v0_replica_debug.yaml")
+    gate_command = subparsers.add_parser("channel-gate")
+    gate_command.add_argument("--config", required=True)
+    run_command = subparsers.add_parser("run-v0")
+    run_command.add_argument("--config", required=True)
+    run_command.add_argument("--resume", action="store_true")
     args = parser.parse_args()
     if args.command == "precheck":
         print(json.dumps(precheck(args.config), ensure_ascii=False, indent=2, sort_keys=True))
@@ -86,6 +100,30 @@ def main() -> None:
                 sort_keys=True,
             )
         )
+    elif args.command == "render":
+        print(json.dumps(render_dataset(args.config, args.resume), ensure_ascii=False, indent=2, sort_keys=True))
+    elif args.command == "validate":
+        config = load_resolved_config(args.config)
+        result = validate_dataset(args.dataset, config, require_success=False)
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        if result["status"] != "PASS":
+            raise SystemExit(1)
+    elif args.command == "channel-gate":
+        config = load_resolved_config(args.config)
+        from active_audition.scene.episode import fixed_golden_episode
+        from active_audition.navigation.pathfinder import PathFinderAdapter
+        with create_scene_simulator(config) as context:
+            episode = fixed_golden_episode(config, PathFinderAdapter(context.pathfinder))
+            result = run_channel_order_gate(
+                context,
+                episode.listener_initial,
+                [-0.422410, 0.531130, 1.841960],
+                [1.577590, 0.531130, 1.841960],
+            )
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+    elif args.command == "run-v0":
+        from active_audition.pipeline.v0 import run_v0
+        print(json.dumps(run_v0(args.config, args.resume), ensure_ascii=False, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

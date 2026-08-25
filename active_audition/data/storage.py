@@ -6,6 +6,8 @@ import tempfile
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
+import numpy as np
+
 
 class StorageError(ValueError):
     """Raised for invalid dataset storage operations."""
@@ -47,6 +49,12 @@ class DatasetStorage:
             raise StorageError("manifest must use .jsonl: {}".format(name))
         return self.root / "manifests" / name
 
+    def viewpoint_audio_path(self, episode_id: str, viewpoint_id: str) -> Path:
+        return self.root / "audio" / str(episode_id) / (str(viewpoint_id) + ".wav")
+
+    def rir_cache_path(self, rir_id: str) -> Path:
+        return self.root / "cache" / "rir" / (str(rir_id) + ".npz")
+
     def atomic_write_text(self, path: Path, text: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         fd, temp_name = tempfile.mkstemp(prefix=".tmp-", dir=str(path.parent))
@@ -70,3 +78,43 @@ class DatasetStorage:
             text += "\n"
         self.atomic_write_text(path, text)
         return path
+
+    def atomic_write_bytes(self, path: Path, payload: bytes) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, temp_name = tempfile.mkstemp(prefix=".tmp-", dir=str(path.parent))
+        try:
+            with os.fdopen(fd, "wb") as handle:
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp_name, str(path))
+        except Exception:
+            try:
+                os.unlink(temp_name)
+            except OSError:
+                pass
+            raise
+
+    def atomic_write_json(self, path: Path, value: Any) -> None:
+        self.atomic_write_text(
+            path,
+            json.dumps(value, ensure_ascii=False, allow_nan=False, indent=2, sort_keys=True)
+            + "\n",
+        )
+
+    def atomic_write_npz(self, path: Path, arrays: Mapping[str, Any]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, temp_name = tempfile.mkstemp(prefix=".tmp-", suffix=".npz", dir=str(path.parent))
+        os.close(fd)
+        try:
+            with open(temp_name, "wb") as handle:
+                np.savez(handle, **arrays)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp_name, str(path))
+        except Exception:
+            try:
+                os.unlink(temp_name)
+            except OSError:
+                pass
+            raise

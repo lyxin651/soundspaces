@@ -3,7 +3,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from active_audition.data.manifest import ManifestError, write_plan_manifests
+from active_audition.data.manifest import (
+    ManifestError,
+    read_viewpoint_manifest,
+    write_plan_manifests,
+    write_viewpoint_manifest,
+)
 from active_audition.types import Candidate, EpisodeSpec, ListenerPose, SourceSpec
 
 
@@ -88,6 +93,27 @@ class ManifestTests(unittest.TestCase):
                         fixture_candidate("ep_000001", "rot_left_45"),
                     ],
                 )
+
+    def test_multi_episode_viewpoint_manifest_is_sorted_unique_and_atomic(self):
+        rows = [
+            {
+                "episode_id": episode_id,
+                "viewpoint_id": "viewpoint_{:02d}".format(index),
+                "audio_path": "audio/{}/{}.wav".format(episode_id, index),
+            }
+            for episode_id in ("ep_000002", "ep_000001")
+            for index in range(6)
+        ]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = write_viewpoint_manifest(temp_dir, reversed(rows))
+            before = path.read_bytes()
+            self.assertEqual(len(read_viewpoint_manifest(temp_dir)), 12)
+            self.assertEqual(
+                [(row["episode_id"], row["viewpoint_id"]) for row in read_viewpoint_manifest(temp_dir)[:2]],
+                [("ep_000001", "viewpoint_00"), ("ep_000001", "viewpoint_01")],
+            )
+            write_viewpoint_manifest(temp_dir, reversed(rows))
+            self.assertEqual(before, path.read_bytes())
 
 
 if __name__ == "__main__":

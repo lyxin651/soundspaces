@@ -63,3 +63,44 @@ def write_plan_manifests(
     candidate_rows.sort(key=lambda row: (str(row["episode_id"]), str(row["candidate_id"])))
     candidates_path = storage.atomic_write_jsonl("candidates.jsonl", candidate_rows)
     return {"episodes": str(episodes_path), "candidates": str(candidates_path)}
+
+
+def read_jsonl(path: str) -> list:
+    result = []
+    with Path(path).open(encoding="utf-8") as handle:
+        for line_number, line in enumerate(handle, 1):
+            if not line.strip():
+                continue
+            try:
+                value = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ManifestError("invalid JSONL at {}:{}".format(path, line_number)) from exc
+            if not isinstance(value, dict):
+                raise ManifestError("manifest row must be an object")
+            result.append(value)
+    return result
+
+
+def read_plan_manifests(dataset_root: str) -> Mapping[str, list]:
+    storage = DatasetStorage(dataset_root)
+    return {
+        "episodes": read_jsonl(str(storage.manifest_path("episodes.jsonl"))),
+        "candidates": read_jsonl(str(storage.manifest_path("candidates.jsonl"))),
+    }
+
+
+def write_viewpoint_manifest(
+    output_root: str, viewpoints: Iterable[Mapping[str, Any]]
+) -> Path:
+    storage = DatasetStorage(output_root)
+    storage.ensure_writable()
+    rows = [_row(viewpoint) for viewpoint in viewpoints]
+    keys = [(row.get("episode_id"), row.get("viewpoint_id")) for row in rows]
+    if any(None in key for key in keys) or len(keys) != len(set(keys)):
+        raise ManifestError("duplicate or missing viewpoint manifest key")
+    rows.sort(key=lambda row: (str(row["episode_id"]), str(row["viewpoint_id"])))
+    return storage.atomic_write_jsonl("viewpoints.jsonl", rows)
+
+
+def read_viewpoint_manifest(dataset_root: str) -> list:
+    return read_jsonl(str(DatasetStorage(dataset_root).manifest_path("viewpoints.jsonl")))
