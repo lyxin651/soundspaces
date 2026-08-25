@@ -13,9 +13,7 @@ class StorageError(ValueError):
     """Raised for invalid dataset storage operations."""
 
 
-V0_DEBUG_DATASET_RELATIVE_ROOT = Path(
-    "datasets/active_audition_v0/aa_v0_replica_debug_001"
-)
+V0_DATASET_RELATIVE_ROOT = Path("datasets/active_audition_v0")
 
 
 def json_line(value: Mapping[str, Any]) -> str:
@@ -30,11 +28,19 @@ class DatasetStorage:
     def success_path(self) -> Path:
         return self.root / "_SUCCESS"
 
-    @classmethod
-    def v0_debug(cls, repo_root: str) -> "DatasetStorage":
-        """Resolve the frozen V0 dataset root; state is only `_SUCCESS`-based."""
+    @staticmethod
+    def validate_dataset_id(dataset_id: str) -> str:
+        value = str(dataset_id)
+        if not value or value in (".", "..") or Path(value).is_absolute():
+            raise StorageError("dataset_id must be a non-empty relative identifier")
+        if Path(value).name != value or ".." in Path(value).parts:
+            raise StorageError("dataset_id must not contain path traversal")
+        return value
 
-        return cls(Path(repo_root) / V0_DEBUG_DATASET_RELATIVE_ROOT)
+    @classmethod
+    def from_config(cls, repo_root: str, config: Mapping[str, Any]) -> "DatasetStorage":
+        dataset_id = cls.validate_dataset_id(config["storage"]["dataset_id"])
+        return cls(Path(repo_root) / V0_DATASET_RELATIVE_ROOT / dataset_id)
 
     def ensure_writable(self) -> None:
         if self.success_path.exists():
@@ -49,8 +55,9 @@ class DatasetStorage:
             raise StorageError("manifest must use .jsonl: {}".format(name))
         return self.root / "manifests" / name
 
-    def viewpoint_audio_path(self, episode_id: str, viewpoint_id: str) -> Path:
-        return self.root / "audio" / str(episode_id) / (str(viewpoint_id) + ".wav")
+    def viewpoint_audio_path(self, scene_id: str, episode_id: str, viewpoint_id: str) -> Path:
+        scene_component = str(scene_id).replace(".", "_")
+        return self.root / "episodes" / scene_component / str(episode_id) / "audio" / (str(viewpoint_id) + ".wav")
 
     def rir_cache_path(self, rir_id: str) -> Path:
         return self.root / "cache" / "rir" / (str(rir_id) + ".npz")

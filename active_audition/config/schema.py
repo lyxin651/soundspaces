@@ -167,7 +167,10 @@ def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
         if acoustics[key] != value:
             raise ConfigError("acoustics.{} must be {!r}".format(key, value))
 
-    _require(config["storage"], ("save_audio", "save_rir"), "storage")
+    _require(config["storage"], ("dataset_id", "save_audio", "save_rir"), "storage")
+    dataset_id = str(config["storage"]["dataset_id"])
+    if not dataset_id or dataset_id in (".", "..") or "/" in dataset_id or "\\" in dataset_id:
+        raise ConfigError("storage.dataset_id must be a safe relative identifier")
     _require(config["movement"], ("mode",), "movement")
     if config["movement"]["mode"] != "reposition_then_listen":
         raise ConfigError("movement.mode must be reposition_then_listen")

@@ -46,6 +46,8 @@ def render_native_rir(context: Any, source_position_world: Iterable[float], list
 
 def _channel_stats(rir: np.ndarray) -> Mapping[str, float]:
     return {
+        "left_energy": float(np.sum(np.square(rir[:, 0], dtype=np.float64))),
+        "right_energy": float(np.sum(np.square(rir[:, 1], dtype=np.float64))),
         "left_rms": float(np.sqrt(np.mean(np.square(rir[:, 0], dtype=np.float64)))),
         "right_rms": float(np.sqrt(np.mean(np.square(rir[:, 1], dtype=np.float64)))),
         "left_peak": float(np.max(np.abs(rir[:, 0]))),
@@ -63,8 +65,14 @@ def run_channel_order_gate(context: Any, listener_pose: Any, left_source: Iterab
     result = {
         "left_source": left_stats,
         "right_source": right_stats,
-        "left_source_ch0_dominant": left_stats["left_rms"] > left_stats["right_rms"],
-        "right_source_ch1_dominant": right_stats["right_rms"] > right_stats["left_rms"],
+        "left_source_ch0_dominant": all(
+            left_stats[left_key] > left_stats[right_key]
+            for left_key, right_key in (("left_energy", "right_energy"), ("left_rms", "right_rms"), ("left_peak", "right_peak"))
+        ),
+        "right_source_ch1_dominant": all(
+            right_stats[right_key] > right_stats[left_key]
+            for left_key, right_key in (("left_energy", "right_energy"), ("left_rms", "right_rms"), ("left_peak", "right_peak"))
+        ),
     }
     if not result["left_source_ch0_dominant"] or not result["right_source_ch1_dominant"]:
         raise RIRRenderError("binaural channel-order gate failed: {}".format(result))

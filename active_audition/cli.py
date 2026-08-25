@@ -47,7 +47,7 @@ def precheck(config_path: str) -> dict:
 def plan(config_path: str, output_root: str = "") -> dict:
     config = load_resolved_config(config_path)
     repo_root = Path(config["_repo_root"])
-    storage = DatasetStorage(output_root) if output_root else DatasetStorage.v0_debug(str(repo_root))
+    storage = DatasetStorage(output_root) if output_root else DatasetStorage.from_config(str(repo_root), config)
     with create_scene_simulator(config) as context:
         pathfinder = PathFinderAdapter(context.pathfinder)
         episode = fixed_golden_episode(config, pathfinder)
@@ -80,6 +80,7 @@ def main() -> None:
     render_command = subparsers.add_parser("render")
     render_command.add_argument("--config", required=True)
     render_command.add_argument("--resume", action="store_true")
+    render_command.add_argument("--overwrite", action="store_true")
     validate_command = subparsers.add_parser("validate")
     validate_command.add_argument("--dataset", required=True)
     validate_command.add_argument("--config", default="configs/active_audition/v0_replica_debug.yaml")
@@ -88,6 +89,7 @@ def main() -> None:
     run_command = subparsers.add_parser("run-v0")
     run_command.add_argument("--config", required=True)
     run_command.add_argument("--resume", action="store_true")
+    run_command.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
     if args.command == "precheck":
         print(json.dumps(precheck(args.config), ensure_ascii=False, indent=2, sort_keys=True))
@@ -101,7 +103,7 @@ def main() -> None:
             )
         )
     elif args.command == "render":
-        print(json.dumps(render_dataset(args.config, args.resume), ensure_ascii=False, indent=2, sort_keys=True))
+        print(json.dumps(render_dataset(args.config, args.resume, args.overwrite), ensure_ascii=False, indent=2, sort_keys=True))
     elif args.command == "validate":
         config = load_resolved_config(args.config)
         result = validate_dataset(args.dataset, config, require_success=False)
@@ -123,7 +125,7 @@ def main() -> None:
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
     elif args.command == "run-v0":
         from active_audition.pipeline.v0 import run_v0
-        print(json.dumps(run_v0(args.config, args.resume), ensure_ascii=False, indent=2, sort_keys=True))
+        print(json.dumps(run_v0(args.config, args.resume, args.overwrite), ensure_ascii=False, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":
