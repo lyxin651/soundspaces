@@ -70,7 +70,10 @@ class PathFinderAdapter:
     def geodesic_distance(
         self, start: Iterable[float], end: Iterable[float]
     ) -> Optional[float]:
-        return self.shortest_path(start, end).geodesic_distance_m
+        result = self.shortest_path(start, end)
+        if not result.found:
+            return None
+        return result.geodesic_distance_m
 
     def sample_navigable_point(self, rng: Optional[np.random.Generator] = None) -> WorldXYZ:
         if rng is not None and hasattr(self._pathfinder, "seed"):

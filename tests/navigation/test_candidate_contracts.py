@@ -1,8 +1,9 @@
 import unittest
 from unittest.mock import Mock
+from unittest.mock import patch
 
 from active_audition.navigation.candidates import generate_candidates
-from active_audition.navigation.pathfinder import PathResult
+from active_audition.navigation.pathfinder import PathFinderAdapter, PathResult
 from active_audition.types import ListenerPose
 
 
@@ -62,6 +63,26 @@ class CandidateReasonTests(unittest.TestCase):
         self.assertTrue(all(candidate.has_path for candidate in candidates))
         self.assertTrue(all(candidate.path_points_world is None for candidate in candidates))
         pathfinder.assert_not_called()
+
+
+class PathFinderReachabilityTests(unittest.TestCase):
+    def setUp(self):
+        self.adapter = PathFinderAdapter(Mock())
+
+    def test_geodesic_returns_finite_distance_for_found_path(self):
+        result = PathResult((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), 1.25, ((0.0, 0.0, 0.0),), True)
+        with patch.object(self.adapter, "shortest_path", return_value=result):
+            self.assertEqual(self.adapter.geodesic_distance((0, 0, 0), (1, 0, 0)), 1.25)
+
+    def test_geodesic_returns_none_for_unreachable_path(self):
+        result = PathResult((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), None, None, False)
+        with patch.object(self.adapter, "shortest_path", return_value=result):
+            self.assertIsNone(self.adapter.geodesic_distance((0, 0, 0), (1, 0, 0)))
+
+    def test_geodesic_returns_none_for_not_found_finite_distance(self):
+        result = PathResult((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), 1.25, None, False)
+        with patch.object(self.adapter, "shortest_path", return_value=result):
+            self.assertIsNone(self.adapter.geodesic_distance((0, 0, 0), (1, 0, 0)))
 
 
 if __name__ == "__main__":
