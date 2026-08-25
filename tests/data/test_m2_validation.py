@@ -8,6 +8,7 @@ from scipy.io import wavfile
 from active_audition.config.loader import load_resolved_config
 from active_audition.data.storage import DatasetStorage, StorageError
 from active_audition.data.validation import payload_is_complete
+from active_audition.pipeline.v0 import _storage_summary, final_filesystem_bytes
 
 
 class M2StorageAndResumeTests(unittest.TestCase):
@@ -38,6 +39,27 @@ class M2StorageAndResumeTests(unittest.TestCase):
             storage.atomic_write_text(storage.success_path, "done\n")
             with self.assertRaises(StorageError):
                 storage.ensure_writable()
+
+    def test_storage_summary_pre_final_measurement_and_final_filesystem_bytes(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            storage = DatasetStorage(temp_dir)
+            storage.ensure_writable()
+            storage.atomic_write_text(storage.manifest_path("episodes.jsonl"), "{}\n")
+            wav = storage.root / "episodes/scene/ep/audio/initial.wav"
+            wav.parent.mkdir(parents=True, exist_ok=True)
+            wav.write_bytes(b"wav")
+            rir = storage.rir_cache_path("ep__initial")
+            storage.atomic_write_bytes(rir, b"rir")
+            summary = _storage_summary(storage)
+            self.assertEqual(summary["wav_count"], 1)
+            self.assertEqual(summary["wav_bytes"], 3)
+            self.assertEqual(summary["rir_count"], 1)
+            self.assertEqual(summary["rir_bytes"], 3)
+            self.assertEqual(summary["manifest_bytes"], 3)
+            self.assertEqual(summary["measured_bytes_before_storage_summary_finalize"], 9)
+            storage.atomic_write_json(storage.path("reports", "storage_summary.json"), summary)
+            storage.atomic_write_text(storage.success_path, "done\n")
+            self.assertEqual(final_filesystem_bytes(storage), sum(path.stat().st_size for path in storage.root.rglob("*") if path.is_file()))
 
 
 def _wav_bytes(waveform):

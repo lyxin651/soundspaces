@@ -111,10 +111,11 @@ def render_dataset(config_path: str, resume: bool = False, overwrite: bool = Fal
     if len(episodes) != 1:
         raise RuntimeError("M2 Golden render expects exactly one planned Episode")
     existing = _existing_viewpoints(storage)
-    if existing:
-        orphans = _orphan_payloads(storage, existing.values())
-        if orphans:
-            raise StorageError("orphan payload rejected: {}".format(orphans))
+    orphans = _orphan_payloads(storage, existing.values())
+    if orphans:
+        raise StorageError("orphan payload rejected: {}".format(orphans))
+    if existing and not resume and not overwrite:
+        raise StorageError("incomplete dataset already contains rendered viewpoints; use --resume or --overwrite")
     registry = load_dry_audio_registry(config["registries"]["dry_audio_path"], str(repo_root))
     rendered, skipped, recovery, details = [], [], [], []
     with create_scene_simulator(config) as context:
@@ -184,9 +185,15 @@ def _storage_summary(storage: DatasetStorage) -> Mapping[str, Any]:
         elif relative.parts and relative.parts[0] == "manifests": counters["manifest_bytes"] += size
         else: counters["metadata_report_log_bytes"] += size
         files.append({"path": str(relative), "bytes": size})
-    counters["total_dataset_bytes"] = sum(row["bytes"] for row in files) + len(SUCCESS_TEXT.encode("utf-8"))
+    counters["measured_bytes_before_storage_summary_finalize"] = sum(row["bytes"] for row in files)
     counters["files"] = files
     return counters
+
+
+def final_filesystem_bytes(storage: DatasetStorage) -> int:
+    """Measure the finalized tree once, without rewriting its summary."""
+
+    return sum(path.stat().st_size for path in storage.root.rglob("*") if path.is_file())
 
 
 def finalize_dataset(config_path: str, validation: Mapping[str, Any]) -> Dict[str, Any]:
@@ -211,7 +218,7 @@ def finalize_dataset(config_path: str, validation: Mapping[str, Any]) -> Dict[st
     storage.atomic_write_text(storage.path("logs", "validation.log"), "M2.1 validation PASS\n")
     storage.atomic_write_text(storage.path("logs", "failures.jsonl"), "")
     storage.atomic_write_text(storage.success_path, SUCCESS_TEXT)
-    return {"dataset_root": str(storage.root), "success": str(storage.success_path), "git_commit": git_commit}
+    return {"dataset_root": str(storage.root), "success": str(storage.success_path), "git_commit": git_commit, "final_filesystem_bytes": final_filesystem_bytes(storage)}
 
 
 def run_v0(config_path: str, resume: bool = False, overwrite: bool = False) -> Dict[str, Any]:

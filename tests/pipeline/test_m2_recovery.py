@@ -42,6 +42,10 @@ class RecoveryTests(unittest.TestCase):
                 item.start()
             try:
                 first = render_dataset(str(CONFIG))
+                with self.assertRaisesRegex(StorageError, "incomplete dataset"):
+                    render_dataset(str(CONFIG))
+                forced = render_dataset(str(CONFIG), overwrite=True)
+                self.assertEqual(forced["rendered"], 2)
                 rows = _read_rows(storage)
                 complete_hash = _sha(storage.root / rows["rot_left_45"]["audio_path"])
                 initial_audio = storage.root / rows["initial"]["audio_path"]
@@ -62,6 +66,20 @@ class RecoveryTests(unittest.TestCase):
             finally:
                 for item in reversed(patches):
                     item.stop()
+
+    def test_orphan_is_rejected_without_viewpoints_manifest(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            storage = DatasetStorage(temp_dir)
+            storage.ensure_writable()
+            storage.atomic_write_jsonl("episodes.jsonl", [_episode()])
+            storage.atomic_write_jsonl("candidates.jsonl", [_candidate()])
+            audio = storage.root / "episodes/replica_office_0/ep_000001/audio/orphan.wav"
+            audio.parent.mkdir(parents=True, exist_ok=True)
+            audio.write_bytes(b"orphan")
+            storage.atomic_write_npz(storage.rir_cache_path("orphan"), {"rir": np.zeros((1, 2), dtype=np.float32)})
+            with patch("active_audition.pipeline.v0.DatasetStorage.from_config", return_value=storage):
+                with self.assertRaisesRegex(StorageError, "orphan"):
+                    render_dataset(str(CONFIG), resume=True)
 
 
 def _episode():

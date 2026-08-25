@@ -51,6 +51,15 @@ class ValidationContractTests(unittest.TestCase):
             self.assertEqual(result["status"], "FAIL")
             self.assertTrue(any("ground_truth" in failure or "same Episode dry" in failure for failure in result["failures"]))
 
+    def test_candidate_referencing_missing_episode_is_hard_failure(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            storage, episodes, candidates, viewpoints = _fixture(temp_dir)
+            candidates.append({"episode_id": "ep_missing", "candidate_id": "rot_right_45", "action_type": "rotation", "valid": False})
+            storage.atomic_write_jsonl("candidates.jsonl", candidates)
+            result = validate_dataset(temp_dir, load_resolved_config(str(CONFIG)))
+            self.assertEqual(result["status"], "FAIL")
+            self.assertTrue(any("candidate references missing episode" in failure for failure in result["failures"]))
+
 
 def _fixture(temp_dir):
     storage = DatasetStorage(temp_dir)

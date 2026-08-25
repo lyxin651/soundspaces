@@ -102,6 +102,10 @@ def validate_dataset(dataset_root: str, config: Mapping[str, Any], require_succe
     expected_channels = 2
     dry_fingerprints = {}
 
+    for candidate in candidates:
+        if candidate.get("episode_id") not in episode_map:
+            _failure("candidate references missing episode: {}".format(candidate.get("candidate_id")), failures)
+
     for episode_id, episode in episode_map.items():
         rows = [row for row in viewpoints if row.get("episode_id") == episode_id]
         initial = [row for row in rows if row.get("viewpoint_id") == "initial"]
