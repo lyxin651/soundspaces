@@ -13,3 +13,5 @@ logs/
 my_script
 .idea
 .vscode/
+/datasets/
+/runs/

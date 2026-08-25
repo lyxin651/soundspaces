@@ -4,9 +4,9 @@ from typing import Any, Dict
 
 import numpy as np
 
-from active_audition.data.catalog import episode_seed
+from active_audition.data.catalog import episode_seed, load_dry_audio_registry
 from active_audition.navigation.pathfinder import PathFinderAdapter
-from active_audition.scene.pose import listener_sensor_position
+from active_audition.scene.pose import listener_sensor_position, normalize_yaw_deg
 from active_audition.types import EpisodeSpec, ListenerPose, SourceSpec
 
 
@@ -21,16 +21,21 @@ def _world_xyz(value: Any):
     return tuple(float(item) for item in array)
 
 
-def _source_spec(config: Dict[str, Any], source_anchor_base: Any) -> SourceSpec:
+def _source_spec(
+    config: Dict[str, Any],
+    source_anchor_base: Any,
+    audio_id: str,
+    segment_start_sec: float,
+    gain_db: float,
+) -> SourceSpec:
     source_position = np.asarray(source_anchor_base, dtype=np.float64)
     source_position += np.asarray([0.0, float(config["source"]["height_m"]), 0.0])
-    golden = config["golden"]
     return SourceSpec(
         position_world=_world_xyz(source_position),
-        audio_id=str(golden["source_audio_id"]),
-        segment_start_sec=float(golden["segment_start_sec"]),
+        audio_id=str(audio_id),
+        segment_start_sec=float(segment_start_sec),
         segment_duration_sec=float(config["dry_audio"]["segment_duration_sec"]),
-        gain_db=float(golden["gain_db"]),
+        gain_db=float(gain_db),
     )
 
 
@@ -41,9 +46,16 @@ def _episode(
     listener_base: Any,
     source_anchor_base: Any,
     pathfinder: PathFinderAdapter,
+    listener_yaw_deg: float,
+    scene_id: str,
+    audio_id: str,
+    segment_start_sec: float,
+    gain_db: float,
 ) -> EpisodeSpec:
     listener_base = _world_xyz(listener_base)
     source_anchor_base = _world_xyz(source_anchor_base)
+    if np.array_equal(listener_base, source_anchor_base):
+        raise EpisodeError("listener and source anchors must not be numerically identical")
     if not pathfinder.is_navigable(listener_base):
         raise EpisodeError("listener base is not navigable")
     if not pathfinder.is_navigable(source_anchor_base):
@@ -53,14 +65,14 @@ def _episode(
     listener = ListenerPose(
         base_position_world=listener_base,
         sensor_position_world=_world_xyz(listener_sensor_position(listener_base)),
-        yaw_deg=float(config["golden"]["listener_yaw_deg"]),
+        yaw_deg=normalize_yaw_deg(listener_yaw_deg),
     )
     return EpisodeSpec(
         schema_version=str(config["experiment"]["schema_version"]),
         episode_id=episode_id,
-        scene_id=str(config["golden"]["scene_id"]),
+        scene_id=str(scene_id),
         episode_seed=int(seed),
-        source=_source_spec(config, source_anchor_base),
+        source=_source_spec(config, source_anchor_base, audio_id, segment_start_sec, gain_db),
         listener_initial=listener,
     )
 
@@ -78,6 +90,11 @@ def fixed_golden_episode(
         golden["listener_base_position_world"],
         golden["source_anchor_base_position_world"],
         pathfinder,
+        float(golden["listener_yaw_deg"]),
+        str(golden["scene_id"]),
+        str(golden["source_audio_id"]),
+        float(golden["segment_start_sec"]),
+        float(golden["gain_db"]),
     )
 
 
@@ -88,9 +105,40 @@ def sampled_episode(
 
     seed = episode_seed(config["experiment"]["global_seed"], episode_id)
     rng = np.random.default_rng(seed)
+    repo_root = config["_repo_root"]
+    dry_audio = load_dry_audio_registry(config["registries"]["dry_audio_path"], repo_root)
+    audio_ids = sorted(dry_audio)
+    scene_ids = sorted(str(scene_id) for scene_id in config["scene"]["ids"])
+    if not audio_ids or not scene_ids:
+        raise EpisodeError("sampled episode requires non-empty scene and dry-audio registries")
+    scene_id = scene_ids[int(rng.integers(0, len(scene_ids)))]
+    audio_id = audio_ids[int(rng.integers(0, len(audio_ids)))]
+    audio_duration = float(dry_audio[audio_id]["duration_sec"])
+    segment_duration = float(config["dry_audio"]["segment_duration_sec"])
+    if audio_duration < segment_duration:
+        raise EpisodeError("sampled dry audio is shorter than the required segment")
+    max_start = audio_duration - segment_duration
+    segment_start_sec = float(rng.uniform(0.0, max_start)) if max_start else 0.0
+    gain_db = float(config["source"]["gain_db"])
+    listener_yaw_deg = float(rng.uniform(-180.0, 180.0))
     for _ in range(128):
         listener = pathfinder.sample_navigable_point(rng)
         source = pathfinder.sample_navigable_point(rng)
-        if pathfinder.geodesic_distance(listener, source) is not None:
-            return _episode(config, episode_id, seed, listener, source, pathfinder)
+        if np.array_equal(listener, source):
+            continue
+        path = pathfinder.shortest_path(listener, source)
+        if path.found and path.geodesic_distance_m is not None and path.points_world:
+            return _episode(
+                config,
+                episode_id,
+                seed,
+                listener,
+                source,
+                pathfinder,
+                listener_yaw_deg,
+                scene_id,
+                audio_id,
+                segment_start_sec,
+                gain_db,
+            )
     raise EpisodeError("could not sample a reachable listener/source pair")

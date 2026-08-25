@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from typing import Iterable, Optional, Tuple
 
 import numpy as np
+import quaternion  # Must be imported before habitat_sim.
+import habitat_sim
 
 
 WorldXYZ = Tuple[float, float, float]
@@ -52,14 +54,13 @@ class PathFinderAdapter:
     def shortest_path(self, start: Iterable[float], end: Iterable[float]) -> PathResult:
         requested_start = _point(start)
         requested_end = _point(end)
-        import habitat_sim
 
         path = habitat_sim.ShortestPath()
         path.requested_start = np.asarray(requested_start, dtype=np.float32)
         path.requested_end = np.asarray(requested_end, dtype=np.float32)
         found = bool(self._pathfinder.find_path(path))
         distance = float(path.geodesic_distance)
-        if not np.isfinite(distance):
+        if not found or not np.isfinite(distance):
             return PathResult(requested_start, requested_end, None, None, False)
         points = tuple(_point(item) for item in path.points)
         if not points:

@@ -48,18 +48,32 @@ def _translation_candidate(
             float(distance_m), 0.0, requested_tuple, None, None, float(listener.yaw_deg),
             None, 0.0, None, False, False, None, False, "snap_failed",
         )
-    path = pathfinder.shortest_path(listener.base_position_world, snapped)
     snap_error = _distance(requested_tuple, snapped)
     move_euclidean = _distance(listener.base_position_world, snapped)
-    structural_valid = (
-        pathfinder.is_navigable(snapped)
-        and path.found
-        and path.points_world is not None
-        and move_euclidean > EPSILON_M
-        and path.geodesic_distance_m is not None
-    )
-    valid = structural_valid
-    reason = None if valid else "translation_structural_invalid"
+    snapped_is_navigable = pathfinder.is_navigable(snapped)
+    if not snapped_is_navigable:
+        return Candidate(
+            episode_id, "trans_" + direction + "_r100", "translation", direction,
+            float(distance_m), 0.0, requested_tuple, snapped, None, float(listener.yaw_deg),
+            snap_error, move_euclidean, None, False, False, None, False, "outside_navmesh",
+        )
+    if move_euclidean <= EPSILON_M:
+        return Candidate(
+            episode_id, "trans_" + direction + "_r100", "translation", direction,
+            float(distance_m), 0.0, requested_tuple, snapped, _point(listener_sensor_position(snapped)),
+            float(listener.yaw_deg), snap_error, move_euclidean, None, True, False, None,
+            False, "actual_move_too_small",
+        )
+    path = pathfinder.shortest_path(listener.base_position_world, snapped)
+    if not path.found or path.points_world is None or path.geodesic_distance_m is None:
+        return Candidate(
+            episode_id, "trans_" + direction + "_r100", "translation", direction,
+            float(distance_m), 0.0, requested_tuple, snapped, _point(listener_sensor_position(snapped)),
+            float(listener.yaw_deg), snap_error, move_euclidean, None, True, False, None,
+            False, "no_path",
+        )
+    valid = True
+    reason = None
     if thresholds_enabled:
         raise CandidateError("numeric navigation thresholds are not frozen for M1")
     return Candidate(
@@ -76,7 +90,7 @@ def _translation_candidate(
         snap_error,
         move_euclidean,
         path.geodesic_distance_m,
-        pathfinder.is_navigable(snapped),
+        snapped_is_navigable,
         path.found,
         path.points_world,
         valid,
@@ -104,9 +118,9 @@ def _rotation_candidate(
         float(yaw),
         0.0,
         0.0,
-        None,
+        0.0,
         True,
-        False,
+        True,
         None,
         True,
         None,

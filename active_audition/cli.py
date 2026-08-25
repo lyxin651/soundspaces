@@ -7,6 +7,7 @@ from pathlib import Path
 from active_audition.config.loader import load_resolved_config
 from active_audition.data.catalog import load_dry_audio_registry, load_scene_registry
 from active_audition.data.manifest import write_plan_manifests
+from active_audition.data.storage import DatasetStorage
 from active_audition.navigation.candidates import generate_candidates
 from active_audition.navigation.pathfinder import PathFinderAdapter
 from active_audition.scene.episode import fixed_golden_episode
@@ -25,6 +26,8 @@ def precheck(config_path: str) -> dict:
             episode.listener_initial.base_position_world,
             config["golden"]["source_anchor_base_position_world"],
         )
+        pathfinder_loaded = bool(pathfinder.is_loaded)
+        source_geodesic = None if source_geodesic is None else float(source_geodesic)
     return {
         "experiment": config["experiment"],
         "scene_ids": sorted(scenes),
@@ -32,7 +35,7 @@ def precheck(config_path: str) -> dict:
         "golden": config["golden"],
         "acoustics": config["acoustics"],
         "golden_navigation": {
-            "pathfinder_loaded": pathfinder.is_loaded,
+            "pathfinder_loaded": pathfinder_loaded,
             "source_geodesic_m": source_geodesic,
         },
     }
@@ -41,11 +44,7 @@ def precheck(config_path: str) -> dict:
 def plan(config_path: str, output_root: str = "") -> dict:
     config = load_resolved_config(config_path)
     repo_root = Path(config["_repo_root"])
-    if not output_root:
-        output_root = str(
-            repo_root
-            / "datasets/active_audition_v0/aa_v0_replica_debug_001/incomplete"
-        )
+    storage = DatasetStorage(output_root) if output_root else DatasetStorage.v0_debug(str(repo_root))
     with create_scene_simulator(config) as context:
         pathfinder = PathFinderAdapter(context.pathfinder)
         episode = fixed_golden_episode(config, pathfinder)
@@ -55,7 +54,7 @@ def plan(config_path: str, output_root: str = "") -> dict:
     if not all(candidate.valid for candidate in candidates):
         invalid = [candidate.candidate_id for candidate in candidates if not candidate.valid]
         raise RuntimeError("Golden candidate structural failure: {}".format(invalid))
-    paths = write_plan_manifests(output_root, episode, candidates)
+    paths = write_plan_manifests(str(storage.root), [episode], candidates)
     return {
         "episode_id": episode.episode_id,
         "candidate_ids": [candidate.candidate_id for candidate in candidates],

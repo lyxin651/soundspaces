@@ -46,24 +46,20 @@ def _write_unique(storage: DatasetStorage, name: str, rows: Sequence[Mapping[str
 
 def write_plan_manifests(
     output_root: str,
-    episode: EpisodeSpec,
+    episodes: Iterable[EpisodeSpec],
     candidates: Iterable[Candidate],
 ) -> Mapping[str, str]:
-    """Atomically rewrite the two M1 manifests in a non-finalized plan root."""
+    """Atomically rewrite deterministic multi-Episode M1 manifests."""
 
+    episode_list = list(episodes)
     candidate_list = list(candidates)
     storage = DatasetStorage(output_root)
-    try:
-        storage.ensure_incomplete()
-        episodes_path = _write_unique(
-            storage, "episodes.jsonl", [episode], "episode_id"
-        )
-        candidate_rows = [_row(candidate) for candidate in candidate_list]
-        keys = [(row.get("episode_id"), row.get("candidate_id")) for row in candidate_rows]
-        if any(None in key for key in keys) or len(keys) != len(set(keys)):
-            raise ManifestError("duplicate or missing candidate manifest key")
-        candidate_rows.sort(key=lambda row: (str(row["episode_id"]), str(row["candidate_id"])))
-        candidates_path = storage.atomic_write_jsonl("candidates.jsonl", candidate_rows)
-    except StorageError:
-        raise
+    storage.ensure_writable()
+    episodes_path = _write_unique(storage, "episodes.jsonl", episode_list, "episode_id")
+    candidate_rows = [_row(candidate) for candidate in candidate_list]
+    keys = [(row.get("episode_id"), row.get("candidate_id")) for row in candidate_rows]
+    if any(None in key for key in keys) or len(keys) != len(set(keys)):
+        raise ManifestError("duplicate or missing candidate manifest key")
+    candidate_rows.sort(key=lambda row: (str(row["episode_id"]), str(row["candidate_id"])))
+    candidates_path = storage.atomic_write_jsonl("candidates.jsonl", candidate_rows)
     return {"episodes": str(episodes_path), "candidates": str(candidates_path)}

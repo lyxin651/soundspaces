@@ -31,7 +31,7 @@ class FoundationTests(unittest.TestCase):
     def test_storage_jsonl_is_atomic_and_sorted(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             storage = DatasetStorage(str(Path(temp_dir) / "dataset"))
-            storage.ensure_incomplete()
+            storage.ensure_writable()
             path = storage.atomic_write_jsonl(
                 "episodes.jsonl", [{"episode_id": "ep_000001", "x": 1}]
             )

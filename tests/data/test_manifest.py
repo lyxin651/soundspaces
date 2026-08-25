@@ -7,10 +7,10 @@ from active_audition.data.manifest import ManifestError, write_plan_manifests
 from active_audition.types import Candidate, EpisodeSpec, ListenerPose, SourceSpec
 
 
-def fixture_episode():
+def fixture_episode(episode_id):
     return EpisodeSpec(
         "v0.1",
-        "ep_000001",
+        episode_id,
         "replica.office_0",
         1,
         SourceSpec((1.0, 0.5, 1.0), "golden_probe_v0", 0.0, 5.0, 0.0),
@@ -18,30 +18,75 @@ def fixture_episode():
     )
 
 
-def fixture_candidate(candidate_id):
+def fixture_candidate(episode_id, candidate_id):
     return Candidate(
-        "ep_000001", candidate_id, "rotation", None, 0.0, 45.0,
+        episode_id, candidate_id, "rotation", None, 0.0, 45.0,
         (0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 1.5, 0.0), 45.0,
-        0.0, 0.0, None, True, False, None, True, None,
+        0.0, 0.0, 0.0, True, True, None, True, None,
     )
 
 
 class ManifestTests(unittest.TestCase):
-    def test_jsonl_is_sorted_utf8_atomic_and_unique(self):
+    def test_multi_episode_jsonl_is_sorted_unique_and_atomic(self):
+        episodes = [fixture_episode("ep_000002"), fixture_episode("ep_000001")]
+        candidates = [
+            fixture_candidate(episode_id, "rot_right_45")
+            for episode_id in ("ep_000002", "ep_000001")
+        ]
+        candidates += [
+            fixture_candidate(episode_id, "rot_left_45")
+            for episode_id in ("ep_000002", "ep_000001")
+        ]
         with tempfile.TemporaryDirectory() as temp_dir:
-            paths = write_plan_manifests(
-                temp_dir, fixture_episode(), [fixture_candidate("rot_right_45"), fixture_candidate("rot_left_45")]
+            paths = write_plan_manifests(temp_dir, reversed(episodes), reversed(candidates))
+            episode_rows = Path(paths["episodes"]).read_text(encoding="utf-8").splitlines()
+            candidate_rows = Path(paths["candidates"]).read_text(encoding="utf-8").splitlines()
+            self.assertEqual(
+                [json.loads(row)["episode_id"] for row in episode_rows],
+                ["ep_000001", "ep_000002"],
             )
-            candidates = Path(paths["candidates"]).read_text(encoding="utf-8").splitlines()
-            self.assertEqual([json.loads(row)["candidate_id"] for row in candidates], ["rot_left_45", "rot_right_45"])
+            self.assertEqual(
+                [(json.loads(row)["episode_id"], json.loads(row)["candidate_id"])
+                 for row in candidate_rows],
+                [
+                    ("ep_000001", "rot_left_45"),
+                    ("ep_000001", "rot_right_45"),
+                    ("ep_000002", "rot_left_45"),
+                    ("ep_000002", "rot_right_45"),
+                ],
+            )
+            before = Path(paths["candidates"]).read_bytes()
+            write_plan_manifests(temp_dir, reversed(episodes), reversed(candidates))
+            self.assertEqual(before, Path(paths["candidates"]).read_bytes())
             self.assertTrue(Path(paths["episodes"]).read_bytes().endswith(b"\n"))
             self.assertFalse((Path(temp_dir) / "_SUCCESS").exists())
+
+    def test_two_episode_batch_has_twelve_candidate_keys(self):
+        episodes = [fixture_episode("ep_000001"), fixture_episode("ep_000002")]
+        candidates = [
+            fixture_candidate(episode.episode_id, "candidate_{:02d}".format(index))
+            for episode in episodes
+            for index in range(6)
+        ]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            paths = write_plan_manifests(temp_dir, episodes, candidates)
+            rows = [
+                json.loads(line)
+                for line in Path(paths["candidates"]).read_text(encoding="utf-8").splitlines()
+            ]
+            self.assertEqual(len(rows), 12)
+            self.assertEqual(len({(row["episode_id"], row["candidate_id"]) for row in rows}), 12)
 
     def test_duplicate_candidate_key_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             with self.assertRaises(ManifestError):
                 write_plan_manifests(
-                    temp_dir, fixture_episode(), [fixture_candidate("rot_left_45"), fixture_candidate("rot_left_45")]
+                    temp_dir,
+                    [fixture_episode("ep_000001")],
+                    [
+                        fixture_candidate("ep_000001", "rot_left_45"),
+                        fixture_candidate("ep_000001", "rot_left_45"),
+                    ],
                 )
 
 

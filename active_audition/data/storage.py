@@ -11,6 +11,11 @@ class StorageError(ValueError):
     """Raised for invalid dataset storage operations."""
 
 
+V0_DEBUG_DATASET_RELATIVE_ROOT = Path(
+    "datasets/active_audition_v0/aa_v0_replica_debug_001"
+)
+
+
 def json_line(value: Mapping[str, Any]) -> str:
     return json.dumps(value, ensure_ascii=False, allow_nan=False, sort_keys=True)
 
@@ -23,7 +28,13 @@ class DatasetStorage:
     def success_path(self) -> Path:
         return self.root / "_SUCCESS"
 
-    def ensure_incomplete(self) -> None:
+    @classmethod
+    def v0_debug(cls, repo_root: str) -> "DatasetStorage":
+        """Resolve the frozen V0 dataset root; state is only `_SUCCESS`-based."""
+
+        return cls(Path(repo_root) / V0_DEBUG_DATASET_RELATIVE_ROOT)
+
+    def ensure_writable(self) -> None:
         if self.success_path.exists():
             raise StorageError("finalized dataset is immutable: {}".format(self.root))
         self.root.mkdir(parents=True, exist_ok=True)
