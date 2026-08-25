@@ -1,0 +1,2 @@
+audio_id,event_class,path,duration_sec,sample_rate_hz,channels,sha256,source_dataset
+golden_probe_v0,synthetic_probe,res/active_audition/golden_probe_v0.wav,5.0,16000,1,df63d31dcbe1a7b0868163b81206f97f5d9928685a70e50e568d43bd90b8c54d,synthetic_pipeline_v0_golden_probe

@@ -1,0 +1,79 @@
+experiment:
+  name: v0_replica_debug
+  schema_version: v0.1
+  global_seed: 20260824
+
+scene:
+  ids:
+    - replica.office_0
+
+episode:
+  mode: fixed_or_sampled
+
+listener:
+  sensor_offset_m: [0.0, 1.5, 0.0]
+
+source:
+  height_m: 1.5
+  gain_db: 0.0
+
+dry_audio:
+  segment_duration_sec: 5.0
+  mono_required: true
+  short_clip_policy: reject
+  target_sample_rate_hz: 16000
+  resampling_algorithm: resample_poly
+  resampling_window: [kaiser, 5.0]
+  resampling_padtype: constant
+  normalization: none
+
+candidate:
+  translation:
+    distance_m: 1.0
+    directions: [forward, backward, left, right]
+  rotation:
+    angle_deg: 45.0
+    directions: [left, right]
+
+navigation:
+  thresholds_enabled: false
+  max_snap_error_m: null
+  min_actual_translation_m: null
+  max_actual_translation_m: null
+  max_geodesic_detour_ratio: null
+  duplicate_position_tolerance_m: null
+
+acoustics:
+  channel_layout: binaural
+  sample_rate_hz: 16000
+  materials_enabled: false
+  convolution_mode: full
+  canonical_rir_dtype: float32
+  canonical_wav_dtype: float32
+  per_viewpoint_normalization: false
+
+storage:
+  save_audio: true
+  save_rir: true
+
+movement:
+  mode: reposition_then_listen
+
+validation:
+  enabled: true
+
+qc:
+  analysis_window_sec: 5.0
+
+registries:
+  scenes_path: registries/scenes.yaml
+  dry_audio_path: registries/dry_audio.csv
+
+golden:
+  scene_id: replica.office_0
+  listener_base_position_world: [0.57759, -0.96887, 1.84196]
+  listener_yaw_deg: 0.0
+  source_anchor_base_position_world: [1.624053, -0.968869, -0.512549]
+  source_audio_id: golden_probe_v0
+  segment_start_sec: 0.0
+  gain_db: 0.0

@@ -1,0 +1,8 @@
+scenes:
+  replica.office_0:
+    dataset: replica
+    scene_asset: data/scene_datasets/replica/office_0/habitat/mesh_semantic.ply
+    navmesh: data/scene_datasets/replica/office_0/habitat/mesh_semantic.navmesh
+    semantic_info: data/scene_datasets/replica/office_0/habitat/info_semantic.json
+    stage_config: data/scene_datasets/replica/office_0/habitat/replica_stage.stage_config.json
+    materials_mode: "off"

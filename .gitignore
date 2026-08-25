@@ -1,5 +1,11 @@
 data
 data_
+!active_audition/data/
+active_audition/data/*
+!active_audition/data/*.py
+!tests/data/
+tests/data/*
+!tests/data/*.py
 *.egg-info
 .ipynb_checkpoints/
 __pycache__
