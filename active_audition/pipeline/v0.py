@@ -102,6 +102,14 @@ def _orphan_payloads(storage: DatasetStorage, rows: Iterable[Mapping[str, Any]])
     return orphans
 
 
+def _append_generation_event(storage: DatasetStorage, event: Mapping[str, Any]) -> None:
+    """Keep render/resume provenance append-only beside legacy logs."""
+
+    path = storage.path("logs", "generation_events.jsonl")
+    previous = path.read_text(encoding="utf-8") if path.exists() else ""
+    storage.atomic_write_text(path, previous + json_line(dict(event)) + "\n")
+
+
 def render_dataset(config_path: str, resume: bool = False, overwrite: bool = False) -> Dict[str, Any]:
     if resume and overwrite:
         raise StorageError("--resume and --overwrite are mutually exclusive")
@@ -173,6 +181,18 @@ def render_dataset(config_path: str, resume: bool = False, overwrite: bool = Fal
     if stats_text:
         stats_text += "\n"
     storage.atomic_write_text(storage.path("logs", "generation_stats.jsonl"), stats_text)
+    mode = "resume" if resume else "overwrite" if overwrite else "render"
+    _append_generation_event(storage, {
+        "mode": mode,
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "episode_count": len(episodes),
+        "viewpoint_count": len(rendered),
+        "rendered": len(rendered) - len(skipped),
+        "skipped": len(skipped),
+        "recovery_count": len(recovery),
+        "render_failures": len(render_failures),
+        "generation_stats": generation_stats,
+    })
     return {"dataset_root": str(storage.root), "dataset_id": config["storage"]["dataset_id"], "episode_count": len(episodes), "viewpoints": len(rendered), "rendered": len(rendered) - len(skipped), "skipped": len(skipped), "recovery": recovery, "render_failures": render_failures, "manifest": str(manifest_path), "details": details, "generation_stats": generation_stats}
 
 

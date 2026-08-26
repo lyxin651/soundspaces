@@ -106,6 +106,7 @@ def main() -> None:
     qc_command.add_argument("--config", required=True)
     qc_command.add_argument("--run-id", required=True)
     qc_command.add_argument("--topdown", action="store_true")
+    qc_command.add_argument("--evidence", default="")
     args = parser.parse_args()
     if args.command == "precheck":
         print(json.dumps(precheck(args.config), ensure_ascii=False, indent=2, sort_keys=True))
@@ -150,7 +151,7 @@ def main() -> None:
         print(json.dumps(finalize_dataset(args.config, validation), ensure_ascii=False, indent=2, sort_keys=True))
     elif args.command == "qc":
         from active_audition.evaluation.qc import run_qc
-        print(json.dumps(run_qc(args.dataset, args.config, args.run_id, args.topdown), ensure_ascii=False, indent=2, sort_keys=True))
+        print(json.dumps(run_qc(args.dataset, args.config, args.run_id, args.topdown, args.evidence or None), ensure_ascii=False, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

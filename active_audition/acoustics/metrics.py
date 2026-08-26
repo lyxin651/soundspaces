@@ -1,4 +1,9 @@
-"""Frozen, model-agnostic acoustic QC metrics for Pipeline V0 M3."""
+"""Frozen, model-agnostic acoustic QC metrics for Pipeline V0 M3.
+
+Module constants are the frozen implementation contract. Matching config and
+schema fields are provenance/validation mirrors; runtime must not silently
+override these constants from config.
+"""
 
 import math
 from pathlib import Path

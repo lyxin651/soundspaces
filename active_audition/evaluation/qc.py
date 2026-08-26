@@ -1,8 +1,9 @@
 """Read-only M3 acoustic QC, comparison, geometry and report orchestration."""
 
 import json
+import subprocess
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Any, Mapping, Optional, Sequence
 
 from active_audition.acoustics.metrics import compute_viewpoint_metrics
 from active_audition.data.manifest import read_jsonl
@@ -33,6 +34,43 @@ def _read_generation_stats(dataset_root: Path):
     return read_jsonl(str(path))
 
 
+def _unknown_evidence(reason: str) -> Mapping[str, Any]:
+    return {"status": "UNKNOWN", "reason": reason}
+
+
+def _load_execution_evidence(path: Optional[str]) -> Mapping[str, Any]:
+    """Load verified execution facts; never turn missing evidence into PASS."""
+
+    if not path:
+        return _unknown_evidence("execution evidence was not supplied")
+    evidence_path = Path(path)
+    if not evidence_path.is_file():
+        raise QCError("execution evidence does not exist: {}".format(path))
+    try:
+        evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise QCError("invalid execution evidence JSON: {}".format(exc))
+    if not isinstance(evidence, dict):
+        raise QCError("execution evidence must be a JSON object")
+    required = ("determinism", "resume", "runtime_provenance")
+    missing = [key for key in required if key not in evidence]
+    if missing:
+        raise QCError("execution evidence missing fields: {}".format(", ".join(missing)))
+    determinism = evidence["determinism"]
+    resume = evidence["resume"]
+    if not isinstance(determinism, dict) or not isinstance(resume, dict):
+        raise QCError("determinism and resume evidence must be objects")
+    for key in ("episodes_manifest_sha256", "candidates_manifest_sha256", "repeated_match", "acoustic_spot_checks"):
+        if key not in determinism:
+            raise QCError("determinism evidence missing field: {}".format(key))
+    for key in ("rendered", "skipped", "viewpoint_count", "manifest_unique", "wav_payload_hashes_unchanged", "rir_payload_hashes_unchanged", "viewpoints_manifest_hash_unchanged"):
+        if key not in resume:
+            raise QCError("resume evidence missing field: {}".format(key))
+    if not isinstance(determinism["acoustic_spot_checks"], list) or len(determinism["acoustic_spot_checks"]) != 3:
+        raise QCError("determinism evidence must contain three acoustic spot checks")
+    return dict(evidence, status="RECORDED_FROM_EXECUTION_EVIDENCE")
+
+
 def _storage_by_episode(dataset_root: Path, episodes: Sequence[Mapping[str, object]]):
     result = []
     for episode in sorted(episodes, key=lambda row: str(row["episode_id"])):
@@ -59,32 +97,92 @@ def _threshold_proposals(geometry: Mapping[str, object], acoustic: Mapping[str, 
     def p05(name):
         return geometry[name].get("p05")
 
+    limitations = "single Replica office_0 scene and deterministic 20-Episode diagnostic batch"
     specs = {
-        "source_listener_min_distance_m": (p05("episode_source_listener_euclidean_m"), "p05 source-listener Euclidean distance"),
-        "source_listener_max_distance_m": (p95("episode_source_listener_euclidean_m"), "p95 source-listener Euclidean distance"),
-        "max_snap_error_m": (p95("translation_snap_error_m"), "p95 translation snap error"),
-        "min_actual_translation_m": (p05("translation_actual_euclidean_m"), "p05 actual translation"),
-        "max_actual_translation_m": (p95("translation_actual_euclidean_m"), "p95 actual translation"),
-        "max_geodesic_detour_ratio": (p95("translation_geodesic_detour_ratio"), "p95 finite geodesic detour ratio"),
-        "duplicate_position_tolerance_m": (p05("translation_pairwise_distance_m"), "p05 translation-only pairwise distance"),
-        "rir_tail_warning_ratio_100ms": (acoustic["rir_tail_energy_ratio_100ms"].get("p95"), "p95 RIR tail-energy ratio; diagnostic only"),
+        "source_listener_min_distance_m": ("episode_source_listener_euclidean_m", "p05", "sampling range evidence, not a scientific minimum"),
+        "source_listener_max_distance_m": ("episode_source_listener_euclidean_m", "p95", "sampling range evidence, not a scientific maximum"),
+        "max_snap_error_m": ("translation_snap_error_m", "p95", "p95 snap error is already large for a requested 1 m move; review semantic rejection policy"),
+        "min_actual_translation_m": ("translation_actual_euclidean_m", "p05", "p05 is near-degenerate movement evidence, not an acceptance threshold"),
+        "max_actual_translation_m": ("translation_actual_euclidean_m", "p95", "movement distribution evidence only"),
+        "max_geodesic_detour_ratio": ("translation_geodesic_detour_ratio", "p95", "p95 is wide and indicates possible high navigation cost"),
+        "duplicate_position_tolerance_m": ("translation_pairwise_distance_m", "p05", "near-neighbor evidence; p05 must not define duplicate semantics"),
     }
-    return {
-        key: {
-            "observed_value": value,
-            "proposed_value": value,
-            "evidence": evidence,
+    result = {}
+    for key, (distribution_name, percentile, review_note) in specs.items():
+        distribution = geometry[distribution_name]
+        result[key] = {
+            "observed_distribution": distribution,
+            "percentile_reference": {"percentile": percentile, "value": distribution.get(percentile)},
+            "candidate_range_or_review_note": review_note,
+            "proposed_value": None,
+            "diagnostic_candidate": None,
+            "evidence": "{} {}".format(percentile, distribution_name),
+            "risk_if_too_loose": "semantically degenerate or scientifically mismatched candidates may pass",
+            "risk_if_too_strict": "valid navigable geometry may be discarded before scene diversity is measured",
             "confidence": "low",
-            "limitations": "single Replica office_0 scene and deterministic 20-Episode diagnostic batch",
+            "limitations": limitations,
             "status": "PROVISIONAL / REQUIRES HUMAN REVIEW",
         }
-        for key, (value, evidence) in specs.items()
+    rir_distribution = acoustic["rir_tail_energy_ratio_100ms"]
+    result["rir_tail_warning_ratio_100ms"] = {
+        "observed_distribution": rir_distribution,
+        "percentile_reference": {"percentile": "p95", "value": rir_distribution.get("p95")},
+        "candidate_range_or_review_note": "diagnostic warning candidate only; not a Dataset hard reject",
+        "proposed_value": None,
+        "diagnostic_candidate": rir_distribution.get("p95"),
+        "evidence": "p95 RIR tail-energy ratio",
+        "risk_if_too_loose": "possible truncation concerns may be missed",
+        "risk_if_too_strict": "healthy variable-length RIRs may be mislabeled or rejected",
+        "confidence": "low",
+        "limitations": limitations,
+        "status": "PROVISIONAL / REQUIRES HUMAN REVIEW",
     }
+    return result
 
 
-def run_qc(dataset_root: str, config_path: str, run_id: str, topdown: bool = False):
+def _analysis_commit(repo_root: Path) -> str:
+    try:
+        return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=str(repo_root), text=True).strip()
+    except Exception:
+        return "UNKNOWN"
+
+
+def _dataset_generation_commit(dataset_root: Path) -> str:
+    identity = dataset_root / "identity.json"
+    if not identity.exists():
+        return "UNKNOWN"
+    try:
+        return str(json.loads(identity.read_text(encoding="utf-8")).get("git_commit", "UNKNOWN"))
+    except Exception:
+        return "UNKNOWN"
+
+
+def _summary_markdown(episodes, candidates, viewpoints, geometry, acoustic, evidence, failure_count, runtime):
+    snap = geometry["translation_snap_error_m"]
+    actual = geometry["translation_actual_euclidean_m"]
+    detour = geometry["translation_geodesic_detour_ratio"]
+    pairwise = geometry["translation_pairwise_distance_m"]
+    rir_tail = acoustic["rir_tail_energy_db_100ms"]
+    plan_status = "verified" if evidence.get("status") == "RECORDED_FROM_EXECUTION_EVIDENCE" and evidence.get("determinism", {}).get("repeated_match") else "UNKNOWN"
+    lines = [
+        "# Pipeline V0 M3 Diagnostic QC", "",
+        "This is a read-only derived report for the finalized diagnostic Dataset. It does not modify or regenerate Dataset payloads.", "",
+        "The 20-Episode PLAN is {}. The batch contains {} Candidate records: {} structurally valid, {} invalid, and {} render failures. Structural validity is not an assertion that every action is semantically useful for active listening.".format(plan_status, len(candidates), geometry["candidate_counts"]["valid"], geometry["candidate_counts"]["invalid"], failure_count), "",
+        "Requested translation is 1 m. Actual translation median={:.4f} m, p05={:.4f} m, minimum={:.4f} m, showing movement degeneration in part of this batch. Snap error median={:.4f} m, p95={:.4f} m, maximum={:.4f} m, so large snapping effects are present.".format(actual["median"], actual["p05"], actual["min"], snap["median"], snap["p95"], snap["max"]), "",
+        "Geodesic detour ratio median={:.4f}, p95={:.4f}, maximum={:.4f}; some nearby candidates have high navigation cost. Translation pairwise distance minimum={:.4f} m, p05={:.4f} m, median={:.4f} m. This is near-neighbor evidence only and does not define a duplicate tolerance.".format(detour["median"], detour["p95"], detour["max"], pairwise["min"], pairwise["p05"], pairwise["median"]), "",
+        "All {} WAV/RIR viewpoints pass shape, dtype, sample-rate and full-convolution validation; over-unit clipping fraction is 0. RIR length is variable. Final 100 ms RIR tail median={:.2f} dB and p95={:.2f} dB, with no obvious truncation risk in this diagnostic batch.".format(len(viewpoints), rir_tail["median"], rir_tail["p95"]), "",
+        "RMS, ILD, interaural correlation and lag vary across viewpoints; both translation and rotation alter the binaural observation. This is not evidence that movement improves SED or any other downstream task.", "",
+        "Threshold reports are provisional and require human review. Percentiles are evidence, not frozen validity thresholds. The data use one broadband synthetic probe, so they are not speech/music/event-independent acceptance distributions. The batch covers only Replica office_0 and 20 Episodes; no generalization to all Replica scenes or MP3D is claimed.", "",
+        "Runtime provenance: {}. First-render runtime and resume runtime are separate execution records; the current Dataset legacy stats file may reflect the most recent operational run. Analysis code commit is recorded in the QC provenance report.".format(runtime.get("render_runtime_source", "UNKNOWN")), "",
+    ]
+    return "\n".join(lines)
+
+
+def run_qc(dataset_root: str, config_path: str, run_id: str, topdown: bool = False, evidence_path: Optional[str] = None):
     config = load_resolved_config(config_path)
     root = Path(dataset_root).resolve()
+    evidence = _load_execution_evidence(evidence_path)
+    repo_root = Path(config["_repo_root"])
     if Path(run_id).name != run_id or run_id in ("", ".", ".."):
         raise QCError("run-id must be a single safe directory name")
     run_root = Path(config["_repo_root"]) / "runs" / run_id
@@ -101,6 +199,9 @@ def run_qc(dataset_root: str, config_path: str, run_id: str, topdown: bool = Fal
     geometry = build_geometry_report(episodes, candidates, viewpoints)
     generation_stats = _read_generation_stats(root)
     failure_count = sum(int(row.get("render_failures", 0)) for row in generation_stats)
+    runtime_provenance = evidence.get("runtime_provenance", {"status": "UNKNOWN", "reason": "execution evidence was not supplied"})
+    if runtime_provenance.get("first_render_failures") is not None:
+        failure_count = int(runtime_provenance["first_render_failures"])
     geometry["viewpoint_counts"]["render_failure_count"] = failure_count
     geometry["viewpoint_counts"]["rendered"] = len(viewpoints)
     acoustic_fields = (
@@ -116,11 +217,18 @@ def run_qc(dataset_root: str, config_path: str, run_id: str, topdown: bool = Fal
     _write_json(run_root / "reports" / "geometry_distributions.json", geometry)
     _write_json(run_root / "reports" / "acoustic_distributions.json", acoustic)
     _write_json(run_root / "reports" / "candidate_validity.json", geometry["candidate_counts"])
-    _write_json(run_root / "reports" / "render_runtime.json", {"episodes": generation_stats, "total_runtime_sec": sum(float(row.get("episode_render_runtime_sec", 0.0)) for row in generation_stats)})
+    _write_json(run_root / "reports" / "render_runtime.json", {
+        "episodes": generation_stats,
+        "total_runtime_sec": sum(float(row.get("episode_render_runtime_sec", 0.0)) for row in generation_stats),
+        "runtime_provenance": runtime_provenance,
+        "analysis_code_commit": _analysis_commit(repo_root),
+        "dataset_generation_commit": _dataset_generation_commit(root),
+    })
     _write_json(run_root / "reports" / "storage_by_episode.json", storage_by_episode)
     _write_json(run_root / "reports" / "threshold_proposals.json", _threshold_proposals(geometry, acoustic))
-    _write_json(run_root / "reports" / "determinism.json", {"status": "RECORDED_BY_EXECUTION"})
-    _write_json(run_root / "reports" / "resume_check.json", {"status": "RECORDED_BY_EXECUTION"})
+    _write_json(run_root / "reports" / "determinism.json", evidence.get("determinism", _unknown_evidence("execution evidence was not supplied")))
+    _write_json(run_root / "reports" / "resume_check.json", evidence.get("resume", _unknown_evidence("execution evidence was not supplied")))
+    _write_json(run_root / "reports" / "execution_evidence.json", evidence)
     summary = {
         "dataset_root": str(root),
         "episode_count": len(episodes),
@@ -130,17 +238,13 @@ def run_qc(dataset_root: str, config_path: str, run_id: str, topdown: bool = Fal
         "render_failure_count": failure_count,
         "white_probe_limitation": "These acoustic distributions are measured with a single broadband synthetic probe. They are intended for Pipeline V0 acoustic sanity checking and relative viewpoint comparison, not as speech/music/event-independent acceptance distributions.",
         "interpretation": "Different listening poses/orientations alter the binaural acoustic observation; no SED/SELD utility claim is made.",
+        "analysis_code_commit": _analysis_commit(repo_root),
+        "dataset_generation_commit": _dataset_generation_commit(root),
+        "evidence_status": evidence.get("status", "UNKNOWN"),
     }
     _write_json(run_root / "reports" / "summary.json", summary)
     (run_root / "reports" / "summary.md").parent.mkdir(parents=True, exist_ok=True)
-    (run_root / "reports" / "summary.md").write_text(
-        "# Pipeline V0 M3 QC\n\n"
-        "- Episodes: {}\n- Candidates: {}\n- Viewpoints: {}\n- Render failures: {}\n\n"
-        "> These acoustic distributions are measured with a single broadband synthetic probe. They are intended for Pipeline V0 acoustic sanity checking and relative viewpoint comparison, not as speech/music/event-independent acceptance distributions.\n\n"
-        "Different listening poses/orientations alter the binaural acoustic observation; this report makes no SED/SELD utility claim.\n".format(
-            len(episodes), len(candidates), len(viewpoints), failure_count
-        ), encoding="utf-8",
-    )
+    (run_root / "reports" / "summary.md").write_text(_summary_markdown(episodes, candidates, viewpoints, geometry, acoustic, evidence, failure_count, runtime_provenance), encoding="utf-8")
     visualization = None
     if topdown:
         from active_audition.visualization.topdown import render_golden_topdown

@@ -12,11 +12,47 @@ from matplotlib.patches import Arc
 import numpy as np
 
 from active_audition.config.loader import load_resolved_config
+from active_audition.scene.pose import yaw_to_forward_world
 from active_audition.scene.simulator import create_scene_simulator
 
 
 def _xz(point):
     return float(point[0]), float(point[2])
+
+
+def occupancy_world_mapping(pathfinder, meters_per_pixel: float, height: float):
+    """Return occupancy and its world-aligned x/z extent."""
+
+    if not hasattr(pathfinder, "get_bounds"):
+        raise ValueError("PathFinder does not expose world bounds")
+    bounds_min, _ = pathfinder.get_bounds()
+    occupancy = np.asarray(pathfinder.get_topdown_view(float(meters_per_pixel), float(height)))
+    if occupancy.ndim != 2 or occupancy.size == 0:
+        raise ValueError("PathFinder returned an invalid top-down occupancy grid")
+    rows, columns = occupancy.shape
+    min_x, min_z = float(bounds_min[0]), float(bounds_min[2])
+    extent = (min_x, min_x + columns * meters_per_pixel, min_z, min_z + rows * meters_per_pixel)
+    return occupancy, extent, (min_x, min_z)
+
+
+def world_to_occupancy_pixel(point, bounds_min_xz, meters_per_pixel: float, shape):
+    """Map world x/z to (row, column) using the PathFinder grid origin."""
+
+    x, z = _xz(point)
+    min_x, min_z = bounds_min_xz
+    column = int(math.floor((x - float(min_x)) / float(meters_per_pixel)))
+    row = int(math.floor((z - float(min_z)) / float(meters_per_pixel)))
+    if row < 0 or column < 0 or row >= int(shape[0]) or column >= int(shape[1]):
+        return None
+    return row, column
+
+
+def _forward_arrow(ax, position, yaw_deg, color, label=None, length=0.45):
+    forward = yaw_to_forward_world(float(yaw_deg))
+    ax.arrow(float(position[0]), float(position[1]), float(forward[0]) * length, float(forward[2]) * length, color=color, width=0.008, head_width=0.12, length_includes_head=True)
+    if label:
+        ax.annotate(label, (float(position[0]), float(position[1])), xytext=(6, 6), textcoords="offset points", color=color, fontsize=7)
+    return forward
 
 
 def render_golden_topdown(
@@ -43,22 +79,20 @@ def render_golden_topdown(
     min_z, max_z = float(np.min(xz[:, 1])), float(np.max(xz[:, 1]))
     margin = 2.0
     fig, ax = plt.subplots(figsize=(10, 8), dpi=140)
+    occupancy_extent = None
     with create_scene_simulator(config) as context:
         raw_pathfinder = context.pathfinder
-        if hasattr(raw_pathfinder, "get_topdown_view"):
-            try:
-                occupancy = np.asarray(raw_pathfinder.get_topdown_view(0.05))
-                if occupancy.ndim >= 2 and occupancy.size:
-                    ax.imshow(occupancy, cmap="Greys", alpha=0.20, origin="lower", extent=(min_x - margin, max_x + margin, min_z - margin, max_z + margin))
-            except Exception:
-                pass
+        try:
+            occupancy, occupancy_extent, bounds_min_xz = occupancy_world_mapping(raw_pathfinder, 0.05, float(initial["base_position_world"][1]))
+            ax.imshow(occupancy, cmap="Greys", alpha=0.20, origin="lower", extent=occupancy_extent)
+        except Exception:
+            occupancy = None
     source_x, source_z = _xz(episode["source"]["position_world"])
     initial_x, initial_z = _xz(initial["base_position_world"])
     ax.scatter([source_x], [source_z], c="red", marker="*", s=180, label="source GT", zorder=5)
     ax.scatter([initial_x], [initial_z], c="black", marker="o", s=70, label="initial base", zorder=5)
     ax.annotate("initial", (initial_x, initial_z), xytext=(6, 6), textcoords="offset points")
-    yaw = math.radians(float(initial["yaw_deg"]))
-    ax.arrow(initial_x, initial_z, -math.sin(yaw), -math.cos(yaw), color="black", width=0.008, head_width=0.12, length_includes_head=True)
+    initial_forward = _forward_arrow(ax, (initial_x, initial_z), float(initial["yaw_deg"]), "black")
     for candidate in sorted(episode_candidates, key=lambda row: str(row["candidate_id"])):
         candidate_id = str(candidate["candidate_id"])
         if candidate["action_type"] == "translation":
@@ -76,10 +110,9 @@ def render_golden_topdown(
             ax.annotate(candidate_id, (lx, lz), xytext=(4, -12), textcoords="offset points", fontsize=7)
         else:
             angle = float(candidate["yaw_deg"] - initial["yaw_deg"])
-            ax.add_patch(Arc((initial_x, initial_z), 0.8, 0.8, angle=0, theta1=0, theta2=angle, color="tab:green", linewidth=2))
-            direction = 1.0 if angle >= 0 else -1.0
-            ax.arrow(initial_x, initial_z, direction * 0.45, 0.0, color="tab:green", width=0.008, head_width=0.12, length_includes_head=True)
-            ax.annotate(candidate_id, (initial_x, initial_z), xytext=(8, 18 if direction > 0 else -24), textcoords="offset points", fontsize=7, color="tab:green")
+            start_angle = math.degrees(math.atan2(float(initial_forward[2]), float(initial_forward[0])))
+            ax.add_patch(Arc((initial_x, initial_z), 0.8, 0.8, angle=0, theta1=start_angle, theta2=start_angle - angle, color="tab:green", linewidth=2))
+            _forward_arrow(ax, (initial_x, initial_z), float(candidate["yaw_deg"]), "tab:green", candidate_id)
     ax.plot([initial["sensor_position_world"][0], source_x], [initial["sensor_position_world"][2], source_z], color="purple", linewidth=1.0, alpha=0.7, label="source-listener line")
     ax.set_xlim(min_x - margin, max_x + margin)
     ax.set_ylim(min_z - margin, max_z + margin)
