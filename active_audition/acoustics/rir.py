@@ -36,6 +36,10 @@ def _set_listener(context: Any, base_position: Iterable[float], yaw_deg: float) 
 def render_native_rir(context: Any, source_position_world: Iterable[float], listener_pose: Any) -> np.ndarray:
     """Render one live RIR; source position is already acoustic world XYZ."""
 
+    # Native AudioSensor keeps simulator state across observations.  Reset it
+    # before each viewpoint so repeated renders in one scene context are
+    # deterministic without changing the frozen channel mapping.
+    context.audio_sensor.reset()
     _set_listener(context, listener_pose.base_position_world, listener_pose.yaw_deg)
     context.audio_sensor.setAudioSourceTransform(np.asarray(tuple(source_position_world), dtype=np.float32))
     observations = context.simulator.get_sensor_observations()

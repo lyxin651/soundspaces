@@ -15,7 +15,12 @@ datasets:
     reason: final approved M2 contract
     provenance_commit: identity.json
   aa_v0_replica_m3_diag_001:
+    status: superseded
+    consume: false
+    reason: preliminary M3 batch superseded after native AudioSensor determinism gate
+    provenance_commit: 400b37ece28bfab71665f507da649aa94a029ea0
+  aa_v0_replica_m3_diag_002:
     status: diagnostic
     consume: false
-    reason: deterministic M3 acoustic QC mini-batch
+    reason: deterministic M3 acoustic QC mini-batch after AudioSensor reset hardening
     provenance_commit: identity.json
