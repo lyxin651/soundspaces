@@ -46,6 +46,44 @@ def pathfinder_for(snapped, geodesic=None):
 
 
 class M4ThresholdTests(unittest.TestCase):
+    def test_source_distance_boundaries_use_acoustic_positions_and_are_inclusive(self):
+        config = load_resolved_config("configs/active_audition/v0_replica_m4_pilot.yaml")
+        dry_audio = {"golden_probe_v0": {"duration_sec": 5.0}}
+
+        class SamplingPathFinder:
+            def __init__(self, distances):
+                self.points = iter(point for distance in distances for point in ((0.0, 0.0, 0.0), (distance, 0.0, 0.0)))
+
+            def sample_navigable_point(self, rng):
+                return next(self.points)
+
+            def is_navigable(self, point):
+                return True
+
+            def shortest_path(self, start, end):
+                return PathResult(start, end, float(abs(end[0] - start[0])), (start, end), True)
+
+            def geodesic_distance(self, start, end):
+                return float(abs(end[0] - start[0]))
+
+        def sample(distances):
+            diagnostics = {}
+            episode = sampled_episode(config, SamplingPathFinder(distances), "ep_boundary", dry_audio=dry_audio, scene_id="replica.office_0", sampling_diagnostics=diagnostics)
+            return episode, diagnostics
+
+        close_boundary, close_boundary_stats = sample([0.50])
+        self.assertAlmostEqual(close_boundary.source_listener_euclidean_m, 0.50, places=7)
+        self.assertEqual(close_boundary_stats.get("source_too_close_rejections", 0), 0)
+        far_boundary, far_boundary_stats = sample([3.00])
+        self.assertAlmostEqual(far_boundary.source_listener_euclidean_m, 3.00, places=7)
+        self.assertEqual(far_boundary_stats.get("source_too_far_rejections", 0), 0)
+        _, below_min_stats = sample([0.49, 0.50])
+        self.assertEqual(below_min_stats["source_too_close_rejections"], 1)
+        self.assertEqual(below_min_stats["total_sampling_attempts"], 2)
+        _, above_max_stats = sample([3.01, 3.00])
+        self.assertEqual(above_max_stats["source_too_far_rejections"], 1)
+        self.assertEqual(above_max_stats["total_sampling_attempts"], 2)
+
     def test_source_distance_gate_resamples_deterministically(self):
         config = load_resolved_config("configs/active_audition/v0_replica_m4_pilot.yaml")
         dry_audio = {"golden_probe_v0": {"duration_sec": 5.0}}

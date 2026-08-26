@@ -1,6 +1,8 @@
-"""Read-only M3 acoustic QC, comparison, geometry and report orchestration."""
+"""Read-only Pipeline V0 Dataset QC, comparison, geometry and reporting."""
 
 import json
+import math
+import numbers
 import subprocess
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
@@ -66,8 +68,30 @@ def _load_execution_evidence(path: Optional[str]) -> Mapping[str, Any]:
     for key in ("rendered", "skipped", "viewpoint_count", "manifest_unique", "wav_payload_hashes_unchanged", "rir_payload_hashes_unchanged", "viewpoints_manifest_hash_unchanged"):
         if key not in resume:
             raise QCError("resume evidence missing field: {}".format(key))
-    if not isinstance(determinism["acoustic_spot_checks"], list) or len(determinism["acoustic_spot_checks"]) != 3:
-        raise QCError("determinism evidence must contain three acoustic spot checks")
+    spot_checks = determinism["acoustic_spot_checks"]
+    if not isinstance(spot_checks, list) or not spot_checks:
+        raise QCError("determinism evidence must contain a non-empty acoustic spot-check list")
+    expected_count = determinism.get("expected_spot_check_count", evidence.get("expected_spot_check_count"))
+    if expected_count is not None:
+        if isinstance(expected_count, bool) or not isinstance(expected_count, numbers.Integral) or expected_count < 1:
+            raise QCError("expected_spot_check_count must be a positive integer")
+        if len(spot_checks) != int(expected_count):
+            raise QCError("determinism evidence spot-check count does not match expected_spot_check_count")
+    for index, check in enumerate(spot_checks):
+        if not isinstance(check, dict):
+            raise QCError("acoustic spot check {} must be an object".format(index))
+        missing = [key for key in ("episode_id", "shape", "max_abs_diff", "exact_equal") if key not in check]
+        if missing:
+            raise QCError("acoustic spot check {} missing field: {}".format(index, ", ".join(missing)))
+        value = check["max_abs_diff"]
+        if isinstance(value, bool) or not isinstance(value, numbers.Real) or not math.isfinite(float(value)) or float(value) < 0.0:
+            raise QCError("acoustic spot check {} max_abs_diff must be finite and non-negative".format(index))
+        if not isinstance(check["exact_equal"], bool):
+            raise QCError("acoustic spot check {} exact_equal must be boolean".format(index))
+    acceptance_tolerance = determinism.get("acceptance_tolerance", evidence.get("acceptance_tolerance"))
+    if acceptance_tolerance is not None:
+        if isinstance(acceptance_tolerance, bool) or not isinstance(acceptance_tolerance, numbers.Real) or not math.isfinite(float(acceptance_tolerance)) or float(acceptance_tolerance) <= 0.0:
+            raise QCError("acceptance_tolerance must be finite and positive")
     return dict(evidence, status="RECORDED_FROM_EXECUTION_EVIDENCE")
 
 
@@ -197,14 +221,30 @@ def _pilot_validity_report(
     }
 
 
-def _threshold_proposals(geometry: Mapping[str, object], acoustic: Mapping[str, object]):
+def _report_context(config: Optional[Mapping[str, Any]] = None, episode_count: Optional[int] = None) -> Mapping[str, Any]:
+    config = config or {}
+    experiment = config.get("experiment", {})
+    scene = config.get("scene", {}).get("ids", ["UNKNOWN"])
+    if isinstance(scene, (list, tuple)):
+        scene = ", ".join(str(value) for value in scene)
+    return {
+        "experiment_name": str(experiment.get("name", "Pipeline V0")),
+        "dataset_id": str(config.get("storage", {}).get("dataset_id", "UNKNOWN")),
+        "scene": str(scene),
+        "episode_count": int(episode_count) if episode_count is not None else "UNKNOWN",
+        "thresholds_enabled": bool(config.get("navigation", {}).get("thresholds_enabled", False)),
+    }
+
+
+def _threshold_proposals(geometry: Mapping[str, object], acoustic: Mapping[str, object], config: Optional[Mapping[str, Any]] = None, episode_count: Optional[int] = None):
     def p95(name):
         return geometry[name].get("p95")
 
     def p05(name):
         return geometry[name].get("p05")
 
-    limitations = "single Replica office_0 scene and deterministic 20-Episode diagnostic batch"
+    context = _report_context(config, episode_count)
+    limitations = "single Replica {} scene and deterministic {}-Episode {} batch".format(context["scene"], context["episode_count"], context["experiment_name"])
     specs = {
         "source_listener_min_distance_m": ("episode_source_listener_euclidean_m", "p05", "sampling range evidence, not a scientific minimum"),
         "source_listener_max_distance_m": ("episode_source_listener_euclidean_m", "p95", "sampling range evidence, not a scientific maximum"),
@@ -264,22 +304,24 @@ def _dataset_generation_commit(dataset_root: Path) -> str:
         return "UNKNOWN"
 
 
-def _summary_markdown(episodes, candidates, viewpoints, geometry, acoustic, evidence, failure_count, runtime, pilot_validity=None):
+def _summary_markdown(episodes, candidates, viewpoints, geometry, acoustic, evidence, failure_count, runtime, pilot_validity=None, config=None):
     snap = geometry["translation_snap_error_m"]
     actual = geometry["translation_actual_euclidean_m"]
     detour = geometry["translation_geodesic_detour_ratio"]
     pairwise = geometry["translation_pairwise_distance_m"]
     rir_tail = acoustic["rir_tail_energy_db_100ms"]
     plan_status = "verified" if evidence.get("status") == "RECORDED_FROM_EXECUTION_EVIDENCE" and evidence.get("determinism", {}).get("repeated_match") else "UNKNOWN"
+    context = _report_context(config, len(episodes))
+    validity_wording = "valid after structural and configured Pilot quality gates" if context["thresholds_enabled"] else "structurally valid"
     lines = [
-        "# Pipeline V0 M3 Diagnostic QC", "",
-        "This is a read-only derived report for the finalized diagnostic Dataset. It does not modify or regenerate Dataset payloads.", "",
-        "The {}-Episode PLAN is {}. The batch contains {} Candidate records: {} structurally valid, {} invalid, and {} render failures. Structural validity is not an assertion that every action is semantically useful for active listening.".format(len(episodes), plan_status, len(candidates), geometry["candidate_counts"]["valid"], geometry["candidate_counts"]["invalid"], failure_count), "",
-        "Requested translation is 1 m. Actual translation median={:.4f} m, p05={:.4f} m, minimum={:.4f} m, showing movement degeneration in part of this batch. Snap error median={:.4f} m, p95={:.4f} m, maximum={:.4f} m, so large snapping effects are present.".format(actual["median"], actual["p05"], actual["min"], snap["median"], snap["p95"], snap["max"]), "",
+        "# Pipeline V0 Dataset QC", "",
+        "This is a read-only derived report for Dataset {} from experiment {}. It covers scene {} and {} Episodes with thresholds_enabled={}; it does not modify or regenerate Dataset payloads.".format(context["dataset_id"], context["experiment_name"], context["scene"], context["episode_count"], str(context["thresholds_enabled"]).lower()), "",
+        "The {}-Episode PLAN is {}. The batch contains {} Candidate records: {} {}, {} invalid, and {} render failures. Validity is not an assertion that every action is semantically useful for active listening.".format(len(episodes), plan_status, len(candidates), geometry["candidate_counts"]["valid"], validity_wording, geometry["candidate_counts"]["invalid"], failure_count), "",
+        "Requested translation is 1 m. Actual translation median={:.4f} m, p05={:.4f} m, minimum={:.4f} m. Snap error median={:.4f} m, p95={:.4f} m, maximum={:.4f} m.".format(actual["median"], actual["p05"], actual["min"], snap["median"], snap["p95"], snap["max"]), "",
         "Geodesic detour ratio median={:.4f}, p95={:.4f}, maximum={:.4f}; some nearby candidates have high navigation cost. Translation pairwise distance minimum={:.4f} m, p05={:.4f} m, median={:.4f} m. This is near-neighbor evidence only and does not define a duplicate tolerance.".format(detour["median"], detour["p95"], detour["max"], pairwise["min"], pairwise["p05"], pairwise["median"]), "",
         "All {} WAV/RIR viewpoints pass shape, dtype, sample-rate and full-convolution validation; over-unit clipping fraction is 0. RIR length is variable. Final 100 ms RIR tail median={:.2f} dB and p95={:.2f} dB, with no obvious truncation risk in this diagnostic batch.".format(len(viewpoints), rir_tail["median"], rir_tail["p95"]), "",
         "RMS, ILD, interaural correlation and lag vary across viewpoints; both translation and rotation alter the binaural observation. This is not evidence that movement improves SED or any other downstream task.", "",
-        "Threshold reports are provisional and require human review. Percentiles are evidence, not frozen validity thresholds. The data use one broadband synthetic probe, so they are not speech/music/event-independent acceptance distributions. The batch covers only Replica office_0 and 20 Episodes; no generalization to all Replica scenes or MP3D is claimed.", "",
+        "Threshold reports are provisional and require human review. Percentiles are evidence, not frozen validity thresholds. The data use one broadband synthetic probe, so they are not speech/music/event-independent acceptance distributions. The batch covers only {} scene and {} Episodes; no generalization to other scenes or datasets is claimed.".format(context["scene"], context["episode_count"]), "",
         "Runtime provenance: {}. First-render runtime and resume runtime are separate execution records; the current Dataset legacy stats file may reflect the most recent operational run. Analysis code commit is recorded in the QC provenance report.".format(runtime.get("render_runtime_source", "UNKNOWN")), "",
     ]
     if pilot_validity is not None:
@@ -288,11 +330,11 @@ def _summary_markdown(episodes, candidates, viewpoints, geometry, acoustic, evid
         directions = pilot_validity["per_direction"]
         reasons = counts["invalid_reason_counts"]
         lines.extend([
-            "M4 source-distance gate is [{} m, {} m]. It accepted {} Episodes; sampling diagnostics record {} total attempts, {} too-close rejections, {} too-far rejections, {} unreachable rejections, and {} identical-anchor rejections.".format(gate["min_m"], gate["max_m"], gate["accepted_episode_count"], gate.get("sampling", {}).get("total_sampling_attempts", "UNKNOWN"), gate.get("sampling", {}).get("source_too_close_rejections", "UNKNOWN"), gate.get("sampling", {}).get("source_too_far_rejections", "UNKNOWN"), gate.get("sampling", {}).get("unreachable_rejections", "UNKNOWN"), gate.get("sampling", {}).get("identical_anchor_rejections", "UNKNOWN")), "",
+            "Configured source-distance gate is [{} m, {} m]. It accepted {} Episodes; sampling diagnostics record {} total attempts, {} too-close rejections, {} too-far rejections, {} unreachable rejections, and {} identical-anchor rejections.".format(gate["min_m"], gate["max_m"], gate["accepted_episode_count"], gate.get("sampling", {}).get("total_sampling_attempts", "UNKNOWN"), gate.get("sampling", {}).get("source_too_close_rejections", "UNKNOWN"), gate.get("sampling", {}).get("source_too_far_rejections", "UNKNOWN"), gate.get("sampling", {}).get("unreachable_rejections", "UNKNOWN"), gate.get("sampling", {}).get("identical_anchor_rejections", "UNKNOWN")), "",
             "Threshold-enabled Candidate validity is {}/{} for Translation ({:.2%}) and {}/{} for Rotation ({:.2%}). Directional Translation rates are forward={:.2%}, backward={:.2%}, left={:.2%}, right={:.2%}.".format(counts["translation_valid"], counts["translation_attempted"], counts["translation_valid_rate"], counts["rotation_valid"], counts["rotation_attempted"], counts["rotation_valid_rate"], directions["forward"]["valid_rate"], directions["backward"]["valid_rate"], directions["left"]["valid_rate"], directions["right"]["valid_rate"]), "",
-            "The gate filtered {} snap-too-far, {} actual-move-too-small, {} actual-move-too-large, {} geodesic-detour-too-large, and {} duplicate candidates. Pre-gate computable distributions and post-gate accepted distributions are both retained in pilot_validity.json; no threshold was changed after observing the results.".format(reasons.get("snap_too_far", 0), reasons.get("actual_move_too_small", 0), reasons.get("actual_move_too_large", 0), reasons.get("geodesic_detour_too_large", 0), reasons.get("duplicate_candidate", 0)), "",
+            "The gate filtered {} snap-too-far, {} actual-move-too-small, {} actual-move-too-large, {} geodesic-detour-too-large, and {} duplicate candidates. With requested translation=1 m and max_snap_error=0.5 m, the triangle inequality makes accepted actual Euclidean displacement fall in [0.5, 1.5] m; therefore zero actual-move-too-small/large cases are an explicit safety invariant of this configuration, not independent empirical validation of those two bounds. Pre-gate and accepted distributions remain in pilot_validity.json; no threshold was changed after observing results.".format(reasons.get("snap_too_far", 0), reasons.get("actual_move_too_small", 0), reasons.get("actual_move_too_large", 0), reasons.get("geodesic_detour_too_large", 0), reasons.get("duplicate_candidate", 0)), "",
             "Invalid Candidates remain in candidates.jsonl with diagnostics and do not produce Viewpoints. The Pilot expected {} Viewpoints and produced {}; render failure count is {}.".format(pilot_validity["viewpoint_counts"]["expected"], pilot_validity["viewpoint_counts"]["actual"], pilot_validity["viewpoint_counts"]["render_failure_count"]), "",
-            "These gates are evidence for Replica office_0 / 1 m local-action engineering review only. Single-scene coverage and the single golden_probe_v0 broadband synthetic probe prevent cross-scene or speech/music/household-event generalization and do not support SED/SELD utility claims.", "",
+            "These configured gates are evidence for scene {} / requested 1 m local-action engineering review only. Single-scene coverage and the single broadband synthetic probe prevent cross-scene or speech/music/household-event generalization and do not support SED/SELD utility claims.".format(context["scene"]), "",
         ])
     return "\n".join(lines)
 
@@ -349,7 +391,7 @@ def run_qc(dataset_root: str, config_path: str, run_id: str, topdown: bool = Fal
         "dataset_generation_commit": _dataset_generation_commit(root),
     })
     _write_json(run_root / "reports" / "storage_by_episode.json", storage_by_episode)
-    _write_json(run_root / "reports" / "threshold_proposals.json", _threshold_proposals(geometry, acoustic))
+    _write_json(run_root / "reports" / "threshold_proposals.json", _threshold_proposals(geometry, acoustic, config, len(episodes)))
     _write_json(run_root / "reports" / "determinism.json", evidence.get("determinism", _unknown_evidence("execution evidence was not supplied")))
     _write_json(run_root / "reports" / "resume_check.json", evidence.get("resume", _unknown_evidence("execution evidence was not supplied")))
     _write_json(run_root / "reports" / "execution_evidence.json", evidence)
@@ -368,12 +410,31 @@ def run_qc(dataset_root: str, config_path: str, run_id: str, topdown: bool = Fal
     }
     _write_json(run_root / "reports" / "summary.json", summary)
     (run_root / "reports" / "summary.md").parent.mkdir(parents=True, exist_ok=True)
-    (run_root / "reports" / "summary.md").write_text(_summary_markdown(episodes, candidates, viewpoints, geometry, acoustic, evidence, failure_count, runtime_provenance, pilot_validity), encoding="utf-8")
+    (run_root / "reports" / "summary.md").write_text(_summary_markdown(episodes, candidates, viewpoints, geometry, acoustic, evidence, failure_count, runtime_provenance, pilot_validity, config), encoding="utf-8")
     visualization = None
     if topdown:
         from active_audition.visualization.topdown import render_golden_topdown
-        visualization = render_golden_topdown(str(root), config_path, run_root, episodes, candidates, viewpoints)
+        representative = []
+        episode_rows = {str(row["episode_id"]): row for row in episodes}
+        candidate_rows = {}
+        for row in candidates:
+            candidate_rows.setdefault(str(row["episode_id"]), []).append(row)
+        normal = next((episode_id for episode_id in sorted(episode_rows) if all(row.get("valid") for row in candidate_rows.get(episode_id, []))), None)
+        if normal is None:
+            normal = max(sorted(episode_rows), key=lambda episode_id: (sum(bool(row.get("valid")) for row in candidate_rows.get(episode_id, [])), episode_id))
+        selections = [("normal", normal)]
+        for reason in ("snap_too_far", "geodesic_detour_too_large"):
+            selected = next((episode_id for episode_id in sorted(episode_rows) if any(row.get("invalid_reason") == reason for row in candidate_rows.get(episode_id, []))), None)
+            if selected is not None and (reason, selected) not in selections:
+                selections.append((reason, selected))
+        for reason, episode_id in selections:
+            selected_candidates = [row["candidate_id"] for row in candidate_rows.get(episode_id, []) if reason == "normal" or row.get("invalid_reason") == reason]
+            output_name = "{}__{}.png".format(reason, episode_id)
+            output = render_golden_topdown(str(root), config_path, run_root, episodes, candidates, viewpoints, episode_id=episode_id, output_filename=output_name, title_prefix="Pipeline V0 Dataset")
+            representative.append({"episode_id": episode_id, "selected_reason": reason, "candidate_ids": selected_candidates, "path": output})
+        _write_json(run_root / "reports" / "representative_visualizations.json", representative)
+        visualization = representative
     _write_json(run_root / "reports" / "qc_result.json", dict(summary, visualization=visualization, pilot_validity=pilot_validity))
     (run_root / "logs").mkdir(parents=True, exist_ok=True)
-    (run_root / "logs" / "qc.log").write_text("M3 read-only QC complete\n", encoding="utf-8")
+    (run_root / "logs" / "qc.log").write_text("Pipeline V0 Dataset read-only QC complete\n", encoding="utf-8")
     return dict(summary, run_root=str(run_root), visualization=visualization)

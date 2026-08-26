@@ -1,4 +1,4 @@
-"""Manifest-driven Golden top-down visualization for M3."""
+"""Manifest-driven top-down visualization for Pipeline V0 datasets."""
 
 import math
 from pathlib import Path
@@ -62,9 +62,17 @@ def render_golden_topdown(
     episodes: Sequence[Mapping[str, object]],
     candidates: Sequence[Mapping[str, object]],
     viewpoints: Sequence[Mapping[str, object]],
+    episode_id: str = None,
+    output_filename: str = "golden_topdown.png",
+    title_prefix: str = "Pipeline V0 Dataset",
 ):
     config = load_resolved_config(config_path)
-    episode = sorted(episodes, key=lambda row: str(row["episode_id"]))[0]
+    episode = next(
+        (row for row in sorted(episodes, key=lambda row: str(row["episode_id"])) if episode_id is None or str(row["episode_id"]) == str(episode_id)),
+        None,
+    )
+    if episode is None:
+        raise ValueError("episode_id is not present in frozen episodes manifest: {}".format(episode_id))
     episode_candidates = [row for row in candidates if row["episode_id"] == episode["episode_id"]]
     initial = next(row for row in viewpoints if row["episode_id"] == episode["episode_id"] and row["viewpoint_id"] == "initial")
     points = [episode["source"]["position_world"], initial["base_position_world"], initial["sensor_position_world"]]
@@ -119,9 +127,9 @@ def render_golden_topdown(
     ax.set_aspect("equal", adjustable="box")
     ax.set_xlabel("world x")
     ax.set_ylabel("world z")
-    ax.set_title("Pipeline V0 M3 Golden top-down: {}".format(episode["episode_id"]))
+    ax.set_title("{} top-down: {}".format(title_prefix, episode["episode_id"]))
     ax.legend(loc="best")
-    output = run_root / "visualizations" / "golden_topdown.png"
+    output = run_root / "visualizations" / output_filename
     output.parent.mkdir(parents=True, exist_ok=True)
     fig.tight_layout()
     fig.savefig(str(output))
