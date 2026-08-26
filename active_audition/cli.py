@@ -49,9 +49,18 @@ def plan(config_path: str, output_root: str = "") -> dict:
     repo_root = Path(config["_repo_root"])
     dry_audio = load_dry_audio_registry(config["registries"]["dry_audio_path"], str(repo_root))
     storage = DatasetStorage(output_root) if output_root else DatasetStorage.from_config(str(repo_root), config)
+    sampling_diagnostics = {
+        "accepted_episode_count": 0,
+        "total_sampling_attempts": 0,
+        "source_too_close_rejections": 0,
+        "source_too_far_rejections": 0,
+        "unreachable_rejections": 0,
+        "identical_anchor_rejections": 0,
+        "sampling_failure_count": 0,
+    } if config["navigation"]["thresholds_enabled"] else None
     with create_scene_simulator(config) as context:
         pathfinder = PathFinderAdapter(context.pathfinder)
-        episodes = generate_episodes(config, pathfinder, dry_audio)
+        episodes = generate_episodes(config, pathfinder, dry_audio, sampling_diagnostics=sampling_diagnostics)
         candidates = []
         for episode in episodes:
             candidates.extend(generate_candidates(episode.episode_id, episode.listener_initial, pathfinder, config))
@@ -59,6 +68,9 @@ def plan(config_path: str, output_root: str = "") -> dict:
         invalid = [candidate.candidate_id for candidate in candidates if not candidate.valid]
         raise RuntimeError("Golden candidate structural failure: {}".format(invalid))
     paths = write_plan_manifests(str(storage.root), episodes, candidates)
+    if sampling_diagnostics is not None:
+        sampling_diagnostics["accepted_episode_count"] = len(episodes)
+        storage.atomic_write_json(storage.path("logs", "sampling_diagnostics.json"), sampling_diagnostics)
     invalid_reasons = {}
     for candidate in candidates:
         if not candidate.valid:
@@ -75,6 +87,7 @@ def plan(config_path: str, output_root: str = "") -> dict:
         "wav_rendered": False,
         "rir_rendered": False,
         "dataset_finalized": False,
+        "sampling_diagnostics": sampling_diagnostics,
     }
 
 

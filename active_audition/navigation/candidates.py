@@ -1,5 +1,6 @@
-"""Deterministic six-candidate M1 action generation."""
+"""Deterministic six-candidate action generation with optional M4 quality gates."""
 
+from dataclasses import replace
 from typing import Any, Dict, Iterable, List
 
 import numpy as np
@@ -35,8 +36,9 @@ def _translation_candidate(
     pathfinder: PathFinderAdapter,
     direction: str,
     distance_m: float,
-    thresholds_enabled: bool,
+    navigation: Dict[str, Any],
 ) -> Candidate:
+    thresholds_enabled = bool(navigation["thresholds_enabled"])
     requested = np.asarray(listener.base_position_world) + np.asarray(
         agent_local_direction_to_world(direction, listener.yaw_deg, distance_m)
     )
@@ -75,7 +77,16 @@ def _translation_candidate(
     valid = True
     reason = None
     if thresholds_enabled:
-        raise CandidateError("numeric navigation thresholds are not frozen for M1")
+        if snap_error > float(navigation["max_snap_error_m"]):
+            valid, reason = False, "snap_too_far"
+        elif move_euclidean < float(navigation["min_actual_translation_m"]):
+            valid, reason = False, "actual_move_too_small"
+        elif move_euclidean > float(navigation["max_actual_translation_m"]):
+            valid, reason = False, "actual_move_too_large"
+        else:
+            detour_ratio = float(path.geodesic_distance_m) / float(move_euclidean)
+            if detour_ratio > float(navigation["max_geodesic_detour_ratio"]):
+                valid, reason = False, "geodesic_detour_too_large"
     return Candidate(
         episode_id,
         "trans_" + direction + "_r100",
@@ -145,7 +156,7 @@ def generate_candidates(
             pathfinder,
             direction,
             float(translations["distance_m"]),
-            bool(navigation["thresholds_enabled"]),
+            navigation,
         )
         for direction in translations["directions"]
     ]
@@ -153,4 +164,21 @@ def generate_candidates(
         _rotation_candidate(episode_id, listener, direction, float(rotations["angle_deg"]))
         for direction in rotations["directions"]
     )
+    if bool(navigation["thresholds_enabled"]):
+        action_order = {direction: index for index, direction in enumerate(("forward", "backward", "left", "right"))}
+        translations_by_priority = sorted(
+            (candidate for candidate in result if candidate.action_type == "translation" and candidate.valid),
+            key=lambda candidate: (float(candidate.snap_error_m), action_order.get(candidate.translation_direction, 99)),
+        )
+        retained = []
+        tolerance = float(navigation["duplicate_position_tolerance_m"])
+        for candidate in translations_by_priority:
+            if any(
+                _distance(candidate.snapped_base_position_world, other.snapped_base_position_world) < tolerance
+                for other in retained
+            ):
+                replacement = replace(candidate, valid=False, invalid_reason="duplicate_candidate")
+                result[result.index(candidate)] = replacement
+            else:
+                retained.append(candidate)
     return result

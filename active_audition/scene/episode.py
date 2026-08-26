@@ -116,8 +116,16 @@ def sampled_episode(
     episode_id: str,
     dry_audio: Dict[str, Dict[str, Any]] = None,
     scene_id: str = None,
+    sampling_diagnostics: Dict[str, int] = None,
 ) -> EpisodeSpec:
     """Sample a listener/source pair with a per-episode deterministic RNG."""
+
+    def reject(name: str) -> None:
+        if sampling_diagnostics is not None:
+            sampling_diagnostics[name] = int(sampling_diagnostics.get(name, 0)) + 1
+
+    if sampling_diagnostics is not None:
+        sampling_diagnostics["total_sampling_attempts"] = int(sampling_diagnostics.get("total_sampling_attempts", 0))
 
     seed = episode_seed(config["experiment"]["global_seed"], episode_id)
     rng = np.random.default_rng(seed)
@@ -143,12 +151,31 @@ def sampled_episode(
     gain_db = float(config["source"]["gain_db"])
     listener_yaw_deg = float(rng.uniform(-180.0, 180.0))
     for _ in range(128):
+        if sampling_diagnostics is not None:
+            sampling_diagnostics["total_sampling_attempts"] += 1
         listener = pathfinder.sample_navigable_point(rng)
         source = pathfinder.sample_navigable_point(rng)
         if np.array_equal(listener, source):
+            reject("identical_anchor_rejections")
+            continue
+        if not pathfinder.is_navigable(listener) or not pathfinder.is_navigable(source):
+            reject("unreachable_rejections")
             continue
         path = pathfinder.shortest_path(listener, source)
         if path.found and path.geodesic_distance_m is not None and path.points_world:
+            source_position = np.asarray(source, dtype=np.float64) + np.asarray([0.0, float(config["source"]["height_m"]), 0.0])
+            listener_sensor = np.asarray(listener_sensor_position(listener), dtype=np.float64)
+            source_listener_distance = float(np.linalg.norm(source_position - listener_sensor))
+            minimum_distance = config["episode"].get("source_listener_min_distance_m")
+            maximum_distance = config["episode"].get("source_listener_max_distance_m")
+            if minimum_distance is not None and source_listener_distance < float(minimum_distance):
+                reject("source_too_close_rejections")
+                continue
+            if maximum_distance is not None and source_listener_distance > float(maximum_distance):
+                reject("source_too_far_rejections")
+                continue
+            if sampling_diagnostics is not None:
+                sampling_diagnostics["accepted_episode_count"] = int(sampling_diagnostics.get("accepted_episode_count", 0)) + 1
             return _episode(
                 config,
                 episode_id,
@@ -162,11 +189,15 @@ def sampled_episode(
                 segment_start_sec,
                 gain_db,
             )
+        reject("unreachable_rejections")
+    if sampling_diagnostics is not None:
+        sampling_diagnostics["sampling_failure_count"] = int(sampling_diagnostics.get("sampling_failure_count", 0)) + 1
     raise EpisodeError("could not sample a reachable listener/source pair")
 
 
 def generate_episodes(
-    config: Dict[str, Any], pathfinder: PathFinderAdapter, dry_audio: Dict[str, Dict[str, Any]]
+    config: Dict[str, Any], pathfinder: PathFinderAdapter, dry_audio: Dict[str, Dict[str, Any]],
+    sampling_diagnostics: Dict[str, int] = None,
 ):
     """Generate the configured deterministic Episode batch in one context."""
 
@@ -188,6 +219,7 @@ def generate_episodes(
             "ep_{:06d}".format(index),
             dry_audio=dry_audio,
             scene_id=scene_ids[0],
+            sampling_diagnostics=sampling_diagnostics,
         )
         for index in range(1, count + 1)
     ]

@@ -26,7 +26,7 @@ from active_audition.scene.simulator import create_scene_simulator
 
 
 ACTION_ORDER = {"initial": 0, "translation": 1, "rotation": 2}
-SUCCESS_TEXT = "Pipeline V0 M2.1 finalized\n"
+SUCCESS_TEXT = "Pipeline V0 dataset finalized\n"
 
 
 def _storage_for_config(config: Mapping[str, Any]) -> DatasetStorage:

@@ -1,5 +1,6 @@
-"""Small schema validator for the frozen V0 debug configuration."""
+"""Small schema validator for the frozen V0 debug and Pilot configurations."""
 
+import math
 from typing import Any, Dict, Iterable
 
 
@@ -16,6 +17,12 @@ def _require(mapping: Dict[str, Any], keys: Iterable[str], path: str) -> None:
 def _number(value: Any, path: str) -> None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ConfigError("{} must be numeric".format(path))
+
+
+def _finite_positive(value: Any, path: str) -> None:
+    _number(value, path)
+    if not math.isfinite(float(value)) or float(value) <= 0.0:
+        raise ConfigError("{} must be a finite positive number".format(path))
 
 
 def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
@@ -55,7 +62,11 @@ def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
         raise ConfigError("M0 debug config must contain exactly replica.office_0")
 
     episode = config["episode"]
-    _require(episode, ("mode", "count"), "episode")
+    _require(
+        episode,
+        ("mode", "count", "source_listener_min_distance_m", "source_listener_max_distance_m"),
+        "episode",
+    )
     if episode["mode"] not in ("fixed", "sampled", "fixed_or_sampled"):
         raise ConfigError("unsupported episode.mode")
     if not isinstance(episode["count"], int) or episode["count"] < 1:
@@ -130,8 +141,8 @@ def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
         ),
         "navigation",
     )
-    if navigation["thresholds_enabled"] is not False:
-        raise ConfigError("M0 thresholds_enabled must be false")
+    if navigation["thresholds_enabled"] not in (False, True):
+        raise ConfigError("navigation.thresholds_enabled must be boolean")
     for key in (
         "max_snap_error_m",
         "min_actual_translation_m",
@@ -139,8 +150,22 @@ def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
         "max_geodesic_detour_ratio",
         "duplicate_position_tolerance_m",
     ):
-        if navigation[key] is not None:
-            raise ConfigError("M0 deferred threshold {} must be null".format(key))
+        if navigation["thresholds_enabled"] is False:
+            if navigation[key] is not None:
+                raise ConfigError("deferred threshold {} must be null when thresholds are disabled".format(key))
+        else:
+            _finite_positive(navigation[key], "navigation." + key)
+    if navigation["thresholds_enabled"] and float(navigation["min_actual_translation_m"]) > float(navigation["max_actual_translation_m"]):
+        raise ConfigError("navigation.min_actual_translation_m must be <= max_actual_translation_m")
+    source_min = episode["source_listener_min_distance_m"]
+    source_max = episode["source_listener_max_distance_m"]
+    if navigation["thresholds_enabled"]:
+        _finite_positive(source_min, "episode.source_listener_min_distance_m")
+        _finite_positive(source_max, "episode.source_listener_max_distance_m")
+        if float(source_min) >= float(source_max):
+            raise ConfigError("episode source listener minimum must be less than maximum")
+    elif source_min is not None or source_max is not None:
+        raise ConfigError("source listener thresholds must be null when navigation thresholds are disabled")
 
     acoustics = config["acoustics"]
     _require(

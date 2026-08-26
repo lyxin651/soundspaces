@@ -1,0 +1,23 @@
+experiment:
+  name: v0_replica_m4_pilot
+  schema_version: v0.1
+  global_seed: 20260824
+
+episode:
+  mode: sampled
+  count: 100
+  source_listener_min_distance_m: 0.50
+  source_listener_max_distance_m: 3.00
+
+navigation:
+  thresholds_enabled: true
+  max_snap_error_m: 0.50
+  min_actual_translation_m: 0.50
+  max_actual_translation_m: 1.50
+  max_geodesic_detour_ratio: 2.00
+  duplicate_position_tolerance_m: 0.25
+
+storage:
+  dataset_id: aa_v0_replica_m4_pilot_001
+  save_audio: true
+  save_rir: true

@@ -24,3 +24,8 @@ datasets:
     consume: false
     reason: deterministic M3 acoustic QC mini-batch after AudioSensor reset hardening
     provenance_commit: identity.json
+  aa_v0_replica_m4_pilot_001:
+    status: pilot
+    consume: false
+    reason: threshold-enabled 100-Episode M4 engineering pilot; pending human review
+    provenance_commit: identity.json

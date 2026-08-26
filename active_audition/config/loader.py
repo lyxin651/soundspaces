@@ -16,7 +16,12 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "global_seed": 20260824,
     },
     "scene": {"ids": ["replica.office_0"]},
-    "episode": {"mode": "fixed_or_sampled", "count": 1},
+    "episode": {
+        "mode": "fixed_or_sampled",
+        "count": 1,
+        "source_listener_min_distance_m": None,
+        "source_listener_max_distance_m": None,
+    },
     "listener": {"sensor_offset_m": [0.0, 1.5, 0.0]},
     "source": {"height_m": 1.5, "gain_db": 0.0},
     "dry_audio": {
