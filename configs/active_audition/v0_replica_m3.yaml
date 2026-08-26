@@ -1,0 +1,23 @@
+experiment:
+  name: v0_replica_m3
+  schema_version: v0.1
+  global_seed: 20260824
+
+episode:
+  mode: sampled
+  count: 20
+
+storage:
+  dataset_id: aa_v0_replica_m3_diag_001
+  save_audio: true
+  save_rir: true
+
+qc:
+  analysis_window_sec: 5.0
+  silence_abs_threshold: 1.0e-5
+  clipping_abs_threshold: 1.0
+  rms_eps_amplitude: 1.0e-12
+  ild_eps_power: 1.0e-12
+  interaural_max_lag_samples: 16
+  rir_tail_window_sec: 0.100
+  rir_eps_power: 1.0e-12

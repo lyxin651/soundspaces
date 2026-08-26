@@ -55,9 +55,11 @@ def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
         raise ConfigError("M0 debug config must contain exactly replica.office_0")
 
     episode = config["episode"]
-    _require(episode, ("mode",), "episode")
+    _require(episode, ("mode", "count"), "episode")
     if episode["mode"] not in ("fixed", "sampled", "fixed_or_sampled"):
         raise ConfigError("unsupported episode.mode")
+    if not isinstance(episode["count"], int) or episode["count"] < 1:
+        raise ConfigError("episode.count must be a positive int")
 
     listener = config["listener"]
     _require(listener, ("sensor_offset_m",), "listener")
@@ -175,9 +177,36 @@ def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
     if config["movement"]["mode"] != "reposition_then_listen":
         raise ConfigError("movement.mode must be reposition_then_listen")
     _require(config["validation"], ("enabled",), "validation")
-    _require(config["qc"], ("analysis_window_sec",), "qc")
+    _require(
+        config["qc"],
+        (
+            "analysis_window_sec",
+            "silence_abs_threshold",
+            "clipping_abs_threshold",
+            "rms_eps_amplitude",
+            "ild_eps_power",
+            "interaural_max_lag_samples",
+            "rir_tail_window_sec",
+            "rir_eps_power",
+        ),
+        "qc",
+    )
     if float(config["qc"]["analysis_window_sec"]) != 5.0:
         raise ConfigError("qc.analysis_window_sec must be 5.0")
+    if float(config["qc"]["silence_abs_threshold"]) != 1.0e-5:
+        raise ConfigError("qc.silence_abs_threshold must be 1e-5")
+    if float(config["qc"]["clipping_abs_threshold"]) != 1.0:
+        raise ConfigError("qc.clipping_abs_threshold must be 1.0")
+    if float(config["qc"]["rms_eps_amplitude"]) != 1.0e-12:
+        raise ConfigError("qc.rms_eps_amplitude must be 1e-12")
+    if float(config["qc"]["ild_eps_power"]) != 1.0e-12:
+        raise ConfigError("qc.ild_eps_power must be 1e-12")
+    if int(config["qc"]["interaural_max_lag_samples"]) != 16:
+        raise ConfigError("qc.interaural_max_lag_samples must be 16")
+    if float(config["qc"]["rir_tail_window_sec"]) != 0.100:
+        raise ConfigError("qc.rir_tail_window_sec must be 0.100")
+    if float(config["qc"]["rir_eps_power"]) != 1.0e-12:
+        raise ConfigError("qc.rir_eps_power must be 1e-12")
 
     _require(config["registries"], ("scenes_path", "dry_audio_path"), "registries")
     golden = config["golden"]

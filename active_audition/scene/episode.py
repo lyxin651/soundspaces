@@ -67,13 +67,25 @@ def _episode(
         sensor_position_world=_world_xyz(listener_sensor_position(listener_base)),
         yaw_deg=normalize_yaw_deg(listener_yaw_deg),
     )
+    source = _source_spec(config, source_anchor_base, audio_id, segment_start_sec, gain_db)
+    source_listener_euclidean = float(
+        np.linalg.norm(
+            np.asarray(source.position_world, dtype=np.float64)
+            - np.asarray(listener.sensor_position_world, dtype=np.float64)
+        )
+    )
+    source_listener_geodesic = pathfinder.geodesic_distance(listener_base, source_anchor_base)
+    if source_listener_geodesic is None:
+        raise EpisodeError("listener and source are not in the same reachable region")
     return EpisodeSpec(
         schema_version=str(config["experiment"]["schema_version"]),
         episode_id=episode_id,
         scene_id=str(scene_id),
         episode_seed=int(seed),
-        source=_source_spec(config, source_anchor_base, audio_id, segment_start_sec, gain_db),
+        source=source,
         listener_initial=listener,
+        source_listener_euclidean_m=source_listener_euclidean,
+        source_listener_geodesic_m=float(source_listener_geodesic),
     )
 
 
@@ -99,19 +111,28 @@ def fixed_golden_episode(
 
 
 def sampled_episode(
-    config: Dict[str, Any], pathfinder: PathFinderAdapter, episode_id: str
+    config: Dict[str, Any],
+    pathfinder: PathFinderAdapter,
+    episode_id: str,
+    dry_audio: Dict[str, Dict[str, Any]] = None,
+    scene_id: str = None,
 ) -> EpisodeSpec:
     """Sample a listener/source pair with a per-episode deterministic RNG."""
 
     seed = episode_seed(config["experiment"]["global_seed"], episode_id)
     rng = np.random.default_rng(seed)
-    repo_root = config["_repo_root"]
-    dry_audio = load_dry_audio_registry(config["registries"]["dry_audio_path"], repo_root)
+    if dry_audio is None:
+        repo_root = config["_repo_root"]
+        dry_audio = load_dry_audio_registry(config["registries"]["dry_audio_path"], repo_root)
     audio_ids = sorted(dry_audio)
-    scene_ids = sorted(str(scene_id) for scene_id in config["scene"]["ids"])
+    scene_ids = sorted(str(item) for item in config["scene"]["ids"])
+    if scene_id is not None:
+        scene_id = str(scene_id)
+        if scene_id not in scene_ids:
+            raise EpisodeError("sampled scene is not configured: {}".format(scene_id))
     if not audio_ids or not scene_ids:
         raise EpisodeError("sampled episode requires non-empty scene and dry-audio registries")
-    scene_id = scene_ids[int(rng.integers(0, len(scene_ids)))]
+    scene_id = scene_id or scene_ids[int(rng.integers(0, len(scene_ids)))]
     audio_id = audio_ids[int(rng.integers(0, len(audio_ids)))]
     audio_duration = float(dry_audio[audio_id]["duration_sec"])
     segment_duration = float(config["dry_audio"]["segment_duration_sec"])
@@ -142,3 +163,31 @@ def sampled_episode(
                 gain_db,
             )
     raise EpisodeError("could not sample a reachable listener/source pair")
+
+
+def generate_episodes(
+    config: Dict[str, Any], pathfinder: PathFinderAdapter, dry_audio: Dict[str, Dict[str, Any]]
+):
+    """Generate the configured deterministic Episode batch in one context."""
+
+    mode = config["episode"]["mode"]
+    count = int(config["episode"].get("count", 1))
+    if mode in ("fixed", "fixed_or_sampled"):
+        if count != 1:
+            raise EpisodeError("fixed Golden planning expects episode.count=1")
+        return [fixed_golden_episode(config, pathfinder)]
+    if mode != "sampled":
+        raise EpisodeError("unsupported episode mode: {}".format(mode))
+    scene_ids = sorted(str(scene_id) for scene_id in config["scene"]["ids"])
+    if len(scene_ids) != 1:
+        raise EpisodeError("M3 sampled planning requires exactly one active scene")
+    return [
+        sampled_episode(
+            config,
+            pathfinder,
+            "ep_{:06d}".format(index),
+            dry_audio=dry_audio,
+            scene_id=scene_ids[0],
+        )
+        for index in range(1, count + 1)
+    ]

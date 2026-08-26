@@ -1,9 +1,11 @@
 """M2.1 V0 orchestration for dataset contract, provenance and recovery."""
 
 import hashlib
+import json
 import os
 import subprocess
 import tempfile
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, Mapping
@@ -18,6 +20,7 @@ from active_audition.data.audio import load_dry_segment
 from active_audition.data.catalog import load_dry_audio_registry, load_scene_registry, sha256_file
 from active_audition.data.manifest import read_plan_manifests, read_viewpoint_manifest, write_viewpoint_manifest
 from active_audition.data.storage import DatasetStorage, StorageError
+from active_audition.data.storage import json_line
 from active_audition.data.validation import payload_is_complete, validate_dataset
 from active_audition.scene.simulator import create_scene_simulator
 
@@ -108,8 +111,6 @@ def render_dataset(config_path: str, resume: bool = False, overwrite: bool = Fal
     storage.ensure_writable()
     manifests = read_plan_manifests(str(storage.root))
     episodes, candidates = manifests["episodes"], manifests["candidates"]
-    if len(episodes) != 1:
-        raise RuntimeError("M2 Golden render expects exactly one planned Episode")
     existing = _existing_viewpoints(storage)
     orphans = _orphan_payloads(storage, existing.values())
     if orphans:
@@ -118,8 +119,10 @@ def render_dataset(config_path: str, resume: bool = False, overwrite: bool = Fal
         raise StorageError("incomplete dataset already contains rendered viewpoints; use --resume or --overwrite")
     registry = load_dry_audio_registry(config["registries"]["dry_audio_path"], str(repo_root))
     rendered, skipped, recovery, details = [], [], [], []
+    generation_stats, render_failures = [], []
     with create_scene_simulator(config) as context:
         for episode_input in sorted(episodes, key=lambda row: str(row["episode_id"])):
+            episode_started = time.perf_counter()
             episode = dict(episode_input)
             episode["_dataset_root"] = str(storage.root)
             source = episode["source"]
@@ -128,27 +131,49 @@ def render_dataset(config_path: str, resume: bool = False, overwrite: bool = Fal
             valid_candidates = [row for row in candidates if row.get("episode_id") == episode["episode_id"] and bool(row.get("valid"))]
             viewpoints = [("initial", None, "initial", _row_pose(episode["listener_initial"]))]
             viewpoints.extend((str(candidate["candidate_id"]), str(candidate["candidate_id"]), str(candidate["action_type"]), _row_pose(candidate)) for candidate in _ordered_candidate_rows(valid_candidates))
+            episode_render_failures = []
+            episode_rendered = 0
+            episode_skipped = 0
             for viewpoint_id, candidate_id, action_type, pose in viewpoints:
                 key = (episode["episode_id"], viewpoint_id)
                 old = existing.get(key)
                 if resume and not overwrite and old is not None and payload_is_complete(str(storage.root), old, bool(config["storage"]["save_rir"])):
-                    rendered.append(old); skipped.append(viewpoint_id); continue
+                    rendered.append(old); skipped.append(viewpoint_id); episode_skipped += 1; continue
                 if resume and old is not None:
                     recovery.append(viewpoint_id)
-                rir = render_native_rir(context, source["position_world"], pose)
-                rir_id = "{}__{}".format(episode["episode_id"], viewpoint_id)
-                rir_path = storage.rir_cache_path(rir_id)
-                if bool(config["storage"]["save_rir"]):
-                    storage.atomic_write_npz(rir_path, {"rir": rir, "sample_rate_hz": np.asarray(config["acoustics"]["sample_rate_hz"], dtype=np.int64), "num_samples": np.asarray(rir.shape[0], dtype=np.int64)})
-                waveform = convolve_binaural(dry, rir)
-                audio_path = storage.viewpoint_audio_path(episode["scene_id"], episode["episode_id"], viewpoint_id)
-                if bool(config["storage"]["save_audio"]):
-                    _write_wav_atomic(storage, audio_path, waveform, int(config["acoustics"]["sample_rate_hz"]))
-                rendered.append(_viewpoint_row(episode, viewpoint_id, candidate_id, action_type, pose, audio_path, rir_id, rir_path, int(config["acoustics"]["sample_rate_hz"]), waveform, dry_hash))
-                details.append({"episode_id": episode["episode_id"], "viewpoint_id": viewpoint_id, "rir_samples": int(rir.shape[0]), "wav_samples": int(waveform.shape[0]), "wav_peak": float(np.max(np.abs(waveform))), "dtype": str(waveform.dtype)})
+                try:
+                    rir = render_native_rir(context, source["position_world"], pose)
+                    rir_id = "{}__{}".format(episode["episode_id"], viewpoint_id)
+                    rir_path = storage.rir_cache_path(rir_id)
+                    if bool(config["storage"]["save_rir"]):
+                        storage.atomic_write_npz(rir_path, {"rir": rir, "sample_rate_hz": np.asarray(config["acoustics"]["sample_rate_hz"], dtype=np.int64), "num_samples": np.asarray(rir.shape[0], dtype=np.int64)})
+                    waveform = convolve_binaural(dry, rir)
+                    audio_path = storage.viewpoint_audio_path(episode["scene_id"], episode["episode_id"], viewpoint_id)
+                    if bool(config["storage"]["save_audio"]):
+                        _write_wav_atomic(storage, audio_path, waveform, int(config["acoustics"]["sample_rate_hz"]))
+                    rendered.append(_viewpoint_row(episode, viewpoint_id, candidate_id, action_type, pose, audio_path, rir_id, rir_path, int(config["acoustics"]["sample_rate_hz"]), waveform, dry_hash))
+                    details.append({"episode_id": episode["episode_id"], "viewpoint_id": viewpoint_id, "rir_samples": int(rir.shape[0]), "wav_samples": int(waveform.shape[0]), "wav_peak": float(np.max(np.abs(waveform))), "dtype": str(waveform.dtype)})
+                    episode_rendered += 1
+                except Exception as exc:
+                    failure = {"episode_id": episode["episode_id"], "viewpoint_id": viewpoint_id, "exception_type": type(exc).__name__, "message": str(exc)}
+                    episode_render_failures.append(failure)
+                    render_failures.append(failure)
+            generation_stats.append({
+                "episode_id": episode["episode_id"],
+                "rendered_viewpoints": int(episode_rendered),
+                "skipped_viewpoints": episode_skipped,
+                "valid_candidates": len(valid_candidates),
+                "render_failures": len(episode_render_failures),
+                "failure_details": episode_render_failures,
+                "episode_render_runtime_sec": float(time.perf_counter() - episode_started),
+            })
     manifest_path = write_viewpoint_manifest(str(storage.root), rendered)
     storage.atomic_write_text(storage.path("logs", "generation.log"), "resume={} overwrite={} rendered={} skipped={} recovery={}\n".format(resume, overwrite, len(rendered) - len(skipped), len(skipped), recovery))
-    return {"dataset_root": str(storage.root), "dataset_id": config["storage"]["dataset_id"], "viewpoints": len(rendered), "rendered": len(rendered) - len(skipped), "skipped": len(skipped), "recovery": recovery, "manifest": str(manifest_path), "details": details}
+    stats_text = "\n".join(json_line(row) for row in sorted(generation_stats, key=lambda row: row["episode_id"]))
+    if stats_text:
+        stats_text += "\n"
+    storage.atomic_write_text(storage.path("logs", "generation_stats.jsonl"), stats_text)
+    return {"dataset_root": str(storage.root), "dataset_id": config["storage"]["dataset_id"], "episode_count": len(episodes), "viewpoints": len(rendered), "rendered": len(rendered) - len(skipped), "skipped": len(skipped), "recovery": recovery, "render_failures": render_failures, "manifest": str(manifest_path), "details": details, "generation_stats": generation_stats}
 
 
 def _tracked_worktree_clean(repo_root: Path) -> bool:

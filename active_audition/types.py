@@ -31,6 +31,8 @@ class EpisodeSpec:
     episode_seed: int
     source: SourceSpec
     listener_initial: ListenerPose
+    source_listener_euclidean_m: Optional[float] = None
+    source_listener_geodesic_m: Optional[float] = None
 
 
 @dataclass(frozen=True)

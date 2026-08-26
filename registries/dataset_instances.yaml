@@ -14,3 +14,8 @@ datasets:
     consume: true
     reason: final approved M2 contract
     provenance_commit: identity.json
+  aa_v0_replica_m3_diag_001:
+    status: diagnostic
+    consume: false
+    reason: deterministic M3 acoustic QC mini-batch
+    provenance_commit: identity.json

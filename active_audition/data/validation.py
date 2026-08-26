@@ -39,6 +39,10 @@ def payload_is_complete(dataset_root: str, row: Mapping[str, Any], save_rir: boo
         return False
     if waveform.dtype != np.float32 or not np.isfinite(waveform).all():
         return False
+    if int(row.get("num_channels", -1)) != int(waveform.shape[1]):
+        return False
+    if str(row.get("dtype")) != str(waveform.dtype):
+        return False
     if waveform.shape[0] != int(row.get("num_samples", -1)):
         return False
     if abs(waveform.shape[0] / float(sample_rate) - float(row.get("duration_sec", -1.0))) > 1e-6:
@@ -107,6 +111,11 @@ def validate_dataset(dataset_root: str, config: Mapping[str, Any], require_succe
             _failure("candidate references missing episode: {}".format(candidate.get("candidate_id")), failures)
 
     for episode_id, episode in episode_map.items():
+        if config["episode"]["mode"] == "sampled":
+            for key in ("source_listener_euclidean_m", "source_listener_geodesic_m"):
+                value = episode.get(key)
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not np.isfinite(value):
+                    _failure("sampled Episode diagnostic missing or non-finite: {}".format(key), failures)
         rows = [row for row in viewpoints if row.get("episode_id") == episode_id]
         initial = [row for row in rows if row.get("viewpoint_id") == "initial"]
         if len(initial) != 1:

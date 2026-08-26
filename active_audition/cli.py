@@ -10,7 +10,7 @@ from active_audition.data.manifest import write_plan_manifests
 from active_audition.data.storage import DatasetStorage
 from active_audition.navigation.candidates import generate_candidates
 from active_audition.navigation.pathfinder import PathFinderAdapter
-from active_audition.scene.episode import fixed_golden_episode
+from active_audition.scene.episode import fixed_golden_episode, generate_episodes
 from active_audition.scene.simulator import create_scene_simulator
 from active_audition.acoustics.rir import run_channel_order_gate
 from active_audition.pipeline.v0 import finalize_dataset, render_dataset
@@ -47,21 +47,30 @@ def precheck(config_path: str) -> dict:
 def plan(config_path: str, output_root: str = "") -> dict:
     config = load_resolved_config(config_path)
     repo_root = Path(config["_repo_root"])
+    dry_audio = load_dry_audio_registry(config["registries"]["dry_audio_path"], str(repo_root))
     storage = DatasetStorage(output_root) if output_root else DatasetStorage.from_config(str(repo_root), config)
     with create_scene_simulator(config) as context:
         pathfinder = PathFinderAdapter(context.pathfinder)
-        episode = fixed_golden_episode(config, pathfinder)
-        candidates = generate_candidates(
-            episode.episode_id, episode.listener_initial, pathfinder, config
-        )
-    if not all(candidate.valid for candidate in candidates):
+        episodes = generate_episodes(config, pathfinder, dry_audio)
+        candidates = []
+        for episode in episodes:
+            candidates.extend(generate_candidates(episode.episode_id, episode.listener_initial, pathfinder, config))
+    if config["episode"]["mode"] in ("fixed", "fixed_or_sampled") and not all(candidate.valid for candidate in candidates):
         invalid = [candidate.candidate_id for candidate in candidates if not candidate.valid]
         raise RuntimeError("Golden candidate structural failure: {}".format(invalid))
-    paths = write_plan_manifests(str(storage.root), [episode], candidates)
+    paths = write_plan_manifests(str(storage.root), episodes, candidates)
+    invalid_reasons = {}
+    for candidate in candidates:
+        if not candidate.valid:
+            invalid_reasons[candidate.invalid_reason] = invalid_reasons.get(candidate.invalid_reason, 0) + 1
     return {
-        "episode_id": episode.episode_id,
+        "episode_id": episodes[0].episode_id if len(episodes) == 1 else None,
+        "episode_count": len(episodes),
+        "candidate_count": len(candidates),
         "candidate_ids": [candidate.candidate_id for candidate in candidates],
         "valid_candidates": sum(candidate.valid for candidate in candidates),
+        "invalid_candidates": sum(not candidate.valid for candidate in candidates),
+        "invalid_reason_counts": invalid_reasons,
         "manifest_paths": paths,
         "wav_rendered": False,
         "rir_rendered": False,
@@ -90,6 +99,13 @@ def main() -> None:
     run_command.add_argument("--config", required=True)
     run_command.add_argument("--resume", action="store_true")
     run_command.add_argument("--overwrite", action="store_true")
+    finalize_command = subparsers.add_parser("finalize")
+    finalize_command.add_argument("--config", required=True)
+    qc_command = subparsers.add_parser("qc")
+    qc_command.add_argument("--dataset", required=True)
+    qc_command.add_argument("--config", required=True)
+    qc_command.add_argument("--run-id", required=True)
+    qc_command.add_argument("--topdown", action="store_true")
     args = parser.parse_args()
     if args.command == "precheck":
         print(json.dumps(precheck(args.config), ensure_ascii=False, indent=2, sort_keys=True))
@@ -126,6 +142,15 @@ def main() -> None:
     elif args.command == "run-v0":
         from active_audition.pipeline.v0 import run_v0
         print(json.dumps(run_v0(args.config, args.resume, args.overwrite), ensure_ascii=False, indent=2, sort_keys=True))
+    elif args.command == "finalize":
+        config = load_resolved_config(args.config)
+        from active_audition.pipeline.v0 import finalize_dataset
+        dataset_root = str(DatasetStorage.from_config(config["_repo_root"], config).root)
+        validation = validate_dataset(dataset_root, config, require_success=False)
+        print(json.dumps(finalize_dataset(args.config, validation), ensure_ascii=False, indent=2, sort_keys=True))
+    elif args.command == "qc":
+        from active_audition.evaluation.qc import run_qc
+        print(json.dumps(run_qc(args.dataset, args.config, args.run_id, args.topdown), ensure_ascii=False, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

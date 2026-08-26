@@ -16,7 +16,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "global_seed": 20260824,
     },
     "scene": {"ids": ["replica.office_0"]},
-    "episode": {"mode": "fixed_or_sampled"},
+    "episode": {"mode": "fixed_or_sampled", "count": 1},
     "listener": {"sensor_offset_m": [0.0, 1.5, 0.0]},
     "source": {"height_m": 1.5, "gain_db": 0.0},
     "dry_audio": {
@@ -56,7 +56,16 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "storage": {"dataset_id": "aa_v0_replica_debug_003", "save_audio": True, "save_rir": True},
     "movement": {"mode": "reposition_then_listen"},
     "validation": {"enabled": True},
-    "qc": {"analysis_window_sec": 5.0},
+    "qc": {
+        "analysis_window_sec": 5.0,
+        "silence_abs_threshold": 1.0e-5,
+        "clipping_abs_threshold": 1.0,
+        "rms_eps_amplitude": 1.0e-12,
+        "ild_eps_power": 1.0e-12,
+        "interaural_max_lag_samples": 16,
+        "rir_tail_window_sec": 0.100,
+        "rir_eps_power": 1.0e-12,
+    },
     "registries": {
         "scenes_path": "registries/scenes.yaml",
         "dry_audio_path": "registries/dry_audio.csv",
