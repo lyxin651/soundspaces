@@ -46,7 +46,7 @@ class FoundationTests(unittest.TestCase):
     def test_dataset_id_is_safe_and_audio_hierarchy_is_canonical(self):
         config = load_resolved_config(str(CONFIG))
         storage = DatasetStorage.from_config(str(REPO_ROOT), config)
-        self.assertEqual(config["storage"]["dataset_id"], "aa_v0_replica_debug_002")
+        self.assertEqual(config["storage"]["dataset_id"], "aa_v0_replica_debug_003")
         self.assertEqual(
             storage.viewpoint_audio_path("replica.office_0", "ep_000001", "initial").relative_to(storage.root),
             Path("episodes/replica_office_0/ep_000001/audio/initial.wav"),

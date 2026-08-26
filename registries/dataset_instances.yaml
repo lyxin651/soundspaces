@@ -1,0 +1,16 @@
+datasets:
+  aa_v0_replica_debug_001:
+    status: legacy
+    consume: false
+    reason: initial engineering artifact with legacy audio/<episode_id>/<viewpoint>.wav hierarchy
+    provenance_commit: 35a8e6279cfab3adb1a2cd162c0358f6169c68b9
+  aa_v0_replica_debug_002:
+    status: historical
+    consume: false
+    reason: generated before final integrity hardening
+    provenance_commit: 1399dc3768ac1f9a2d8cbc321cb1ce52ddefdff1
+  aa_v0_replica_debug_003:
+    status: canonical
+    consume: true
+    reason: final approved M2 contract
+    provenance_commit: identity.json

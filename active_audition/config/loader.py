@@ -53,7 +53,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "canonical_wav_dtype": "float32",
         "per_viewpoint_normalization": False,
     },
-    "storage": {"dataset_id": "aa_v0_replica_debug_002", "save_audio": True, "save_rir": True},
+    "storage": {"dataset_id": "aa_v0_replica_debug_003", "save_audio": True, "save_rir": True},
     "movement": {"mode": "reposition_then_listen"},
     "validation": {"enabled": True},
     "qc": {"analysis_window_sec": 5.0},
