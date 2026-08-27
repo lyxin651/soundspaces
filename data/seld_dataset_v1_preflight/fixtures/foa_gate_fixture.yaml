@@ -1,0 +1,14 @@
+{
+  "scene": "data/scene_datasets/replica/office_0/habitat/mesh_semantic.ply",
+  "materials_enabled": false,
+  "sample_rate_hz": 24000,
+  "listener_position_world": [1.6240532398, 0.53113, -0.5125486851],
+  "listener_yaws_deg": [0.0, 90.0, 180.0, -90.0],
+  "sources": [
+    {"id": "front", "position_world": [1.6240532398, 0.53113, -2.0125486851], "project_azimuth_deg": 0.0, "elevation_deg": 0.0},
+    {"id": "right", "position_world": [3.1240532398, 0.53113, -0.5125486851], "project_azimuth_deg": 90.0, "elevation_deg": 0.0},
+    {"id": "left", "position_world": [0.1240532398, 0.53113, -0.5125486851], "project_azimuth_deg": -90.0, "elevation_deg": 0.0},
+    {"id": "back", "position_world": [1.6240532398, 0.53113, 0.9874513149], "project_azimuth_deg": 180.0, "elevation_deg": 0.0},
+    {"id": "elevated_front", "position_world": [1.6240532398, 1.33113, -2.0125486851], "project_azimuth_deg": 0.0, "elevation_deg": 28.0725}
+  ]
+}
