@@ -35,7 +35,8 @@ def main():
         listener = np.asarray(source_spec.get("listener_position_world", fixture["listener_position_world"]), dtype=np.float64)
         world_direction = source - listener
         local_direction = world_to_local(world_direction, source_spec["listener_yaw_deg"])
-        expected_dcase = np.asarray([-local_direction[0], local_direction[1], local_direction[2]])
+        # DCASE/STARSS Cartesian axes are [front, left, up].
+        expected_dcase = np.asarray([-local_direction[2], -local_direction[0], local_direction[1]])
         native = np.asarray(measurement_row["measurement"]["signed_peak"], dtype=np.float32)[:, None]
         canonical = native_foa_to_canonical(native, source_spec["listener_yaw_deg"])
         # Independent reference, following local DCASE SELD feature code:

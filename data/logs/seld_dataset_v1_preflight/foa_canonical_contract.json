@@ -12,19 +12,14 @@
     "+X"
   ],
   "native_foa_normalization": "N3D",
-  "canonical_foa_order": "ACN [W,Y,Z,X]",
+  "canonical_foa_order": "ACN [W,Y_DCASE,Z_DCASE,X_DCASE]",
   "canonical_foa_normalization": "SN3D",
-  "native_to_canonical_permutation": [
-    0,
-    1,
-    2,
-    3
-  ],
+  "native_to_canonical_permutation": "world-to-listener yaw, then [W,-X_RLR,+Y_RLR,-Z_RLR]",
   "native_to_canonical_sign": [
     1,
+    -1,
     1,
-    1,
-    1
+    -1
   ],
   "native_to_canonical_scale": [
     1,
@@ -69,6 +64,9 @@
   "verdict": "PASS",
   "evidence": "direct-only signed peak identification from foa_direct_only_identification.json",
   "native_frame": "world_fixed",
+  "native_listener_local_axes": "+X_RLR=right, +Y_RLR=up, +Z_RLR=back",
+  "dcase_model_axes": "+X_DCASE=front, +Y_DCASE=left, +Z_DCASE=up",
+  "local_to_dcase_axes": "X_DCASE=-Z_RLR_local; Y_DCASE=-X_RLR_local; Z_DCASE=+Y_RLR_local",
   "frame_evidence": {
     "world_frame_error_deg": 2.831646840510158e-06,
     "listener_frame_error_deg": 90.0,

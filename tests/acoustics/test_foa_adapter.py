@@ -29,13 +29,30 @@ class FOAAdapterTests(unittest.TestCase):
         np.testing.assert_allclose(result[0], 1.0)
         np.testing.assert_allclose(result[1:], 1.0 / np.sqrt(3.0))
 
-    def test_canonical_converter_rotates_world_frame_and_flips_dcase_x(self):
+    def test_canonical_converter_rotates_world_frame_into_dcase_axes(self):
         values = np.zeros((4, 1), dtype=np.float32)
         values[0, 0] = 1.0
         values[3, 0] = np.sqrt(3.0)
         result = native_foa_to_canonical(values, listener_yaw_deg=90.0)
-        self.assertAlmostEqual(float(result[3, 0]), 0.0, places=6)
-        self.assertAlmostEqual(float(result[2, 0]), 1.0, places=6)
+        self.assertAlmostEqual(float(result[1, 0]), 0.0, places=6)
+        self.assertAlmostEqual(float(result[2, 0]), 0.0, places=6)
+        self.assertAlmostEqual(float(result[3, 0]), -1.0, places=6)
+
+    def test_canonical_axis_mapping_matches_front_left_up(self):
+        # Native RLR basis is [right, up, back]; canonical is [front, left, up].
+        cases = {
+            "front": (0.0, 0.0, -1.0),
+            "right": (-1.0, 0.0, 0.0),
+            "left": (1.0, 0.0, 0.0),
+            "back": (0.0, 0.0, 1.0),
+            "elevated": (0.0, 1.0, 0.0),
+        }
+        for name, (front, left, up) in cases.items():
+            native = np.asarray([[1.0], [np.sqrt(3.0) * up], [np.sqrt(3.0) * (-front)], [np.sqrt(3.0) * (-left)]], dtype=np.float32)
+            canonical = native_foa_to_canonical(native)
+            actual = np.asarray([canonical[3, 0], canonical[1, 0], canonical[2, 0]])
+            expected = np.asarray([front, left, up])
+            np.testing.assert_allclose(actual, expected, atol=1e-6, err_msg=name)
 
     def test_project_dcase_azimuth_mapping(self):
         self.assertEqual(project_to_dcase_azimuth(90.0), -90.0)

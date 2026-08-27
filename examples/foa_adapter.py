@@ -50,20 +50,26 @@ def native_foa_to_ambix(values):
 def native_foa_to_canonical(values, listener_yaw_deg=0.0):
     """Convert world-fixed native N3D FOA to model-facing AmbiX ACN/SN3D.
 
-    Native channels are [W,Y,Z,X]. The directional vector is first rotated
-    from Habitat world axes into listener-local axes, then X is negated for
-    the DCASE left-positive azimuth convention.
+    Native channels are [W,Y_RLR,Z_RLR,X_RLR], where the Habitat/RLR
+    listener-local axes are +X=right, +Y=up, +Z=back. The directional
+    vector is first rotated from world axes into listener-local axes. The
+    DCASE/STARSS model axes are +X=front, +Y=left, +Z=up, so the output
+    channels are [W,Y_DCASE,Z_DCASE,X_DCASE] = [W,-X_RLR,+Y_RLR,-Z_RLR].
     """
-    array = _validate_foa(values).copy()
+    native = _validate_foa(values)
     yaw = np.deg2rad(float(listener_yaw_deg))
-    x_world = array[3].copy()
-    z_world = array[2].copy()
+    x_world = native[3]
+    y_world = native[1]
+    z_world = native[2]
     x_local = np.cos(yaw) * x_world - np.sin(yaw) * z_world
     z_local = np.sin(yaw) * x_world + np.cos(yaw) * z_world
-    array[3] = -x_local
-    array[2] = z_local
-    array[1:4] *= np.float32(1.0 / np.sqrt(3.0))
-    return array.astype(np.float32, copy=False)
+    output = np.empty_like(native)
+    output[0] = native[0]
+    output[1] = -x_local
+    output[2] = y_world
+    output[3] = -z_local
+    output[1:4] *= np.float32(1.0 / np.sqrt(3.0))
+    return output
 
 
 def project_to_dcase_azimuth(azimuth_deg):

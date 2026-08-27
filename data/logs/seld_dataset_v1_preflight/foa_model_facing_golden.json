@@ -8,7 +8,7 @@
     },
     {
       "fixture": "back",
-      "angular_error_deg": 2.9575586669421963e-06,
+      "angular_error_deg": 3.078324659199975e-06,
       "pass": true
     },
     {
@@ -32,6 +32,6 @@
       "pass": true
     }
   ],
-  "max_angular_error_deg": 2.9575586669421963e-06,
+  "max_angular_error_deg": 3.078324659199975e-06,
   "verdict": "PASS"
 }
