@@ -10,6 +10,8 @@ import quaternion  # 必须先于 habitat_sim 导入
 import habitat_sim
 import numpy as np
 
+from foa_adapter import measure_shared_direct_coefficients
+
 
 ROOT = Path(__file__).resolve().parents[1]
 LOG_ROOT = ROOT / "data/logs/seld_dataset_v1_preflight"
@@ -56,13 +58,8 @@ def render(sim):
 
 
 def direct_measurement(ir):
-    peak_samples = np.argmax(np.abs(ir), axis=1)
-    signed_peak = ir[np.arange(ir.shape[0]), peak_samples]
-    window_energy = []
-    for channel, peak in enumerate(peak_samples):
-        window = ir[channel, max(0, peak - 8):peak + 9]
-        window_energy.append(float(np.sum(window * window)))
-    return {"peak_sample": peak_samples.tolist(), "signed_peak": signed_peak.tolist(), "window_energy": window_energy}
+    measured = measure_shared_direct_coefficients(ir)
+    return {"peak_sample": measured["direct_sample"], "signed_peak": measured["signed_coefficients"].tolist(), "window_energy": measured["window_energy"].tolist()}
 
 
 def coefficient_of_variation(values):
@@ -71,30 +68,38 @@ def coefficient_of_variation(values):
 
 
 def identify_channels(rows):
-    features = np.asarray([item["direction_xyz"] for item in rows], dtype=np.float64)
+    import itertools
+
+    directions = np.asarray([item["direction_xyz"] for item in rows], dtype=np.float64)
     measurements = np.asarray([item["measurement"]["signed_peak"] for item in rows], dtype=np.float64)
-    valid = np.abs(measurements[:, 0]) > 1e-8
-    normalized = measurements[valid] / measurements[valid, 0:1]
-    scores = {}
-    for channel in range(1, 4):
-        scores[channel] = {}
-        for axis, index in (("X", 0), ("Y", 1), ("Z", 2)):
-            target = features[valid, index]
-            mask = np.abs(target) > 0.5
-            scores[channel][axis] = float(np.mean((normalized[mask, channel] - np.sqrt(3.0) * target[mask]) ** 2)) if np.any(mask) else float("inf")
-            scores[channel][axis + "-sign"] = float(np.mean((normalized[mask, channel] + np.sqrt(3.0) * target[mask]) ** 2)) if np.any(mask) else float("inf")
-    order = ["W"]
-    signs = ["+"]
-    for channel in range(1, 4):
-        candidates = [(value, key) for key, value in scores[channel].items() if not key.endswith("-sign")]
-        signed_candidates = []
-        for value, axis in candidates:
-            signed_candidates.append((value, axis, "+"))
-            signed_candidates.append((scores[channel][axis + "-sign"], axis, "-"))
-        _, axis, sign = min(signed_candidates)
-        order.append(axis)
-        signs.append(sign)
-    return {"native_order": order, "native_sign": signs, "fit_mse": scores, "verdict": "PASS" if order == ["W", "Y", "Z", "X"] and signs == ["+", "+", "+", "+"] else "INCONCLUSIVE"}
+    hypotheses = []
+    for w_channel in range(4):
+        directional_channels = [channel for channel in range(4) if channel != w_channel]
+        for permutation in itertools.permutations(directional_channels):
+            for signs in itertools.product((-1.0, 1.0), repeat=3):
+                errors = []
+                for direction, measurement in zip(directions, measurements):
+                    if abs(measurement[w_channel]) <= 1e-8:
+                        continue
+                    observed = measurement / measurement[w_channel]
+                    predicted = np.zeros(4, dtype=np.float64)
+                    predicted[w_channel] = 1.0
+                    for axis, channel, sign in zip(range(3), permutation, signs):
+                        predicted[channel] = np.sqrt(3.0) * sign * direction[axis]
+                    errors.append(float(np.mean((observed - predicted) ** 2)))
+                hypotheses.append({"order": ["W" if i == w_channel else None for i in range(4)], "w_channel": w_channel, "permutation": list(permutation), "signs": list(signs), "error": float(np.mean(errors)) if errors else float("inf")})
+    hypotheses.sort(key=lambda item: item["error"])
+    best, second = hypotheses[0], hypotheses[1]
+    names = ["X", "Y", "Z"]
+    def format_order(hypothesis):
+        order = [None] * 4
+        order[hypothesis["w_channel"]] = "W"
+        for axis, channel in enumerate(hypothesis["permutation"]):
+            order[channel] = names[axis]
+        return order
+
+    native_order = format_order(best)
+    return {"best_order": native_order, "best_sign": ["+" if sign > 0 else "-" for sign in best["signs"]], "best_error": best["error"], "second_best_order": format_order(second), "second_best_sign": ["+" if sign > 0 else "-" for sign in second["signs"]], "second_best_error": second["error"], "confidence_margin": second["error"] - best["error"], "hypothesis_count": len(hypotheses), "verdict": "PASS" if native_order == ["W", "Y", "Z", "X"] and best["error"] < second["error"] else "INCONCLUSIVE"}
 
 
 def doa_error_deg(native_ir, expected):
@@ -115,8 +120,10 @@ def run_stochasticity(scene, fixture, listener, sr, indirect, rays, output_name)
         energies, levels, doa = [], [], []
         started = time.perf_counter()
         try:
+            # 固定 pose 后连续读取 observation，避免把 native context 重建
+            # 误差混入声学 Monte-Carlo 方差，也避免重复更新触发资源膨胀。
+            set_pose(sim, item["position_world"], listener, item["listener_yaw_deg"])
             for _ in range(10):
-                set_pose(sim, item["position_world"], listener, item["listener_yaw_deg"])
                 ir = render(sim)
                 measure = direct_measurement(ir)
                 energies.append(float(np.sum(ir * ir)))
@@ -171,9 +178,11 @@ def run(fixture_path):
     result["render_verdict"] = "PASS" if all(row["shape"][0] == 4 and row["finite"] and row["nonzero"] for row in rows) else "FAIL"
     direct_result = {"condition": "direct_only", "indirectRayCount": 0, "sourceRayCount": 200, "rows": repeat_rows}
     (LOG_ROOT / "stochasticity_direct_only.json").write_text(json.dumps(direct_result, indent=2), encoding="utf-8")
+    # 先落盘 direct-only 与 mapping，避免 full acoustic native failure 丢失已完成证据。
+    LOG_ROOT.mkdir(parents=True, exist_ok=True)
+    (LOG_ROOT / "foa_direct_only_identification.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     full_result = run_stochasticity(scene, fixture, listener, sr, indirect=True, rays=5000, output_name="stochasticity_full.json")
     (LOG_ROOT / "stochasticity_direct_vs_full.json").write_text(json.dumps({"direct_only": direct_result, "full_acoustic": full_result}, indent=2), encoding="utf-8")
-    LOG_ROOT.mkdir(parents=True, exist_ok=True)
     (LOG_ROOT / "foa_direct_only_identification.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps(result["identification"], indent=2))
 

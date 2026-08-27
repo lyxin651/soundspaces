@@ -1,0 +1,34 @@
+{
+  "binaural": {
+    "shape_equal": true,
+    "standalone_shape": [
+      2,
+      362
+    ],
+    "dual_shape": [
+      2,
+      362
+    ],
+    "max_abs_diff": 0.0,
+    "relative_energy_diff": 0.0
+  },
+  "foa": {
+    "shape_equal": false,
+    "standalone_shape": [
+      4,
+      2154
+    ],
+    "dual_shape": [
+      362,
+      2
+    ],
+    "max_abs_diff": null,
+    "relative_energy_diff": null
+  },
+  "raw_dual_keys": [
+    "audio_sensor",
+    "foa_sensor"
+  ],
+  "paired_render_mode": "sequential_sensor_lifecycle",
+  "verdict": "FALLBACK"
+}

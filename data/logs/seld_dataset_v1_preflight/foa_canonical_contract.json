@@ -1,0 +1,78 @@
+{
+  "native_foa_order": [
+    "W",
+    "Y",
+    "Z",
+    "X"
+  ],
+  "native_foa_sign": [
+    "+W",
+    "+Y",
+    "+Z",
+    "+X"
+  ],
+  "native_foa_normalization": "N3D",
+  "canonical_foa_order": "ACN [W,Y,Z,X]",
+  "canonical_foa_normalization": "SN3D",
+  "native_to_canonical_permutation": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "native_to_canonical_sign": [
+    1,
+    1,
+    1,
+    1
+  ],
+  "native_to_canonical_scale": [
+    1,
+    0.5773502691896258,
+    0.5773502691896258,
+    0.5773502691896258
+  ],
+  "project_to_dcase_mapping": "dcase_azimuth_deg = -project_azimuth_deg; elevation unchanged; distance in meters",
+  "converter_path": "examples/foa_adapter.py",
+  "golden": [
+    {
+      "fixture": "front",
+      "direction_error_deg": 0.0,
+      "pass": true
+    },
+    {
+      "fixture": "back",
+      "direction_error_deg": 0.006384318042640578,
+      "pass": true
+    },
+    {
+      "fixture": "right",
+      "direction_error_deg": 0.0,
+      "pass": true
+    },
+    {
+      "fixture": "left",
+      "direction_error_deg": 0.0,
+      "pass": true
+    },
+    {
+      "fixture": "up",
+      "direction_error_deg": 0.0,
+      "pass": true
+    },
+    {
+      "fixture": "down",
+      "direction_error_deg": 0.0,
+      "pass": true
+    }
+  ],
+  "verdict": "PASS",
+  "evidence": "direct-only signed peak identification from foa_direct_only_identification.json",
+  "native_frame": "world_fixed",
+  "frame_evidence": {
+    "world_frame_error_deg": 2.831646840510158e-06,
+    "listener_frame_error_deg": 90.0,
+    "margin_deg": 89.99999716835316
+  },
+  "listener_position_semantics": "acoustic receiver center; not agent base position"
+}

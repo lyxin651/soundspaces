@@ -1,0 +1,55 @@
+{
+  "direct_only": {
+    "condition": "direct_only",
+    "indirectRayCount": 0,
+    "sourceRayCount": 200,
+    "rows": [
+      {
+        "id": "front",
+        "repeats": 10,
+        "peak_sample_std": 0.0,
+        "direct_level_std_db": 0.0,
+        "direct_energy_cv": 2.224117140404108e-16,
+        "sec_per_render": 0.1332335690036416
+      },
+      {
+        "id": "right",
+        "repeats": 10,
+        "peak_sample_std": 0.0,
+        "direct_level_std_db": 1.1102230246251565e-16,
+        "direct_energy_cv": 0.0,
+        "sec_per_render": 0.12130234465003013
+      }
+    ]
+  },
+  "full_acoustic": {
+    "condition": "full_acoustic",
+    "indirectRayCount": 5000,
+    "sourceRayCount": 200,
+    "rows": [
+      {
+        "id": "front",
+        "repeats": 10,
+        "direct_level_std_db": 6.280369834735101e-16,
+        "doa_std_deg": 4.2688682312579694e-07,
+        "mean_doa_error_deg": 4.2688682312579694e-07,
+        "full_energy_std_db": 0.07136547601632492,
+        "energy_cv": 0.016444241133125245,
+        "sec_per_render": 3.5863446479663255
+      },
+      {
+        "id": "right",
+        "repeats": 10,
+        "direct_level_std_db": 2.808666774861361e-16,
+        "doa_std_deg": 0.0,
+        "mean_doa_error_deg": 0.0,
+        "full_energy_std_db": 0.14148259397227633,
+        "energy_cv": 0.03259969576776594,
+        "sec_per_render": 2.7220676612108945
+      }
+    ]
+  },
+  "ray_sweep_performed": false,
+  "final_indirectRayCount": 5000,
+  "final_sourceRayCount": 200
+}

@@ -1,0 +1,23 @@
+{
+  "source_coordinate_audit": "PASS",
+  "file": "habitat-sim/src/esp/sensor/AudioSensor.cpp",
+  "evidence": [
+    {
+      "lines": "93-95",
+      "code": "const float pos[3] = { sourcePos[0], sourcePos[1], sourcePos[2] }; RLRA_SetSourcePosition(context, 0, pos)",
+      "finding": "source xyz passed without index permutation"
+    },
+    {
+      "lines": "102-113",
+      "code": "listener position and quaternion passed as agent transform",
+      "finding": "listener pose forwarded to RLR"
+    },
+    {
+      "lines": "350-351",
+      "code": "RLRA_AddSource(context)",
+      "finding": "single source index 0 created"
+    }
+  ],
+  "verdict": "PASS",
+  "read_only": true
+}

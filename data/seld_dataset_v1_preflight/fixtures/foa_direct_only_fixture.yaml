@@ -2,6 +2,7 @@
   "scene": "data/scene_datasets/replica/office_0/habitat/mesh_semantic.ply",
   "materials_enabled": false,
   "sample_rate_hz": 24000,
+  "listener_position_semantics": "acoustic receiver center; not agent base position",
   "listener_position_world": [0.8, 0.5311309695, 2.4433872699],
   "sources": [
     {"id": "front", "position_world": [0.8, 0.5311309695, 1.24338727], "listener_yaw_deg": 0.0, "direction_xyz": [0.0, 0.0, -1.0]},

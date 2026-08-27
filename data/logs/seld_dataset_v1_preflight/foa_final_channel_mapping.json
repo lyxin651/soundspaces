@@ -1,0 +1,29 @@
+{
+  "best_order": [
+    "W",
+    "Y",
+    "Z",
+    "X"
+  ],
+  "best_sign": [
+    "+",
+    "+",
+    "+"
+  ],
+  "best_error": 2.8128296147100556e-08,
+  "second_best_order": [
+    "X",
+    "Y",
+    "Z",
+    "W"
+  ],
+  "second_best_sign": [
+    "+",
+    "-",
+    "-"
+  ],
+  "second_best_error": 0.2680690839914895,
+  "confidence_margin": 0.26806905586319335,
+  "hypothesis_count": 192,
+  "verdict": "PASS"
+}

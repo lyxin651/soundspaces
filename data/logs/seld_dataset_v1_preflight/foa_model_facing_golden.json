@@ -1,0 +1,37 @@
+{
+  "reference": "DCASE-style FOA intensity I=Re(conj(W)*directional channels), channel order [W,Y,Z,X]",
+  "rows": [
+    {
+      "fixture": "front",
+      "angular_error_deg": 0.0,
+      "pass": true
+    },
+    {
+      "fixture": "back",
+      "angular_error_deg": 2.9575586669421963e-06,
+      "pass": true
+    },
+    {
+      "fixture": "right",
+      "angular_error_deg": 0.0,
+      "pass": true
+    },
+    {
+      "fixture": "left",
+      "angular_error_deg": 0.0,
+      "pass": true
+    },
+    {
+      "fixture": "up",
+      "angular_error_deg": 0.0,
+      "pass": true
+    },
+    {
+      "fixture": "down",
+      "angular_error_deg": 0.0,
+      "pass": true
+    }
+  ],
+  "max_angular_error_deg": 2.9575586669421963e-06,
+  "verdict": "PASS"
+}
