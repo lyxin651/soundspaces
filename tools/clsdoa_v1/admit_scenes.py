@@ -136,6 +136,8 @@ def _sample_probes(simulator: Any, entry: Dict[str, Any], config: Dict[str, Any]
 
     rng = np.random.default_rng(stable_seed(config["admission_version"], entry["scene_family"], entry["scene_id"]))
     pathfinder = simulator.pathfinder
+    if hasattr(pathfinder, "seed"):
+        pathfinder.seed(int(stable_seed(config["admission_version"], entry["scene_family"], entry["scene_id"]) % (2**31 - 1)))
     diagnostics = {"total_sampling_attempts": 0, "listener_clearance_rejects": 0, "source_clearance_rejects": 0, "distance_rejects": 0, "reachability_rejects": 0}
     probes: List[Dict[str, Any]] = []
     target = int(config["geometry_probe"]["required_valid_pairs_per_scene"])
