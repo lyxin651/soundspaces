@@ -13,6 +13,11 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 import numpy as np
 import yaml
 
+# 允许 controller 以脚本路径直接启动 worker 时复用仓库内 FOA converter。
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from examples.foa_adapter import native_foa_to_canonical
 
 
