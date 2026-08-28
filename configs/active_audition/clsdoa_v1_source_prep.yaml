@@ -1,0 +1,23 @@
+schema_version: clsdoa_v1_source_prep.1
+pool_id: source_pool_pilot_001
+source_asset_root_id: clsdoa_v1
+allowed_source_datasets:
+  - ESC-50
+  - DESED isolated foreground
+  - PSELD-selected FSD50K
+canonical:
+  sample_rate: 24000
+  channels: 1
+  dtype: float32
+  max_duration_sec: 5.0
+  overlong_crop_policy: deterministic_center
+  short_source_offset_policy: episode_deterministic_random
+normalization:
+  method: active_rms_v1
+  target_active_rms_dbfs: -24.0
+  peak_guard: 0.50
+split:
+  version: clsdoa_source_split_v1
+  salt: clsdoa_v1_source_split_20260828
+  train_upper_exclusive: 7000
+  val_upper_exclusive: 8500
