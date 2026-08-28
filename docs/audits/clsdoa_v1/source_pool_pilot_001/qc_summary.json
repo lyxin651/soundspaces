@@ -44,6 +44,8 @@
     "TARGET": 830,
     "RESERVE": 192,
     "SEMANTIC_REVIEW": 2613,
+    "required_immediate_review_rows": 3539,
+    "deferred_exact_clean_reserve_rows": 96,
     "reviewed": 0,
     "accepted": 0,
     "rejected": 0
