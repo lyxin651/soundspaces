@@ -1,0 +1,139 @@
+{
+  "candidate_rows_read": 4350,
+  "constraints": {
+    "automated_qc_modified": false,
+    "candidate_inventory_modified": false,
+    "canonical_preparation_executed": false,
+    "raw_audio_modified": false
+  },
+  "identity_count_after_dedup": 3977,
+  "identity_count_before_dedup": 4350,
+  "immediate_human_review_total": 480,
+  "input_qc_paths": [
+    "docs/audits/clsdoa_v1/source_pool_pilot_001/automated_qc.csv",
+    "docs/audits/clsdoa_v1/source_pool_pilot_001/automated_qc_desed.csv",
+    "docs/audits/clsdoa_v1/source_pool_pilot_001/automated_qc_fsd50k.csv"
+  ],
+  "per_class": [
+    {
+      "available_identities": 309,
+      "canonical_class": "clock_alarm",
+      "reserve": 12,
+      "status": "OK",
+      "target": 40
+    },
+    {
+      "available_identities": 287,
+      "canonical_class": "coughing",
+      "reserve": 12,
+      "status": "OK",
+      "target": 40
+    },
+    {
+      "available_identities": 304,
+      "canonical_class": "dishes",
+      "reserve": 12,
+      "status": "OK",
+      "target": 40
+    },
+    {
+      "available_identities": 88,
+      "canonical_class": "frying",
+      "reserve": 12,
+      "status": "OK",
+      "target": 40
+    },
+    {
+      "available_identities": 305,
+      "canonical_class": "keyboard_typing",
+      "reserve": 12,
+      "status": "OK",
+      "target": 40
+    },
+    {
+      "available_identities": 716,
+      "canonical_class": "laughing",
+      "reserve": 12,
+      "status": "OK",
+      "target": 40
+    },
+    {
+      "available_identities": 69,
+      "canonical_class": "mechanical_fan",
+      "reserve": 12,
+      "status": "OK",
+      "target": 40
+    },
+    {
+      "available_identities": 149,
+      "canonical_class": "microwave_oven",
+      "reserve": 12,
+      "status": "OK",
+      "target": 40
+    },
+    {
+      "available_identities": 127,
+      "canonical_class": "printer",
+      "reserve": 12,
+      "status": "OK",
+      "target": 40
+    },
+    {
+      "available_identities": 331,
+      "canonical_class": "running_water",
+      "reserve": 12,
+      "status": "OK",
+      "target": 40
+    },
+    {
+      "available_identities": 1203,
+      "canonical_class": "speech",
+      "reserve": 12,
+      "status": "OK",
+      "target": 40
+    },
+    {
+      "available_identities": 89,
+      "canonical_class": "vacuum_cleaner",
+      "reserve": 12,
+      "status": "OK",
+      "target": 40
+    }
+  ],
+  "queue_path": "/home/leiyuxin/soundspaces/source_assets/clsdoa_v1/review/source_pool_pilot_001/manual_review_queue_pilot_v1.csv",
+  "queue_sha256": "a5faff799b8ad6b69f3bbc47d358113ccf32037acdd3ae0d2bb3785444d4eff5",
+  "reserve_total": 144,
+  "schema_version": "clsdoa_v1_queue_compression_v1",
+  "selection": {
+    "identity_deduplication": "global source-namespaced original/base identity",
+    "priority": [
+      "EXACT over SEMANTIC_STRONG",
+      "source-role priority within mapping tier",
+      "AUTO_PASS over AUTO_FLAG",
+      "provenance/license completeness",
+      "persistent/repetitive effective activity",
+      "stable source identity tie-break"
+    ],
+    "reserve_per_class": 12,
+    "target_per_class": 40
+  },
+  "status": "STEP 2A MANUAL_QC_REQUIRED",
+  "target_auto_qc": {
+    "AUTO_FLAG": 47,
+    "AUTO_PASS": 433
+  },
+  "target_mapping": {
+    "EXACT": 468,
+    "SEMANTIC_STRONG": 12
+  },
+  "target_semantic_or_flag_count": 59,
+  "target_source_dataset": {
+    "DESED isolated foreground": 142,
+    "ESC-50": 178,
+    "PSELD-selected FSD50K": 160
+  },
+  "target_total": 480,
+  "unreviewed_candidate_count": 3726,
+  "unreviewed_identity_count": 3353,
+  "unselected_status": "FORMAL_CANDIDATE_UNREVIEWED"
+}
