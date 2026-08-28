@@ -2,9 +2,15 @@
 
 import argparse
 import json
+import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List
+
+# 允许以脚本路径直接执行 split helper。
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from tools.clsdoa_v1.admit_scenes import stable_split
 
