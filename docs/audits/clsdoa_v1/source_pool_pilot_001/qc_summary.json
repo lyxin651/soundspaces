@@ -1,0 +1,18 @@
+{
+  "status": "STEP_2A_MANUAL_QC_REQUIRED",
+  "candidate_rows": 200,
+  "auto_pass": 166,
+  "auto_flag": 34,
+  "auto_reject": 0,
+  "flag_reasons": {
+    "mostly_silence_or_low_activity": 22,
+    "severe_clipping_candidate": 12
+  },
+  "manual_review": {
+    "performed": false,
+    "queued_rows": 200,
+    "reviewed": 0,
+    "accepted": 0,
+    "rejected": 0
+  }
+}

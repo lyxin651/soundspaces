@@ -1,0 +1,9 @@
+# ClassDOA V1 Step 2A source pool pilot 001
+
+Status: `STEP 2A MANUAL_QC_REQUIRED` — not finalized.
+
+The controlled acquisition completed only for the official ESC-50 archive. It yielded 200 target candidate clips and 178 metadata-derived independent `base_clip_id` identities across five exact classes: coughing 39, laughing 36, keyboard_typing 37, vacuum_cleaner 30, and clock_alarm 36. These are candidate identity counts, not `READY` counts. The remaining seven canonical classes have no acquired audio in this run. DESED isolated foreground is still a resource blocker, while PSELD-selected FSD50K remains an acquisition blocker because the official dev audio is distributed as a roughly 24.7 GB split archive. No fourth source family was introduced.
+
+Automated structural QC decoded all 200 ESC candidates successfully: 166 were `AUTO_PASS` and 34 were `AUTO_FLAG`, including 22 low-activity/mostly-silent candidates and 12 clipping candidates. No human listening review was performed, and all 200 candidates remain in the external manual review queue with blank verdicts. Consequently no semantic acceptance, final primary/reserve selection, or persistent-source short-clip decision has been made. The ESC-50 raw archive and extracted audio remain outside Git under the external source asset root and were not modified in place.
+
+Canonical preparation, active-RMS normalization, cross-dataset duplicate audit, per-recording provenance/license closure, source registry, deterministic split, prepared-pool freeze, and regeneration determinism were not run because Gate C has not passed and two required source families are unavailable. There are therefore zero final `READY` identities and zero `pilot_eligible` rows at this stage. Step 2A cannot support the 960 Pilot yet; it remains stopped pending human review and acquisition decisions for DESED/PSELD-FSD.

@@ -1,0 +1,10 @@
+{
+  "status": "NOT_RUN",
+  "pool_id": "source_pool_pilot_001",
+  "reason": "Canonical preparation is gated on manual acceptance and usable provenance/license for the final candidates.",
+  "canonical_sample_rate": 24000,
+  "canonical_channels": 1,
+  "canonical_dtype": "float32",
+  "normalization": "active_rms_v1 / -24 dBFS / peak guard 0.50",
+  "prepared_files": 0
+}

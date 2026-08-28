@@ -1,0 +1,17 @@
+{
+  "status": "PARTIAL",
+  "esc50": {
+    "dataset_license_status": "DATASET_LEVEL_VERIFIED",
+    "per_recording_status": "DEFERRED_TO_MANUAL_REVIEW",
+    "candidate_rows": 200
+  },
+  "desed_isolated_foreground": {
+    "resource_status": "MISSING",
+    "candidate_rows": 0
+  },
+  "pseld_selected_fsd50k": {
+    "metadata_crosswalk_status": "TRACEABLE_170_CLASS_TO_MID_TO_FSD_CLIP",
+    "audio_resource_status": "NOT_ACQUIRED_LARGE_DOWNLOAD_REVIEW",
+    "pretrain_seen_status": "likely_yes_for_selected_candidates_but_not_materialized"
+  }
+}

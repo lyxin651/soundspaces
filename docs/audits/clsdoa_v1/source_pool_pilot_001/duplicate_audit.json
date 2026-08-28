@@ -1,0 +1,7 @@
+{
+  "status": "NOT_RUN",
+  "same_original_id_overlap": null,
+  "same_raw_sha_overlap": null,
+  "same_canonical_pcm_sha_overlap": null,
+  "reason": "Only one source family was acquired and no final canonical pool was admitted."
+}

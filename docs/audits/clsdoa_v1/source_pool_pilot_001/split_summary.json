@@ -1,0 +1,7 @@
+{
+  "status": "NOT_RUN",
+  "reason": "Split must follow manual acceptance, identity resolution, duplicate audit, and canonical preparation.",
+  "split_version": "clsdoa_source_split_v1",
+  "base_clip_overlap": null,
+  "per_class_minimums": null
+}

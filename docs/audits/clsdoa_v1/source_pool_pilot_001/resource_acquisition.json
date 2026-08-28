@@ -1,0 +1,35 @@
+{
+  "schema_version": "clsdoa_v1_source_acquisition.1",
+  "status": "STEP_2A_MANUAL_QC_REQUIRED",
+  "date": "2026-08-28",
+  "source_asset_root_id": "clsdoa_v1",
+  "source_asset_root": "/home/leiyuxin/soundspaces/source_assets/clsdoa_v1",
+  "allowed_source_families": ["ESC-50", "DESED isolated foreground", "PSELD-selected FSD50K"],
+  "resources": {
+    "ESC-50": {
+      "status": "ACQUIRED",
+      "official_source": "https://github.com/karolpiczak/ESC-50",
+      "archive_relpath": "raw/esc50/ESC-50-master.zip",
+      "archive_size_bytes": 645695005,
+      "archive_sha256": "805afc618aff80eff0641d51311647871fead5807da68bb18e43a27db47a79ce",
+      "extracted_audio_count": 2000,
+      "target_candidate_count": 200
+    },
+    "DESED isolated foreground": {
+      "status": "MISSING_RESOURCE",
+      "official_source": "https://github.com/turpaultn/DESED",
+      "local_audio_count": 0,
+      "reason": "No approved isolated foreground resource or per-recording registry was available locally; DESED mixtures/recorded soundscapes were not substituted."
+    },
+    "PSELD-selected FSD50K": {
+      "status": "BLOCKED_LARGE_DOWNLOAD_REVIEW",
+      "official_source": "https://zenodo.org/records/4060432",
+      "metadata_crosswalk_source": "https://github.com/Jinbo-Hu/SELD-Data-Generator",
+      "official_dev_audio_archive_bytes_approx": 24700000000,
+      "local_audio_count": 0,
+      "reason": "Official audio is distributed as a roughly 24.7 GB split archive; downloading the full archive exceeds the Step 2A pre-review threshold. No archive was downloaded."
+    }
+  },
+  "large_download_review_required": true,
+  "fourth_source_family_used": false
+}

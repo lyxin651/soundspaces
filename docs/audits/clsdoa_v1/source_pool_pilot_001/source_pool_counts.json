@@ -1,0 +1,21 @@
+{
+  "status": "STEP_2A_MANUAL_QC_REQUIRED",
+  "ready_identity_count": {},
+  "pilot_eligible_identity_count": {},
+  "candidate_clip_count": {
+    "coughing": 40,
+    "laughing": 40,
+    "keyboard_typing": 40,
+    "vacuum_cleaner": 40,
+    "clock_alarm": 40
+  },
+  "candidate_independent_identity_count": {
+    "coughing": 39,
+    "laughing": 36,
+    "keyboard_typing": 37,
+    "vacuum_cleaner": 30,
+    "clock_alarm": 36
+  },
+  "candidate_dataset_count": 1,
+  "note": "Candidate counts are not READY counts; manual QC and all remaining source-family acquisition gates are incomplete."
+}
