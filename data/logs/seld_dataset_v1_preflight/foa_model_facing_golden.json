@@ -30,6 +30,11 @@
       "fixture": "down",
       "angular_error_deg": 0.0,
       "pass": true
+    },
+    {
+      "fixture": "off_axis_yawed",
+      "angular_error_deg": 8.537736462515939e-07,
+      "pass": true
     }
   ],
   "max_angular_error_deg": 3.078324659199975e-06,

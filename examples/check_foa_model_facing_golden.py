@@ -26,6 +26,26 @@ def angular_error_deg(actual, expected):
     return float(np.degrees(np.arccos(np.clip(np.dot(actual, expected), -1.0, 1.0))))
 
 
+def off_axis_yawed_fixture():
+    """Return a synthetic world-fixed native FOA sample for an oblique yaw."""
+    source = np.asarray([1.0, 0.0, 0.25], dtype=np.float64)
+    listener = np.asarray([0.0, 0.0, 0.0], dtype=np.float64)
+    yaw_deg = 45.0
+    world_direction = (source - listener) / np.linalg.norm(source - listener)
+    # Native RLR channels are [W,Y,Z,X] and use N3D directional coefficients.
+    signed_peak = np.asarray(
+        [1.0, 0.0, np.sqrt(3.0) * world_direction[2], np.sqrt(3.0) * world_direction[0]],
+        dtype=np.float32,
+    )
+    return {
+        "id": "off_axis_yawed",
+        "position_world": source.tolist(),
+        "listener_position_world": listener.tolist(),
+        "listener_yaw_deg": yaw_deg,
+        "measurement": {"signed_peak": signed_peak.tolist()},
+    }
+
+
 def main():
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     measured = json.loads(IDENTIFICATION.read_text(encoding="utf-8"))
@@ -46,6 +66,17 @@ def main():
         intensity = np.asarray([canonical[3, 0], canonical[1, 0], canonical[2, 0]], dtype=np.float64) * float(w)
         error = angular_error_deg(intensity, expected_dcase)
         rows.append({"fixture": source_spec["id"], "angular_error_deg": error, "pass": error < 1.0})
+    source_spec = off_axis_yawed_fixture()
+    source = np.asarray(source_spec["position_world"], dtype=np.float64)
+    listener = np.asarray(source_spec["listener_position_world"], dtype=np.float64)
+    local_direction = world_to_local(source - listener, source_spec["listener_yaw_deg"])
+    expected_dcase = np.asarray([-local_direction[2], -local_direction[0], local_direction[1]])
+    native = np.asarray(source_spec["measurement"]["signed_peak"], dtype=np.float32)[:, None]
+    canonical = native_foa_to_canonical(native, source_spec["listener_yaw_deg"])
+    w = canonical[0, 0]
+    intensity = np.asarray([canonical[3, 0], canonical[1, 0], canonical[2, 0]], dtype=np.float64) * float(w)
+    error = angular_error_deg(intensity, expected_dcase)
+    rows.append({"fixture": source_spec["id"], "angular_error_deg": error, "pass": error < 1.0})
     result = {"reference": "DCASE-style FOA intensity I=Re(conj(W)*directional channels), channel order [W,Y,Z,X]", "rows": rows, "max_angular_error_deg": max(row["angular_error_deg"] for row in rows), "verdict": "PASS" if all(row["pass"] for row in rows) else "FAIL"}
     LOG_ROOT.mkdir(parents=True, exist_ok=True)
     (LOG_ROOT / "foa_model_facing_golden.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
