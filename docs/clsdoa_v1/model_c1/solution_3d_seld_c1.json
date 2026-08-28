@@ -1,0 +1,321 @@
+{
+  "accuracy_seld_score_claim": "NO",
+  "blocker": null,
+  "channel_order": [
+    "W",
+    "Y",
+    "Z",
+    "X"
+  ],
+  "data_pilot_blocker_caused_by_model": "NO",
+  "dtype_aware_adapter": {
+    "amplitude_preserved": true,
+    "normalization": "none",
+    "raw_dtype": "float32",
+    "sample_rate_hz": 24000,
+    "shape_adapter": "samples x channels waveform reshaped after original frontend to 7 x T x 64",
+    "stats": {
+      "channels": 4,
+      "dtype": "float32",
+      "duration_seconds": 5.0,
+      "finite": true,
+      "global_rms": 0.04202312231063843,
+      "inf_count": 0,
+      "nan_count": 0,
+      "nonzero": true,
+      "num_samples": 120000,
+      "per_channel_max": [
+        0.09998979419469833,
+        0.059938229620456696,
+        0.03498481586575508,
+        0.07485565543174744
+      ],
+      "per_channel_min": [
+        -0.09999679774045944,
+        -0.059942442923784256,
+        -0.03499005362391472,
+        -0.07484590262174606
+      ],
+      "per_channel_rms": [
+        0.05877242609858513,
+        0.03526370972394943,
+        0.020569710060954094,
+        0.0440787747502327
+      ],
+      "sample_rate_hz": 24000,
+      "shape": [
+        120000,
+        4
+      ]
+    }
+  },
+  "encoder": {
+    "checkpoint_used": false,
+    "einops_stub_used": true,
+    "encoder_input": {
+      "dtype": "torch.float32",
+      "finite": true,
+      "inf_count": 0,
+      "max": 9.669943809509277,
+      "mean": -38.84596252441406,
+      "min": -78.1134033203125,
+      "nan_count": 0,
+      "shape": [
+        1,
+        7,
+        250,
+        64
+      ],
+      "std": 36.06913757324219
+    },
+    "finite": true,
+    "full_original_output": {
+      "dtype": "torch.float32",
+      "finite": true,
+      "inf_count": 0,
+      "max": 0.6091881394386292,
+      "mean": 0.10479411482810974,
+      "min": -0.4951324760913849,
+      "nan_count": 0,
+      "shape": [
+        1,
+        50,
+        65
+      ],
+      "std": 0.24101479351520538
+    },
+    "head_note": "Original head emits 13-class SED + 39 DOA + 13 distance values; no ClassDOA V1 performance claim.",
+    "hooks": {
+      "conformer_last_layer": {
+        "dtype": "torch.float32",
+        "finite": true,
+        "inf_count": 0,
+        "max": 3.0670173168182373,
+        "mean": 4.76837147544984e-09,
+        "min": -3.878460645675659,
+        "nan_count": 0,
+        "shape": [
+          1,
+          250,
+          256
+        ],
+        "std": 0.9999957084655762
+      },
+      "input_projection": {
+        "dtype": "torch.float32",
+        "finite": true,
+        "inf_count": 0,
+        "max": 270.01544189453125,
+        "mean": -11.53417682647705,
+        "min": -301.501953125,
+        "nan_count": 0,
+        "shape": [
+          1,
+          250,
+          256
+        ],
+        "std": 93.89070892333984
+      },
+      "resnet_backbone": {
+        "dtype": "torch.float32",
+        "finite": true,
+        "inf_count": 0,
+        "max": 397.0968322753906,
+        "mean": 2.857434034347534,
+        "min": -438.488525390625,
+        "nan_count": 0,
+        "shape": [
+          1,
+          256,
+          250,
+          2
+        ],
+        "std": 143.8870391845703
+      }
+    },
+    "model_class": "ResnetConformer_sed_doa_nopool",
+    "random_init_architecture_smoke": true
+  },
+  "fixture": {
+    "path": "/tmp/clsdoa_step1d/canonical_foa_directional_float32.wav",
+    "sha256": "9fb5c2fb4373788823e504adcad595d5dcad81a3740992732ab8e2bd6b53faee",
+    "stats": {
+      "channels": 4,
+      "dtype": "float32",
+      "duration_seconds": 5.0,
+      "finite": true,
+      "global_rms": 0.04202312231063843,
+      "inf_count": 0,
+      "nan_count": 0,
+      "nonzero": true,
+      "num_samples": 120000,
+      "per_channel_max": [
+        0.09998979419469833,
+        0.059938229620456696,
+        0.03498481586575508,
+        0.07485565543174744
+      ],
+      "per_channel_min": [
+        -0.09999679774045944,
+        -0.059942442923784256,
+        -0.03499005362391472,
+        -0.07484590262174606
+      ],
+      "per_channel_rms": [
+        0.05877242609858513,
+        0.03526370972394943,
+        0.020569710060954094,
+        0.0440787747502327
+      ],
+      "sample_rate_hz": 24000,
+      "shape": [
+        120000,
+        4
+      ]
+    },
+    "subtype": "FLOAT"
+  },
+  "frontend": {
+    "combined_feature_flat": {
+      "dtype": "float64",
+      "finite": true,
+      "inf_count": 0,
+      "max": 9.669943809509277,
+      "mean": -38.845960368602725,
+      "min": -78.1134033203125,
+      "nan_count": 0,
+      "shape": [
+        250,
+        448
+      ],
+      "statistic": "value",
+      "std": 36.069137814682875
+    },
+    "foa_intensity_vector_3ch": {
+      "dtype": "float32",
+      "finite": true,
+      "inf_count": 0,
+      "max": 0.026357781141996384,
+      "mean": -0.0008296968298964202,
+      "min": -0.026964377611875534,
+      "nan_count": 0,
+      "shape": [
+        250,
+        192
+      ],
+      "statistic": "value",
+      "std": 0.011369292624294758
+    },
+    "hop_len_samples": 480,
+    "logmel_4ch": {
+      "dtype": "float64",
+      "finite": true,
+      "inf_count": 0,
+      "max": 9.669943809509277,
+      "mean": -67.97980837240137,
+      "min": -78.1134033203125,
+      "nan_count": 0,
+      "shape": [
+        250,
+        256
+      ],
+      "statistic": "value",
+      "std": 17.211345112557467
+    },
+    "model_input_bctf": {
+      "dtype": "float32",
+      "finite": true,
+      "inf_count": 0,
+      "max": 9.669943809509277,
+      "mean": -38.8459587097168,
+      "min": -78.1134033203125,
+      "nan_count": 0,
+      "shape": [
+        7,
+        250,
+        64
+      ],
+      "statistic": "value",
+      "std": 36.06913757324219
+    },
+    "nb_frames": 250,
+    "nfft": 1024,
+    "stft": {
+      "dtype": "complex64",
+      "finite": true,
+      "inf_count": 0,
+      "max": 22.494680404663086,
+      "mean": 0.058547694236040115,
+      "min": 3.192761610648631e-09,
+      "nan_count": 0,
+      "shape": [
+        250,
+        513,
+        4
+      ],
+      "statistic": "magnitude",
+      "std": 0.793247401714325
+    },
+    "win_len_samples": 960
+  },
+  "master_dataset_changes_required": "NO",
+  "new_class_doa_head": "NO",
+  "original_loader_scaling": {
+    "attenuation_db": -90.30873690592105,
+    "attenuation_ratio": 3.051849794063244e-05,
+    "code_behavior": "wav.read(audio_path); audio[:, :4] / 32768.0 + eps",
+    "loaded_rms": 1.282482571696164e-06,
+    "loaded_sample_rate_hz": 24000,
+    "loaded_stats": {
+      "channels": 4,
+      "dtype": "float32",
+      "duration_seconds": 5.0,
+      "finite": true,
+      "global_rms": 1.282482571696164e-06,
+      "inf_count": 0,
+      "nan_count": 0,
+      "nonzero": true,
+      "num_samples": 120000,
+      "per_channel_max": [
+        3.061446250285371e-06,
+        1.8391696130493074e-06,
+        1.0776518593047513e-06,
+        2.2944132069824263e-06
+      ],
+      "per_channel_min": [
+        -3.041660193048301e-06,
+        -1.8192981769971084e-06,
+        -1.0578116871329257e-06,
+        -2.2741157863492845e-06
+      ],
+      "per_channel_rms": [
+        1.7936104086402338e-06,
+        1.0761937119241338e-06,
+        6.27813733444782e-07,
+        1.3452314533424214e-06
+      ],
+      "sample_rate_hz": 24000,
+      "shape": [
+        120000,
+        4
+      ]
+    },
+    "loader": "FeatureClass._load_audio",
+    "raw_rms": 0.04202312231063843,
+    "source_file": "/home/leiyuxin/soundspaces/external/seld_models/Solution_on_3D_SELD/utils/cls_tools/cls_feature_class_2024.py",
+    "source_lines": "116-119"
+  },
+  "p0b_or_golden_modified": "NO",
+  "pseld_c1": "still unverified / BLOCKED_RESOURCE",
+  "repo": {
+    "clean": true,
+    "commit": "f714de5a95613be1b5ba372e0d7adc8349ecb7c8",
+    "log_5_oneline": "f714de5 Revert \"renew\"\n0a7e7db renew\ne6582e6 \u66f4\u65b0\u914d\u7f6e\nfe44da2 \u66f4\u65b0\u9879\u76ee\u6587\u4ef6\u7ed3\u6784\uff1a\u6dfb\u52a0\u65b0\u6587\u6863\uff0c\u66f4\u65b0\u914d\u7f6e\uff0c\u79fb\u9664\u5e9f\u5f03\u4ee3\u7801\n52312da update readme",
+    "path": "/home/leiyuxin/soundspaces/external/seld_models/Solution_on_3D_SELD",
+    "remote": "origin\thttps://github.com/yxdong0320/Solution_on_3D_SELD.git (fetch)\norigin\thttps://github.com/yxdong0320/Solution_on_3D_SELD.git (push)",
+    "status_short": ""
+  },
+  "status": "PASS",
+  "step1d_overall_after_r": "PARTIAL",
+  "training_backward": "NO"
+}

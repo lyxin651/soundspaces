@@ -1,0 +1,23 @@
+{
+  "commit": "f714de5a95613be1b5ba372e0d7adc8349ecb7c8",
+  "encoder_entry": "models.resnet_conformer_audio.ResnetConformer_sed_doa_nopool.forward",
+  "expected_clip_length": "5 s accepted by frontend/model; produces 250 feature frames and 50 pooled output frames",
+  "expected_input_dtype": "original loader assumes int16 PCM; dtype-aware adapter accepts float32 safely",
+  "expected_input_shape": "WAV samples x 4 channels; model tensor B x 7 x T x 64",
+  "expected_sample_rate": 24000,
+  "feature_frontend_function_or_class": "FeatureClass._spectrogram / _get_mel_spectrogram / _get_foa_intensity_vectors",
+  "files_inspected": [
+    "/home/leiyuxin/soundspaces/external/seld_models/Solution_on_3D_SELD/utils/cls_tools/cls_feature_class_2024.py",
+    "/home/leiyuxin/soundspaces/external/seld_models/Solution_on_3D_SELD/utils/sed_doa.py",
+    "/home/leiyuxin/soundspaces/external/seld_models/Solution_on_3D_SELD/models/resnet_conformer_audio.py",
+    "/home/leiyuxin/soundspaces/external/seld_models/Solution_on_3D_SELD/models/resnet.py",
+    "/home/leiyuxin/soundspaces/external/seld_models/Solution_on_3D_SELD/models/conformer.py",
+    "/home/leiyuxin/soundspaces/external/seld_models/Solution_on_3D_SELD/config/A_RC_SED-SDE.yaml"
+  ],
+  "known_incompatibilities": [
+    "Original output head is 13-class SED + DOA + distance, not ClassDOA V1 12-class head."
+  ],
+  "loader_function_or_class": "utils.cls_tools.cls_feature_class_2024.FeatureClass._load_audio",
+  "normalization_or_scaling": "original _load_audio divides by 32768 and adds eps; dtype-aware adapter does not normalize",
+  "repo": "Solution_on_3D_SELD"
+}
