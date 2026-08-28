@@ -34,7 +34,7 @@
   "foa_pass": 103,
   "materials_mode": "off",
   "pass": 103,
-  "registry": "registries/scenes.yaml",
+  "registry": "registries/clsdoa_v1_scenes.yaml",
   "review_required": 0,
   "split_counts": {
     "MP3D/test": 15,
