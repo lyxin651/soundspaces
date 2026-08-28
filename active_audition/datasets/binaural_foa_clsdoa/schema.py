@@ -19,6 +19,27 @@ class SchemaError(ValueError):
     """Raised when a V1 schema object is invalid."""
 
 
+@dataclass(frozen=True)
+class RenderPolicy:
+    """Build/storage policy for optional RIR persistence."""
+
+    save_rir: bool = True
+    require_rir: bool = True
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.save_rir, bool) or not isinstance(self.require_rir, bool):
+            raise SchemaError("save_rir and require_rir must be boolean")
+        if self.require_rir and not self.save_rir:
+            raise SchemaError("require_rir cannot be true when save_rir is false")
+
+    @classmethod
+    def from_config(cls, config: Mapping[str, Any]) -> "RenderPolicy":
+        policy = config.get("storage", config)
+        save_rir = policy.get("save_rir", True)
+        require_rir = policy.get("require_rir", save_rir)
+        return cls(save_rir=save_rir, require_rir=require_rir)
+
+
 def _finite_float(value: Any, name: str) -> float:
     if isinstance(value, bool):
         raise SchemaError("{} must be finite".format(name))
@@ -87,8 +108,6 @@ class RenderRecord:
         if self.render_status == "complete":
             if not isinstance(self.audio_path, str) or not self.audio_path:
                 raise SchemaError("complete render requires audio_path")
-            if not isinstance(self.rir_path, str) or not self.rir_path:
-                raise SchemaError("complete render requires rir_path")
             if int(self.sample_rate_hz) != SAMPLE_RATE_HZ:
                 raise SchemaError("V1 sample rate must be 24000 Hz")
             expected_channels = 2 if self.representation == "binaural" else 4

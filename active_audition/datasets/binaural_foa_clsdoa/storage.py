@@ -11,7 +11,7 @@ import yaml
 
 from active_audition.data.storage import DatasetStorage
 
-from .schema import DATASET_FAMILY, SCHEMA_VERSION
+from .schema import DATASET_FAMILY, RenderPolicy, SCHEMA_VERSION
 
 
 class V1StorageError(ValueError):
@@ -51,14 +51,16 @@ def validate_relative_path(value: str) -> str:
 class V1DatasetStorage:
     """V1 path resolver that reuses V0 atomic-write primitives where possible."""
 
-    def __init__(self, root: str):
+    def __init__(self, root: str, save_rir: bool = True, require_rir: bool = True):
         self.root = Path(root)
         self._primitives = DatasetStorage(str(self.root))
+        self.render_policy = RenderPolicy(save_rir=save_rir, require_rir=require_rir)
 
     @classmethod
     def from_config(cls, repo_root: str, config: Mapping[str, Any]) -> "V1DatasetStorage":
         dataset_id = validate_dataset_id(config["dataset_id"] if "dataset_id" in config else config["storage"]["dataset_id"])
-        return cls(Path(repo_root) / V1_DATASET_RELATIVE_ROOT / dataset_id)
+        policy = RenderPolicy.from_config(config)
+        return cls(Path(repo_root) / V1_DATASET_RELATIVE_ROOT / dataset_id, policy.save_rir, policy.require_rir)
 
     @property
     def success_path(self) -> Path:

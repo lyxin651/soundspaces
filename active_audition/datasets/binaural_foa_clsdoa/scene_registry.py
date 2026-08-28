@@ -7,6 +7,7 @@ import yaml
 
 
 SCENE_FIELDS = ("scene_id", "scene_family", "scene_asset", "stage_config", "navmesh", "semantic_info", "materials_mode", "unit_scale", "resource_hash", "admitted", "exclude_reason", "split")
+ALLOWED_SCENE_FAMILIES = ("Replica", "MP3D")
 
 
 class SceneRegistryError(ValueError):
@@ -25,6 +26,10 @@ def validate_scene_rows(rows: Mapping[str, Mapping[str, Any]]) -> Sequence[Mappi
         if row["scene_id"] in seen:
             raise SceneRegistryError("duplicate scene_id: {}".format(row["scene_id"]))
         seen.add(row["scene_id"])
+        if row["scene_family"] not in ALLOWED_SCENE_FAMILIES:
+            raise SceneRegistryError("scene_family must be Replica or MP3D")
+        if row["materials_mode"] != "OFF":
+            raise SceneRegistryError("materials_mode must be OFF")
         if row["admitted"] not in ("NOT_RUN", "UNASSIGNED", "PASS", "FAIL"):
             raise SceneRegistryError("invalid scene admission state: {}".format(row["admitted"]))
         if row["split"] not in ("train", "val", "test", "UNASSIGNED"):

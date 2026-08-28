@@ -8,7 +8,8 @@ from active_audition.datasets.binaural_foa_clsdoa.manifest import ManifestError,
 from active_audition.datasets.binaural_foa_clsdoa.qc import build_distribution_report
 from active_audition.datasets.binaural_foa_clsdoa.recipe import EpisodeRecipe, make_episode_recipe
 from active_audition.datasets.binaural_foa_clsdoa.renderer import PairedRenderer, render_pair
-from active_audition.datasets.binaural_foa_clsdoa.schema import RenderRecord, SchemaError
+from active_audition.datasets.binaural_foa_clsdoa.schema import RenderPolicy, RenderRecord, SchemaError
+from active_audition.datasets.binaural_foa_clsdoa.scene_registry import SceneRegistryError, validate_scene_rows
 from active_audition.datasets.binaural_foa_clsdoa.source_registry import SourceRegistryError, build_observation_timeline, validate_source_rows
 from active_audition.datasets.binaural_foa_clsdoa.storage import V1DatasetStorage, V1StorageError, merge_resolved_config
 from active_audition.datasets.binaural_foa_clsdoa.validation import ValidationError, payload_is_complete, validate_audio_contract, validate_pairing, validate_split_leakage
@@ -85,6 +86,14 @@ class ClassDOAV1DatasetInfrastructureTests(unittest.TestCase):
             with self.assertRaises(V1StorageError):
                 storage.write_json("reports/late.json", {})
 
+    def test_scene_registry_rejects_unknown_family_and_materials_on(self):
+        row = {"scene_id": "fixture", "scene_family": "Replica", "scene_asset": "asset", "stage_config": "stage", "navmesh": "nav", "semantic_info": "semantic", "materials_mode": "OFF", "unit_scale": 1.0, "resource_hash": "fixture", "admitted": "NOT_RUN", "exclude_reason": None, "split": "UNASSIGNED"}
+        self.assertEqual(validate_scene_rows({"fixture": row})[0]["scene_family"], "Replica")
+        with self.assertRaises(SceneRegistryError):
+            validate_scene_rows({"fixture": dict(row, scene_family="Other")})
+        with self.assertRaises(SceneRegistryError):
+            validate_scene_rows({"fixture": dict(row, materials_mode="ON")})
+
     def test_dataset_id_path_traversal_and_v0_root_are_rejected_or_separate(self):
         with self.assertRaises(V1StorageError):
             V1DatasetStorage.from_config(tempfile.gettempdir(), {"dataset_id": "../escape"})
@@ -105,6 +114,26 @@ class ClassDOAV1DatasetInfrastructureTests(unittest.TestCase):
             self.assertEqual([row["episode_id"] for row in read_jsonl(str(storage.manifest_path("episodes.jsonl")))], ["ep_000001", "ep_000002"])
             with self.assertRaises(ManifestError):
                 write_manifests(storage, recipes + [recipes[0]], renders)
+
+    def test_qc_cross_tables_base_clip_reuse_and_custom_bins(self):
+        first = _recipe("ep_000001", split="train", source=(-1.0, 1.5, -1.0))
+        second = _recipe("ep_000002", split="val", source=(2.0, 2.5, -2.0))
+        second = replace(second, base_clip_id=first.base_clip_id, source_dataset="other", scene_family="MP3D")
+        report = build_distribution_report([first, second], [], {"azimuth_bins": [{"name": "leftish", "min": -180, "max": 0}, {"name": "rightish", "min": 0, "max": 180}], "distance_bins": {"short": [0, 2], "long": [2, 10]}, "elevation_bands": [("flat", -10, 10), ("raised", 10, 90)]})
+        self.assertEqual(report["class_by_split"], {"0": {"train": 1, "val": 1}})
+        self.assertEqual(report["class_by_scene_family"], {"0": {"MP3D": 1, "Replica": 1}})
+        self.assertEqual(report["class_by_source_dataset"], {"0": {"fixture": 1, "other": 1}})
+        self.assertEqual(report["class_by_azimuth_bin"], {"0": {"leftish": 1, "rightish": 1}})
+        self.assertEqual(report["class_by_distance_bin"], {"0": {"long": 1, "short": 1}})
+        self.assertEqual(report["class_by_elevation_band"], {"0": {"flat": 1, "raised": 1}})
+        self.assertEqual(report["unique_base_clip_id_by_class"], {"0": 1})
+        self.assertEqual(report["source_reuse"]["identity_key"], "base_clip_id")
+        self.assertEqual(report["source_reuse"]["mean"], 2.0)
+        self.assertEqual(report["source_reuse"]["median"], 2.0)
+        self.assertEqual(report["source_reuse"]["p95"], 2.0)
+        self.assertEqual(report["source_reuse"]["max"], 2)
+        self.assertEqual(set(report["distance_bins"]), {"short", "long"})
+        self.assertEqual(report["acoustic_qc"]["status"], "NOT_RUN")
 
     def test_audio_representation_and_no_normalization_invariants(self):
         self.assertEqual(_record(_recipe(), "binaural").num_channels, 2)
@@ -152,6 +181,21 @@ class ClassDOAV1DatasetInfrastructureTests(unittest.TestCase):
                 self.assertTrue(payload_is_complete(storage, record))
             Path(storage.root / records[0].audio_path).unlink()
             self.assertFalse(payload_is_complete(storage, records[0]))
+
+    def test_rir_policy_supports_pilot_default_and_formal_audio_only(self):
+        recipe = _recipe()
+        audio_only = RenderRecord(recipe.episode_id, "binaural", "audio/binaural/ep.wav", None, 24000, 2, 120000, "float32", "WAV", "complete")
+        self.assertEqual(RenderPolicy(), RenderPolicy(save_rir=True, require_rir=True))
+        with tempfile.TemporaryDirectory() as temp:
+            pilot = V1DatasetStorage(Path(temp) / "pilot")
+            pilot.write_bytes(audio_only.audio_path, b"fixture")
+            self.assertFalse(payload_is_complete(pilot, audio_only))
+            formal = V1DatasetStorage(Path(temp) / "formal", save_rir=False, require_rir=False)
+            formal.write_bytes(audio_only.audio_path, b"fixture")
+            self.assertTrue(payload_is_complete(formal, audio_only))
+            self.assertTrue(payload_is_complete(formal, audio_only, require_rir=False))
+        with self.assertRaises(SchemaError):
+            RenderPolicy(save_rir=False, require_rir=True)
 
     def test_qc_report_is_schema_only_and_has_no_fake_acoustic_values(self):
         report = build_distribution_report([_recipe()], [_record(_recipe(), "binaural")])

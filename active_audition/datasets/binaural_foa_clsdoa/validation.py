@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from .recipe import EpisodeRecipe, validate_recipe_geometry
-from .schema import RenderRecord
+from .schema import RenderPolicy, RenderRecord
 from .storage import V1DatasetStorage, validate_relative_path
 from .schema import CLIP_DURATION_SEC, NUM_SAMPLES, SAMPLE_RATE_HZ
 
@@ -57,6 +57,8 @@ def validate_render(record: RenderRecord) -> None:
     if record.render_status != "complete":
         return
     for path in (record.audio_path, record.rir_path):
+        if path is None:
+            continue
         try:
             validate_relative_path(path)
         except ValueError as exc:
@@ -98,22 +100,29 @@ def validate_split_leakage(source_rows: Iterable[Mapping[str, Any]], scene_rows:
     check(scene_rows, "scene_id", "scene")
 
 
-def payload_is_complete(storage: V1DatasetStorage, record: RenderRecord) -> bool:
+def payload_is_complete(storage: V1DatasetStorage, record: RenderRecord, require_rir: Any = None) -> bool:
     """Return whether a completed record can be safely skipped on resume."""
 
-    if record.render_status != "complete" or not record.audio_path or not record.rir_path:
+    if record.render_status != "complete" or not record.audio_path:
+        return False
+    if require_rir is None:
+        require_rir = storage.render_policy.require_rir
+    if not isinstance(require_rir, bool):
+        raise ValidationError("require_rir must be boolean")
+    if require_rir and not record.rir_path:
         return False
     try:
         audio = storage.payload_path(record.audio_path)
-        rir = storage.payload_path(record.rir_path)
+        rir = storage.payload_path(record.rir_path) if record.rir_path else None
     except ValueError:
         return False
-    return audio.is_file() and rir.is_file()
+    return audio.is_file() and (not require_rir or (rir is not None and rir.is_file()))
 
 
 def validate_dataset_fixture(storage: V1DatasetStorage, episodes: Sequence[EpisodeRecipe], renders: Sequence[RenderRecord], config: Mapping[str, Any]) -> None:
     validate_audio_contract(config)
+    policy = RenderPolicy.from_config(config)
     validate_pairing(episodes, renders)
     for record in renders:
-        if record.render_status == "complete" and not payload_is_complete(storage, record):
+        if record.render_status == "complete" and not payload_is_complete(storage, record, policy.require_rir):
             raise ValidationError("complete render payload is missing: {} / {}".format(record.episode_id, record.representation))
