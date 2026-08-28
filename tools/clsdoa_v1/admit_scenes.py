@@ -72,7 +72,11 @@ def clearance_acceptance(hit_distances: Iterable[Optional[float]], radius: float
 
 
 def _scene_paths(entry: Dict[str, Any]) -> Tuple[Path, Path, Path]:
-    return Path(entry["scene_asset_path"]), Path(entry["navmesh_path"]), Path(entry["semantic_info_path"])
+    return (
+        Path(entry.get("scene_asset_path") or entry["scene_asset"]),
+        Path(entry.get("navmesh_path") or entry["navmesh"]),
+        Path(entry.get("semantic_info_path") or entry["semantic_info"]),
+    )
 
 
 def _make_sim(scene_asset: Path, channel_layout: Any, channel_count: int, config: Dict[str, Any]):
