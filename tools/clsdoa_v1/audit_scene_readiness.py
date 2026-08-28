@@ -56,19 +56,35 @@ def make_entry(scene_id: str, family: str, root: Path, habitat_root: Optional[Pa
     navmesh = habitat / "mesh_semantic.navmesh"
     semantic = habitat / "info_semantic.json"
     stage_info = parse_stage_refs(stage) if stage else {"parse_error": "missing stage config", "references": {}}
-    required = {"stage_config": stage, "mesh": mesh, "navmesh": navmesh, "semantic_info": semantic}
-    missing = [key for key, path in required.items() if path is None or not path.is_file()]
-    broken_refs = [key for key, item in stage_info["references"].items() if not item["exists"]]
-    blocked = any(path is not None and path.exists() and not readable(path) for path in required.values())
+    core = {"mesh": mesh, "navmesh": navmesh, "semantic_info": semantic}
+    missing = [key for key, path in core.items() if not path.is_file()]
+    blocked = any(path.exists() and not readable(path) for path in core.values())
+    core_reference_names = {
+        "semantic_asset": mesh.name,
+        "nav_asset": navmesh.name,
+    }
+    core_path_errors = [
+        key for key, expected in core_reference_names.items()
+        if key in stage_info["references"]
+        and stage_info["references"][key]["declared"] != expected
+        and Path(stage_info["references"][key]["resolved"]).name != expected
+        and (core["mesh" if key == "semantic_asset" else "navmesh"].is_file())
+    ]
+    stage_config_warning = [
+        {"key": key, **item}
+        for key, item in stage_info["references"].items()
+        if not item["exists"] and key not in core_path_errors
+    ]
     if blocked:
         status = "BLOCKED_PERMISSION"
     elif missing:
         status = "PRESENT_PARTIAL"
-    elif stage_info["parse_error"] or broken_refs:
+    elif stage_info["parse_error"] or core_path_errors:
         status = "BROKEN_PATH"
     else:
         status = "PRESENT_COMPLETE"
     assert status in STATUSES
+    required = {"stage_config": stage, **core}
     key_paths = {key: (str(path) if path else None) for key, path in required.items()}
     sizes = {key: (path.stat().st_size if path and path.is_file() else None) for key, path in required.items()}
     fingerprint = {key: small_file_fingerprint(path) for key, path in required.items()}
@@ -91,7 +107,8 @@ def make_entry(scene_id: str, family: str, root: Path, habitat_root: Optional[Pa
         "stage_config_references": stage_info["references"],
         "readiness_status": status,
         "missing_fields": missing,
-        "broken_references": broken_refs,
+        "stage_config_warning": stage_config_warning,
+        "broken_core_references": core_path_errors,
         "unit_scale_status": "TO_VERIFY_IN_STEP_2B",
         "materials_mode_expected": "off",
         "notes": "Step 1B structural readiness only; no Habitat load, render, repair, admission, or split.",

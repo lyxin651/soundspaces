@@ -1,0 +1,42 @@
+{
+  "scope": "direct mesh_semantic.ply/navmesh structural smoke only; no AudioSensor/render/admission",
+  "rows": [
+    {
+      "scene_id": "replica.office_0",
+      "mesh_path": "data/scene_datasets/replica/office_0/habitat/mesh_semantic.ply",
+      "navmesh_path": "data/scene_datasets/replica/office_0/habitat/mesh_semantic.navmesh",
+      "audio_sensor_created": false,
+      "mesh_exists": true,
+      "navmesh_exists": true,
+      "habitat_scene_loaded": true,
+      "navmesh_recognized": true,
+      "pathfinder_is_loaded": true,
+      "status": "STRUCTURAL_SMOKE"
+    },
+    {
+      "scene_id": "replica.apartment_0",
+      "mesh_path": "data/scene_datasets/replica/apartment_0/habitat/mesh_semantic.ply",
+      "navmesh_path": "data/scene_datasets/replica/apartment_0/habitat/mesh_semantic.navmesh",
+      "audio_sensor_created": false,
+      "mesh_exists": true,
+      "navmesh_exists": true,
+      "habitat_scene_loaded": true,
+      "navmesh_recognized": true,
+      "pathfinder_is_loaded": true,
+      "status": "STRUCTURAL_SMOKE"
+    },
+    {
+      "scene_id": "replica.room_0",
+      "mesh_path": "data/scene_datasets/replica/room_0/habitat/mesh_semantic.ply",
+      "navmesh_path": "data/scene_datasets/replica/room_0/habitat/mesh_semantic.navmesh",
+      "audio_sensor_created": false,
+      "mesh_exists": true,
+      "navmesh_exists": true,
+      "habitat_scene_loaded": true,
+      "navmesh_recognized": true,
+      "pathfinder_is_loaded": true,
+      "status": "STRUCTURAL_SMOKE"
+    }
+  ],
+  "verdict": "PASS"
+}
