@@ -1,0 +1,139 @@
+{
+  "audit_schema_version": "clsdoa_v1_source_mapping_audit.1",
+  "canonical_class_count": 12,
+  "dataset_family_count": 3,
+  "datasets": [
+    {
+      "evidence": {
+        "audio_file_count": null,
+        "audio_root_local": "MISSING",
+        "category_field": "category",
+        "dataset_root_local": "MISSING",
+        "evidence": "https://raw.githubusercontent.com/karolpiczak/ESC-50/master/meta/esc50.csv",
+        "evidence_sha": "ca660da60191a97de289983a05821c9382d852a38a2ba8428980816b68cf6246",
+        "identity_fields": [
+          "src_file",
+          "take"
+        ],
+        "license_readiness": "dataset-level CC BY-NC documentation and attribution file available; per-recording completion deferred to Step 2A",
+        "license_sha": "f6aec3a3283a2efdcbb1feff334adad7ab17c097bdec0cbb4eebdb9e16886074",
+        "license_url": "https://raw.githubusercontent.com/karolpiczak/ESC-50/master/LICENSE",
+        "metadata_invalid_row_count": 0,
+        "metadata_path": "https://raw.githubusercontent.com/karolpiczak/ESC-50/master/meta/esc50.csv",
+        "metadata_row_count": 2000,
+        "missing_audio_path_count": null,
+        "official_folds": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "official_readme": "https://github.com/karolpiczak/ESC-50/blob/master/README.md",
+        "official_readme_sha": "60a3ae8cecca8488f5381ef54f302396dbd1b0d82ae0d14afc92a4bfd6b34501"
+      },
+      "mapping_rows": 12,
+      "mapping_type_counts": {
+        "AMBIGUOUS": 1,
+        "BLOCKED_RESOURCE": 0,
+        "EXACT": 5,
+        "NONE": 6,
+        "SEMANTIC_STRONG": 0
+      },
+      "metadata_statuses": [
+        "PRESENT"
+      ],
+      "resource_statuses": [
+        "PRESENT_METADATA_ONLY"
+      ],
+      "source_dataset": "ESC-50"
+    },
+    {
+      "evidence": {
+        "audio_file_count": null,
+        "dataset_root_local": "MISSING",
+        "evidence": "https://raw.githubusercontent.com/turpaultn/DESED/master/examples/generate_soundscapes/event_occurences/event_occurences_train.json",
+        "evidence_sha": "45b3ce7a132987cfb247b933a70627d11c3232dc746546d81e4dc4b9352a6bd3",
+        "foreground_root_local": "MISSING",
+        "isolated_foreground_status": "MISSING",
+        "known_labels": [
+          "Alarm_bell_ringing",
+          "Dishes",
+          "Frying",
+          "Running_water",
+          "Speech",
+          "Vacuum_cleaner"
+        ],
+        "license_status": "dataset-level documentation available; per-recording detail deferred to Step 2A",
+        "license_url": "https://github.com/turpaultn/DESED/blob/master/LICENSE",
+        "metadata_invalid_row_count": null,
+        "metadata_path": "official event-occurrence class list only; no isolated foreground registry",
+        "metadata_row_count": null,
+        "missing_audio_path_count": null,
+        "official_class_count": 10,
+        "official_readme": "https://github.com/turpaultn/DESED/blob/master/README.md",
+        "official_readme_sha": "dd1bcb1567222f91e74129105e19bfe070c78b92701b90506202ffa9e26600b4"
+      },
+      "mapping_rows": 12,
+      "mapping_type_counts": {
+        "AMBIGUOUS": 0,
+        "BLOCKED_RESOURCE": 12,
+        "EXACT": 0,
+        "NONE": 0,
+        "SEMANTIC_STRONG": 0
+      },
+      "metadata_statuses": [
+        "PRESENT_METADATA_ONLY"
+      ],
+      "resource_statuses": [
+        "MISSING"
+      ],
+      "source_dataset": "DESED isolated foreground"
+    },
+    {
+      "evidence": {
+        "audio_file_count": null,
+        "audio_root_local": "MISSING",
+        "dataset_root_local": "PSELD code/features present; selected dry-source audio root MISSING",
+        "evidence": "https://zenodo.org/record/6406873/files/FSD50K_selected.txt",
+        "evidence_sha": "11431d8031f1026269cb4cbeb1c19d6f66b4722c83e58c22c038fed1921daac7",
+        "identity_fields": [
+          "numeric FSD50K filename",
+          "Freesound ID"
+        ],
+        "license_status": "Freesound/FSD identifiers traceable; per-recording license detail deferred to Step 2A",
+        "local_fsd_ground_truth": {
+          "dev.csv": "ce4ab5f01baa5a52b0ec892edaf137a7560743fce3a70155f8bf975c197ded1b",
+          "eval.csv": "ef861a4619691783bfceb7f43e1a395dcf969150ba4ad34dcb36b93abd26b3d6",
+          "vocabulary.csv": "992b6e11422101ee575ab3022d37b79b98e19407b211331c72f5d9fdd16e7174"
+        },
+        "metadata_invalid_row_count": 0,
+        "metadata_path": "https://zenodo.org/record/6406873/files/FSD50K_selected.txt",
+        "metadata_row_count": 4177,
+        "missing_audio_path_count": null,
+        "pretrain_exposure_traceability": "PARTIAL",
+        "pseled_registry_status": "not found: no cls_indices_* or original-source crosswalk",
+        "pseled_repo": "/home/leiyuxin/soundspaces/external/seld_models/DCASE2025_TASK3_Stereo_PSELD_Mamba",
+        "pseled_repo_revision": "6790590ba6c19fc01b9a421d50f25b58db635931"
+      },
+      "mapping_rows": 12,
+      "mapping_type_counts": {
+        "AMBIGUOUS": 0,
+        "BLOCKED_RESOURCE": 0,
+        "EXACT": 2,
+        "NONE": 7,
+        "SEMANTIC_STRONG": 3
+      },
+      "metadata_statuses": [
+        "PRESENT"
+      ],
+      "resource_statuses": [
+        "PRESENT_METADATA_ONLY"
+      ],
+      "source_dataset": "PSELD-selected FSD50K"
+    }
+  ],
+  "ontology_path": "registries/ontology.yaml",
+  "ontology_sha256": "51e48305099afc21c887e207ced250808d82e251649f7e2e72a794cc1beb87ce",
+  "prohibited_operations_performed": []
+}
