@@ -1,0 +1,131 @@
+dataset:
+  family: soundspaces_binaural_foa_clsdoa_v1
+  namespace: binaural_foa_clsdoa_v1
+  schema_version: clsdoa_v1.0
+
+ontology:
+  registry_path: registries/ontology.yaml
+  name: clsdoa_v1
+  version: clsdoa_v1.0
+
+task:
+  name: single_target_clip_classification_and_doa
+  target_polyphony: 1
+  core_v1_nuisance: none
+  future_nuisance: allowed_later
+  classification:
+    enabled: true
+    num_classes: 12
+  localization:
+    target: 3d_doa_unit_vector
+  onset_offset_prediction: false
+  frame_activity_prediction: false
+  distance_prediction: false
+  multi_track_prediction: false
+  pit: false
+
+source:
+  allowed_families:
+    - ESC-50
+    - DESED isolated foreground
+    - PSELD-selected FSD50K
+  external_label_mapping: deferred_to_step_1a
+
+scene:
+  families:
+    - Replica
+    - MP3D
+  admission: deferred_to_step_1b
+
+audio:
+  sample_rate_hz: 24000
+  clip_duration_sec: 5.0
+  num_samples: 120000
+  dtype: float32
+
+representations:
+  binaural:
+    enabled: true
+    channels: 2
+    channel_order: [LEFT, RIGHT]
+    sample_rate_hz: 24000
+    dtype: float32
+  foa:
+    enabled: true
+    channels: 4
+    native:
+      order: [W, Y_RLR, Z_RLR, X_RLR]
+      normalization: N3D
+      frame: world_fixed
+      status: existing_unchanged
+    canonical:
+      format: AmbiX ACN/SN3D
+      order: [W, Y_DCASE, Z_DCASE, X_DCASE]
+      component_mapping:
+        X_DCASE: -Z_RLR_local
+        Y_DCASE: -X_RLR_local
+        Z_DCASE: +Y_RLR_local
+
+coordinate:
+  project_axes:
+    up: +Y
+    right: +X
+    forward: -Z
+  azimuth:
+    zero: front
+    positive: right
+    negative: left
+    range: "[-180, 180)"
+    coverage: full_360
+  elevation: retained
+  distance_metadata: retained
+
+paired_render:
+  mode: sequential_sensor_lifecycle
+  same_episode_source_time_gain_positions_yaw_config: true
+  independent_native_render: true
+  binaural_to_foa_conversion: false
+  foa_to_binaural_conversion: false
+
+acoustics:
+  indirectRayCount: 5000
+  sourceRayCount: 200
+  materials_enabled: false
+
+normalization:
+  source_stage:
+    allowed: true
+    policy: one_active_rms_or_equivalent
+    applied_later: true
+  per_render: false
+  per_viewpoint: false
+  separate_branch_normalization: false
+
+split:
+  identity_split_before_rendering: true
+  source_identity_disjoint_train_val_test: true
+  scene_identity_disjoint_train_val_test: true
+  existing_pilot_membership_stable: true
+
+separation:
+  dataset_and_run_roots_are_distinct: true
+  pilot_membership_and_quotas: deferred
+
+legacy_seld_code_status: retained_for_reproducibility
+clsdoa_v1_usage: disabled/not_required
+legacy_features_not_core:
+  - onset_offset
+  - frame_activity
+  - polyphony_greater_than_one
+  - PIT
+  - EINV2_track_assignment
+  - Multi-ACCDOA_master_target
+  - distance_head
+
+step_0_scope:
+  source_download: prohibited
+  scene_download: prohibited
+  source_selection: deferred_to_step_1a
+  scene_admission: deferred_to_step_1b
+  episode_schema_renderer_validator_qc: deferred_to_step_1c
+  model_input_compatibility: deferred_to_step_1d

@@ -1,0 +1,40 @@
+ontology:
+  name: clsdoa_v1
+  version: clsdoa_v1.0
+  classes:
+    - id: 0
+      name: coughing
+      temporal_type: transient
+    - id: 1
+      name: laughing
+      temporal_type: repetitive
+    - id: 2
+      name: keyboard_typing
+      temporal_type: repetitive
+    - id: 3
+      name: vacuum_cleaner
+      temporal_type: persistent
+    - id: 4
+      name: clock_alarm
+      temporal_type: repetitive_persistent
+    - id: 5
+      name: speech
+      temporal_type: persistent
+    - id: 6
+      name: running_water
+      temporal_type: persistent
+    - id: 7
+      name: frying
+      temporal_type: persistent
+    - id: 8
+      name: mechanical_fan
+      temporal_type: persistent
+    - id: 9
+      name: microwave_oven
+      temporal_type: persistent_repetitive
+    - id: 10
+      name: dishes
+      temporal_type: repetitive
+    - id: 11
+      name: printer
+      temporal_type: repetitive
