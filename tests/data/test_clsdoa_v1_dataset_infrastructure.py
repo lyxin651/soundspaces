@@ -150,6 +150,8 @@ class ClassDOAV1DatasetInfrastructureTests(unittest.TestCase):
                 storage.write_bytes(record.audio_path, b"fixture")
                 storage.write_bytes(record.rir_path, b"fixture")
                 self.assertTrue(payload_is_complete(storage, record))
+            Path(storage.root / records[0].audio_path).unlink()
+            self.assertFalse(payload_is_complete(storage, records[0]))
 
     def test_qc_report_is_schema_only_and_has_no_fake_acoustic_values(self):
         report = build_distribution_report([_recipe()], [_record(_recipe(), "binaural")])
