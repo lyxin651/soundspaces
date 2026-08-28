@@ -1,0 +1,26 @@
+admission_version: clsdoa_v1_scene_admission_v1
+global_seed: 20260828
+materials_mode: off
+
+listener:
+  sensor_height_m: 1.5
+  local_clearance_radius_m: 0.10
+source:
+  height_min_m: 0.5
+  height_max_m: 2.2
+  local_clearance_radius_m: 0.15
+geometry_probe:
+  required_valid_pairs_per_scene: 2
+  pair_distance_min_m: 1.0
+  pair_distance_max_m: 4.0
+  max_sampling_attempts: 100
+audio:
+  sample_rate_hz: 24000
+  indirect_ray_count: 5000
+  source_ray_count: 200
+  paired_mode: sequential_sensor_lifecycle
+  materials_enabled: false
+split:
+  version: clsdoa_v1_scene_split_v1
+  train_threshold: 0.70
+  val_threshold: 0.85
