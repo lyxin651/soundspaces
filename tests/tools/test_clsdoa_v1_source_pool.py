@@ -7,10 +7,22 @@ from pathlib import Path
 import numpy as np
 
 from tools.clsdoa_v1.build_source_candidates import build_candidates
+from tools.clsdoa_v1.build_fs50k_candidates import crosswalk_entries
+from tools.clsdoa_v1.build_desed_candidates import build_candidates as build_desed_candidates
+from tools.clsdoa_v1.build_manual_review_queue import build_queue
 from tools.clsdoa_v1.qc_source_audio import run_qc
 
 
 class SourcePoolToolTests(unittest.TestCase):
+    def test_fs50k_builder_reads_step1a_crosswalk_without_string_guessing(self):
+        evidence = Path(__file__).parents[2] / "docs/audits/clsdoa_v1/source_mapping/source_mapping_evidence.json"
+        entries = crosswalk_entries(evidence)
+        self.assertEqual(len(entries), 17)
+        self.assertIn("mechanical_fan", {entry["canonical_class"] for entry in entries})
+        self.assertIn("microwave_oven", {entry["canonical_class"] for entry in entries})
+        self.assertIn("printer", {entry["canonical_class"] for entry in entries})
+        self.assertTrue(all(entry["tsv_path"].endswith(".tsv") for entry in entries))
+
     def test_candidate_inventory_uses_exact_mapping_and_preserves_base_identity(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -60,6 +72,81 @@ class SourcePoolToolTests(unittest.TestCase):
             result = run_qc(candidate, root, root / "qc.csv")
             self.assertEqual(result[0]["auto_qc_status"], "AUTO_PASS")
             self.assertEqual(result[0]["channels"], "1")
+
+    def test_manual_queue_keeps_esc_all_and_limits_fsd_exact_pool(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            wav = root / "a.wav"
+            with wave.open(str(wav), "wb") as handle:
+                handle.setnchannels(1)
+                handle.setsampwidth(2)
+                handle.setframerate(8000)
+                handle.writeframes((np.ones(8000) * 1000).astype("<i2").tobytes())
+            qc = root / "qc.csv"
+            fields = ["source_dataset", "canonical_class", "source_label",
+                      "original_id", "raw_relpath", "resource_status",
+                      "mapping_type", "auto_qc_status", "auto_qc_reason",
+                      "duration_sec", "active_duration_estimate_sec"]
+            with qc.open("w", newline="", encoding="utf-8") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                for dataset, count in (("ESC-50", 2), ("FSD", 60)):
+                    for index in range(count):
+                        writer.writerow({
+                            "source_dataset": dataset,
+                            "canonical_class": "speech",
+                            "source_label": "Speech",
+                            "original_id": "{}-{}".format(dataset, index),
+                            "raw_relpath": "a.wav",
+                            "resource_status": "PRESENT",
+                            "mapping_type": "EXACT",
+                            "auto_qc_status": "AUTO_PASS",
+                            "auto_qc_reason": "",
+                            "duration_sec": "1",
+                            "active_duration_estimate_sec": "1",
+                        })
+            output = root / "queue.csv"
+            rows = build_queue([qc], root, output, target_per_class=40,
+                               reserve_per_class=12)
+            self.assertEqual(sum(row["source_dataset"] == "ESC-50" for row in rows), 2)
+            self.assertEqual(sum(row["source_dataset"] == "FSD" and
+                                 row["pool_candidate_role"] == "TARGET" for row in rows), 40)
+            self.assertEqual(sum(row["source_dataset"] == "FSD" and
+                                 row["pool_candidate_role"] == "RESERVE" for row in rows), 12)
+
+    def test_desed_builder_excludes_mixtures_and_keeps_alarm_semantic(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            extracted = root / "extracted"
+            foreground = extracted / "audio/train/soundbank/foreground"
+            for label in ("Speech", "Alarm_bell_ringing", "Cat"):
+                (foreground / label).mkdir(parents=True)
+            (extracted / "audio/eval/soundbank/foreground_on_off/Speech").mkdir(parents=True)
+            for label in ("Speech", "Alarm_bell_ringing", "Cat"):
+                wav = foreground / label / "123_0.wav"
+                with wave.open(str(wav), "wb") as handle:
+                    handle.setnchannels(1)
+                    handle.setsampwidth(2)
+                    handle.setframerate(8000)
+                    handle.writeframes((np.ones(8000) * 1000).astype("<i2").tobytes())
+            (extracted / "license_training.tsv").write_text(
+                "filename\tid\tdataset\tdownload\tlicense\tname\tusername\n"
+                "/x/training/soundbank/foreground/Speech/123_0.wav\t123\tfreesound\t\tCC0\t123.wav\tu\n"
+                "/x/training/soundbank/foreground/Alarm_bell_ringing/123_0.wav\t123\tfreesound\t\tCC0\t123.wav\tu\n"
+                "/x/training/soundbank/foreground/Cat/123_0.wav\t123\tfreesound\t\tCC0\t123.wav\tu\n",
+                encoding="utf-8",
+            )
+            (extracted / "license_eval.tsv").write_text(
+                "dataset\tdownload\tfilename\tid\tlicense\tname\tusername\n",
+                encoding="utf-8",
+            )
+            rows, excluded = build_desed_candidates(extracted, root, root / "out.csv")
+            self.assertEqual({row["canonical_class"] for row in rows}, {"speech", "clock_alarm"})
+            self.assertEqual(excluded, 0)
+            self.assertEqual(
+                next(row["mapping_type"] for row in rows if row["canonical_class"] == "clock_alarm"),
+                "SEMANTIC_STRONG",
+            )
 
 
 if __name__ == "__main__":

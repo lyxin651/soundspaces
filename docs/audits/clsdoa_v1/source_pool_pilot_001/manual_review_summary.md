@@ -2,8 +2,14 @@
 
 Status: `STEP 2A MANUAL_QC_REQUIRED`
 
-The ESC-50 candidate inventory contains 200 clips covering five exact Step 1A.1 mappings: `coughing`, `laughing`, `keyboard_typing`, `vacuum_cleaner`, and `clock_alarm`. All 200 candidates were placed in the external review queue at `/home/leiyuxin/soundspaces/source_assets/clsdoa_v1/review/source_pool_pilot_001/manual_review_queue.csv`; 34 automated flags are included for priority review. No human listening review was performed by Codex, so `manual_qc_status`, reviewer, timestamp, and accept/reject reason remain blank for every row.
+Acquisition and automated waveform QC are complete for the three allowed source families. The external review queue is:
 
-The queue must be reviewed for canonical semantics, competing dominant events, music or unrelated speech, existing spatialization/reverb, silence or low information, and severe distortion. The five ESC classes have 30–39 metadata-derived independent identities per Step 1A.1 identity convention, but this is not a final `READY` count: manual acceptance, license/provenance confirmation, duplicate resolution, canonical preparation, and the project split are still pending.
+`/home/leiyuxin/soundspaces/source_assets/clsdoa_v1/review/source_pool_pilot_001/manual_review_queue.csv`
 
-DESED isolated foreground remains unavailable and PSELD-selected FSD50K audio was not downloaded because the official audio archive is above the task's large-download review threshold. Therefore no 12-class final source pool, canonical prepared pool, registry, duplicate freeze, or deterministic split was produced.
+Queue SHA256: `814cbbf1e54c4b08a5c4b1f4d396946b6d88aa480c4e894c341a293a2218e1ec`.
+
+It contains 3,635 listenable rows: 830 `TARGET`, 192 `RESERVE`, and 2,613 `SEMANTIC_REVIEW`. ESC-50 contributes all 200 candidates. PSELD-selected FSD50K contributes per-source/per-class target and reserve rows plus all remaining semantic or automated-flag rows. DESED contributes the same deterministic target/reserve policy; every `Alarm_bell_ringing → clock_alarm` candidate is marked semantic review.
+
+Human review must listen to every `TARGET` row and every `SEMANTIC_REVIEW` or automated-flag row. Check canonical event correctness, competing dominant events, unrelated speech/music, strong existing spatialization or reverb, clipping/distortion, silence/low information, and persistent activity sufficient for a 5-second observation. Fill only `manual_decision=ACCEPT|REJECT`, `manual_reason`, and optional `manual_notes`; leave the raw audio unchanged.
+
+No manual review was performed by Codex. Therefore all final `READY` and `pilot_eligible` counts remain zero. Canonical preparation, normalization, duplicate resolution, final registry, deterministic split, and pool freeze are prohibited until the human CSV verdicts are returned.

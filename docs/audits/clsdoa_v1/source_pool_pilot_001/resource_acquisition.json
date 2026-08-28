@@ -1,7 +1,7 @@
 {
-  "schema_version": "clsdoa_v1_source_acquisition.1",
+  "schema_version": "clsdoa_v1_source_acquisition.2",
   "status": "STEP_2A_MANUAL_QC_REQUIRED",
-  "date": "2026-08-28",
+  "date": "2026-08-29",
   "source_asset_root_id": "clsdoa_v1",
   "source_asset_root": "/home/leiyuxin/soundspaces/source_assets/clsdoa_v1",
   "allowed_source_families": ["ESC-50", "DESED isolated foreground", "PSELD-selected FSD50K"],
@@ -13,23 +13,50 @@
       "archive_size_bytes": 645695005,
       "archive_sha256": "805afc618aff80eff0641d51311647871fead5807da68bb18e43a27db47a79ce",
       "extracted_audio_count": 2000,
-      "target_candidate_count": 200
+      "target_candidate_count": 200,
+      "automated_qc": {"AUTO_PASS": 166, "AUTO_FLAG": 34, "AUTO_REJECT": 0}
     },
     "DESED isolated foreground": {
-      "status": "MISSING_RESOURCE",
+      "status": "ACQUIRED_OFFICIAL_SOUNDBANK",
       "official_source": "https://github.com/turpaultn/DESED",
-      "local_audio_count": 0,
-      "reason": "No approved isolated foreground resource or per-recording registry was available locally; DESED mixtures/recorded soundscapes were not substituted."
+      "zenodo_source": "https://zenodo.org/records/4307908",
+      "archive_relpath": "raw/desed/DESED_synth_soundbank.tar.gz",
+      "archive_size_bytes": 2422047310,
+      "archive_md5": "03b51e3506ae28157a26101748045e90",
+      "archive_sha256": "e2a5c3c573303b68a51d66ad48c5c9971a861e737a898441b60b44bcce9cf96f",
+      "extracted_audio_count": 1899,
+      "excluded_extraction_artifacts": 3,
+      "isolated_foreground_candidate_count": 734,
+      "candidate_independent_identity_count": 383,
+      "supported_canonical_classes": ["speech", "running_water", "frying", "dishes", "vacuum_cleaner", "clock_alarm"],
+      "not_used": ["mixtures", "background_recordings", "foreground_on_off"],
+      "license_provenance": "official license_training.tsv and license_eval.tsv"
     },
     "PSELD-selected FSD50K": {
-      "status": "BLOCKED_LARGE_DOWNLOAD_REVIEW",
+      "status": "ACQUIRED_OFFICIAL_DEV_EVAL",
       "official_source": "https://zenodo.org/records/4060432",
       "metadata_crosswalk_source": "https://github.com/Jinbo-Hu/SELD-Data-Generator",
-      "official_dev_audio_archive_bytes_approx": 24700000000,
-      "local_audio_count": 0,
-      "reason": "Official audio is distributed as a roughly 24.7 GB split archive; downloading the full archive exceeds the Step 2A pre-review threshold. No archive was downloaded."
+      "audio_archives": {
+        "FSD50K.dev_audio.z01": {"md5": "faa7cf4cc076fc34a44a479a5ed862a3", "sha256": "db9816d8231ab1e8bf52a87964e6adf263a74394c7b17490a28c92ed8c7ca057"},
+        "FSD50K.dev_audio.z02": {"md5": "8f9b66153e68571164fb1315d00bc7bc", "sha256": "d4a583892bc606a95feee473dfe0461bf33fb7f89a5699d9cd65189da4a98f25"},
+        "FSD50K.dev_audio.z03": {"md5": "1196ef47d267a993d30fa98af54b7159", "sha256": "c1d2581612749502dee929561146b6b54ae4aa8c40547ab40dc0812dea0d1cc2"},
+        "FSD50K.dev_audio.z04": {"md5": "d088ac4e11ba53daf9f7574c11cccac9", "sha256": "5791d24ed1fc94abf57de74e84e75e3a134a6a9883d910ca8c58fe9a53540e39"},
+        "FSD50K.dev_audio.z05": {"md5": "81356521aa159accd3c35de22da28c7f", "sha256": "02f12d13a9c667d33a7e308ca40df9197cc4ec9d07fef5eed666b82785ffac48"},
+        "FSD50K.dev_audio.zip": {"md5": "c480d119b8f7a7e32fdb58f3ea4d6c5a", "sha256": "68a43aae4c1a8bf527c4783fe9987475789b047db5f8041acd8b0ef8e16e0ad4"},
+        "FSD50K.eval_audio.z01": {"md5": "3090670eaeecc013ca1ff84fe4442aeb", "sha256": "a1b776a5a9466a0cf17d0cb9a2a98f641454084f0292f511718aacb48e6c401d"},
+        "FSD50K.eval_audio.zip": {"md5": "6fa47636c3a3ad5c7dfeba99f2637982", "sha256": "e3d78e77115ff8d8df1ff3dae7ca5cd5864924c054561f61ba836764254bf50e"}
+      },
+      "archive_integrity": "unzip_test_passed_after_multipart_merge",
+      "extracted_audio_count": 51197,
+      "selected_candidate_count": 3416,
+      "resolved_waveform_count": 3416,
+      "missing_waveform_count": 0,
+      "duplicate_id_count": 0,
+      "metadata_mismatch_count": 16,
+      "pretrain_seen_status": "likely_yes_for_selected_candidates"
     }
   },
-  "large_download_review_required": true,
+  "large_download_authorization": "explicitly_authorized_in_step2a_manual_qc_gate_task",
+  "large_download_review_required": false,
   "fourth_source_family_used": false
 }

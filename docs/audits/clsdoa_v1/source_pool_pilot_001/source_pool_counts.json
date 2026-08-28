@@ -1,21 +1,46 @@
 {
   "status": "STEP_2A_MANUAL_QC_REQUIRED",
-  "ready_identity_count": {},
-  "pilot_eligible_identity_count": {},
+  "ready_identity_count": 0,
+  "pilot_eligible_identity_count": 0,
+  "candidate_dataset_count": 3,
+  "manual_review_queue_count": 3635,
   "candidate_clip_count": {
-    "coughing": 40,
-    "laughing": 40,
-    "keyboard_typing": 40,
-    "vacuum_cleaner": 40,
-    "clock_alarm": 40
+    "coughing": 288,
+    "laughing": 720,
+    "keyboard_typing": 308,
+    "vacuum_cleaner": 106,
+    "clock_alarm": 505,
+    "speech": 1281,
+    "running_water": 342,
+    "frying": 88,
+    "mechanical_fan": 69,
+    "microwave_oven": 149,
+    "dishes": 367,
+    "printer": 127
   },
   "candidate_independent_identity_count": {
-    "coughing": 39,
-    "laughing": 36,
-    "keyboard_typing": 37,
-    "vacuum_cleaner": 30,
-    "clock_alarm": 36
+    "coughing": 287,
+    "laughing": 716,
+    "keyboard_typing": 305,
+    "vacuum_cleaner": 89,
+    "clock_alarm": 309,
+    "speech": 1203,
+    "running_water": 331,
+    "frying": 88,
+    "mechanical_fan": 69,
+    "microwave_oven": 149,
+    "dishes": 304,
+    "printer": 127
   },
-  "candidate_dataset_count": 1,
-  "note": "Candidate counts are not READY counts; manual QC and all remaining source-family acquisition gates are incomplete."
+  "per_source_candidate_count": {
+    "ESC-50": 200,
+    "PSELD-selected FSD50K": 3416,
+    "DESED isolated foreground": 734
+  },
+  "per_source_independent_identity_count": {
+    "ESC-50": 178,
+    "PSELD-selected FSD50K": 3416,
+    "DESED isolated foreground": 383
+  },
+  "note": "Candidate file count and independent identity count are reported separately; neither is a final READY count. Counts across source families are not used as an acceptance decision until manual QC, duplicate audit, and provenance closure."
 }

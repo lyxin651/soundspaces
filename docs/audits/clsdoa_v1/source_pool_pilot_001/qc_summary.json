@@ -1,16 +1,49 @@
 {
   "status": "STEP_2A_MANUAL_QC_REQUIRED",
-  "candidate_rows": 200,
-  "auto_pass": 166,
-  "auto_flag": 34,
-  "auto_reject": 0,
-  "flag_reasons": {
-    "mostly_silence_or_low_activity": 22,
-    "severe_clipping_candidate": 12
+  "manual_qc_performed": false,
+  "source_results": {
+    "ESC-50": {
+      "candidate_rows": 200,
+      "resolved_waveforms": 200,
+      "AUTO_PASS": 166,
+      "AUTO_FLAG": 34,
+      "AUTO_REJECT": 0,
+      "flag_reasons": {"mostly_silence_or_low_activity": 22, "severe_clipping_candidate": 12}
+    },
+    "PSELD-selected FSD50K": {
+      "candidate_rows": 3416,
+      "resolved_waveforms": 3416,
+      "AUTO_PASS": 2873,
+      "AUTO_FLAG": 543,
+      "AUTO_REJECT": 0,
+      "flag_reasons": {"mostly_silence_or_low_activity": 508, "severe_clipping_candidate": 35},
+      "missing_waveform": 0,
+      "duplicate_id": 0,
+      "metadata_mismatch": 16
+    },
+    "DESED isolated foreground": {
+      "candidate_rows": 734,
+      "resolved_waveforms": 734,
+      "AUTO_PASS": 574,
+      "AUTO_FLAG": 160,
+      "AUTO_REJECT": 0,
+      "flag_reasons": {"mostly_silence_or_low_activity": 146, "severe_clipping_candidate": 14}
+    }
+  },
+  "combined": {
+    "candidate_rows": 4350,
+    "AUTO_PASS": 3613,
+    "AUTO_FLAG": 737,
+    "AUTO_REJECT": 0,
+    "note": "Automated flags are review priorities, not semantic acceptance or final READY decisions."
   },
   "manual_review": {
-    "performed": false,
-    "queued_rows": 200,
+    "queue_path": "/home/leiyuxin/soundspaces/source_assets/clsdoa_v1/review/source_pool_pilot_001/manual_review_queue.csv",
+    "queue_sha256": "814cbbf1e54c4b08a5c4b1f4d396946b6d88aa480c4e894c341a293a2218e1ec",
+    "queued_rows": 3635,
+    "TARGET": 830,
+    "RESERVE": 192,
+    "SEMANTIC_REVIEW": 2613,
     "reviewed": 0,
     "accepted": 0,
     "rejected": 0
