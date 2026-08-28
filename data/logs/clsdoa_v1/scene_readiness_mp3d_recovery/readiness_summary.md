@@ -1,10 +1,10 @@
-# ClassDOA V1 MP3D Step 1B Recovery
+# ClassDOA V1 Step 1B Final Integration
 
-- Recovery status: COMPLETE from existing local official Habitat archive; no download or repair was performed.
-- Archive validation: `zipinfo -t` passed and extraction completed with 7z CRC validation, exit code 0.
-- Extracted scans: 90 official scan IDs under `data/scene_datasets/mp3d/<scan_id>/`.
-- Readiness: 90 `PRESENT_COMPLETE`, 0 `PRESENT_PARTIAL`, 0 `BROKEN_PATH`; zero-byte required files: 0.
-- Candidate contract: all MP3D candidates remain `admitted=NOT_RUN`, `split=UNASSIGNED`.
-- Structural smoke: `STRUCTURAL_SMOKE` only; one scan loaded by Habitat and its navmesh loaded. No AudioSensor, render, source clearance, or admission.
-- Disk: before recovery 525G available; after recovery 505G available.
+- Replica R1 is integrated with MP3D recovery from the prior review branch.
+- Replica readiness: 18 `PRESENT_COMPLETE`, 0 `PRESENT_PARTIAL`, 0 `BROKEN_PATH`; non-Core stage-config warnings retained: 36.
+- MP3D readiness: 90 `PRESENT_COMPLETE`, 0 `PRESENT_PARTIAL`, 0 `BROKEN_PATH`; official Habitat layout uses GLB, navmesh, semantic PLY, and `.house` metadata.
+- Total candidates: 108; all `admitted=NOT_RUN`, `split=UNASSIGNED`, `materials=off`.
+- MP3D provenance remains in `resource_recovery_provenance.json`; structural smoke remains in `structural_smoke.json` and is `STRUCTURAL_SMOKE` only.
+- No Step 2B admission, AudioSensor render, FOA/binaural render, source clearance, split, Materials ON, asset modification, or download was performed.
+- Step 1B verdict: READY FOR HUMAN REVIEW; no current Step 1B resource blocker.
 - Step 2B: PENDING HUMAN REVIEW.
