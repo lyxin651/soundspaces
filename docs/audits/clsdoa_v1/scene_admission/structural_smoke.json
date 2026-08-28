@@ -1,0 +1,15 @@
+{
+  "admission": "NOT_RUN",
+  "audio_sensor_created": false,
+  "habitat_load": "PASS",
+  "materials_on": false,
+  "navmesh": "/home/leiyuxin/soundspaces/sound-spaces/data/scene_datasets/mp3d/B6ByNegPMKs/B6ByNegPMKs.navmesh",
+  "navmesh_file_nonzero": true,
+  "navmesh_loaded": true,
+  "pathfinder_loaded_after": true,
+  "pathfinder_loaded_before": true,
+  "scene_asset": "/home/leiyuxin/soundspaces/sound-spaces/data/scene_datasets/mp3d/B6ByNegPMKs/B6ByNegPMKs.glb",
+  "scene_id": "mp3d.B6ByNegPMKs",
+  "source_clearance": "NOT_RUN",
+  "status": "STRUCTURAL_SMOKE"
+}

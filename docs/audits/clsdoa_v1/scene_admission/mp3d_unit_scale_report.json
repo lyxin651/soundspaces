@@ -1,0 +1,21 @@
+{
+  "cross_check": {
+    "admitted_mp3d_scene_count": 85,
+    "nonfinite_probe_coordinates": 0,
+    "probe_distance_range_m": [
+      1.047123344730889,
+      3.978875597911416
+    ],
+    "tenfold_scale_anomaly_observed": false
+  },
+  "note": "The admission worker did not mutate scene scale; human review should confirm the official MP3D coordinate convention before Step 3 generation.",
+  "official_evidence": [
+    {
+      "claim": "AudioSensor unitScale default is 1.0 and scales mesh/positions",
+      "line": 41,
+      "source": "SoundSpaces2.md"
+    }
+  ],
+  "scope": "MP3D scene admission evidence; no asset rewrite",
+  "status": "PASS_WITH_REVIEW"
+}

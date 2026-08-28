@@ -1,0 +1,39 @@
+{
+  "hard_exclusion_applied": false,
+  "method": "3xIQR on PASS Binaural probe energy",
+  "outlier_count": 4,
+  "outliers": [
+    {
+      "lower": 0,
+      "metric": "binaural_energy",
+      "probe_index": 1,
+      "scene_id": "mp3d.Vt2qJdWjCF2",
+      "upper": 5.713634693480594,
+      "value": 9.126357193270204
+    },
+    {
+      "lower": 0,
+      "metric": "binaural_energy",
+      "probe_index": 0,
+      "scene_id": "replica.frl_apartment_2",
+      "upper": 5.713634693480594,
+      "value": 6.348157963826868
+    },
+    {
+      "lower": 0,
+      "metric": "binaural_energy",
+      "probe_index": 0,
+      "scene_id": "replica.office_0",
+      "upper": 5.713634693480594,
+      "value": 6.14222098683292
+    },
+    {
+      "lower": 0,
+      "metric": "binaural_energy",
+      "probe_index": 0,
+      "scene_id": "replica.office_1",
+      "upper": 5.713634693480594,
+      "value": 6.4354470015730225
+    }
+  ]
+}
