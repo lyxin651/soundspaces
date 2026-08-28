@@ -7,3 +7,7 @@ All 103 PASS scenes completed scene load, navmesh, five navigable samples, clear
 Family split counts are Replica train/val/test = 14/3/1 and MP3D train/val/test = 54/16/15. The split is deterministic and family-wise; no overlap was introduced. MP3D unit-scale evidence is recorded as PASS_WITH_REVIEW using the local SoundSpaces2 unitScale documentation and probe-coordinate cross-check; human confirmation remains required before Step 3.
 
 The MP3D recovery provenance and prior structural smoke evidence are retained beside this report. Acoustic outlier analysis is soft-only and does not alter admission. No scene asset was modified, downloaded, repaired, or committed.
+
+## Git Provenance Closure
+
+`STEP2B_CODE_COMMIT` is `53ecc6d`, the admission/split implementation used for the formal run. `STEP2B_RESULT_COMMIT` is `5c45b70bb1d7a1f95efd411fc25e274665af44ac`, which first committed the admission evidence and PASS-only V1 registry. `STEP2B_PROVENANCE_COMMIT` is `dd628cd06b6e603b8eed3e93b455f57802a2242f`, a later documentation hardening commit that corrected only the summary registry path. The provenance closure commit that adds this clarification is the review base; it is not a replacement result commit.
