@@ -40,6 +40,12 @@ class SceneReadinessTests(unittest.TestCase):
         entries = audit_replica(self.make_scene())
         self.assertEqual(entries[0]["readiness_status"], "PRESENT_COMPLETE")
 
+    def test_non_core_stage_references_are_warnings(self):
+        stage = json.dumps({"render_asset": "../mesh.ply", "semantic_asset": "mesh_semantic.ply", "nav_asset": "mesh_semantic.navmesh", "semantic_descriptor_filename": "info_semantic.txt"})
+        entry = audit_replica(self.make_scene(stage_text=stage))[0]
+        self.assertEqual(entry["readiness_status"], "PRESENT_COMPLETE")
+        self.assertEqual([item["key"] for item in entry["stage_config_warning"]], ["render_asset", "semantic_descriptor_filename"])
+
     def test_missing_navmesh_is_partial(self):
         entries = audit_replica(self.make_scene(nav=False))
         self.assertEqual(entries[0]["readiness_status"], "PRESENT_PARTIAL")
@@ -49,7 +55,7 @@ class SceneReadinessTests(unittest.TestCase):
         self.assertEqual(entries[0]["readiness_status"], "PRESENT_PARTIAL")
 
     def test_broken_stage_reference(self):
-        stage = json.dumps({"render_asset": "missing.ply", "semantic_asset": "mesh_semantic.ply", "nav_asset": "mesh_semantic.navmesh"})
+        stage = json.dumps({"render_asset": "mesh.ply", "semantic_asset": "mesh_semantic.ply", "nav_asset": "wrong.navmesh"})
         entries = audit_replica(self.make_scene(stage_text=stage))
         self.assertEqual(entries[0]["readiness_status"], "BROKEN_PATH")
 
