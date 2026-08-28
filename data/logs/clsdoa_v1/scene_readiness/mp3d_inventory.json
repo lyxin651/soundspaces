@@ -1,0 +1,10 @@
+{
+  "archives_present": [
+    "data/scene_datasets/mp3d/v1/tasks/mp3d_habitat.zip"
+  ],
+  "notes": "Archives are not treated as extracted scans.",
+  "root": "data/scene_datasets/mp3d",
+  "scan_count": 0,
+  "scans": [],
+  "scene_family": "MP3D"
+}
