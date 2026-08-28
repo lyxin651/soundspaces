@@ -106,14 +106,63 @@ def audit_replica(root: Path) -> List[Dict[str, Any]]:
     return entries
 
 
+def make_mp3d_entry(scan_root: Path) -> Dict[str, Any]:
+    """Audit the official MP3D Habitat scan layout without treating it as Replica."""
+    scan_id = scan_root.name
+    scene_asset = scan_root / (scan_id + ".glb")
+    semantic_mesh = scan_root / (scan_id + "_semantic.ply")
+    navmesh = scan_root / (scan_id + ".navmesh")
+    semantic_info = scan_root / (scan_id + ".house")
+    required = {
+        "scene_asset": scene_asset,
+        "semantic_mesh": semantic_mesh,
+        "navmesh": navmesh,
+        "semantic_info": semantic_info,
+    }
+    missing = [key for key, path in required.items() if not path.is_file()]
+    blocked = any(path.exists() and not readable(path) for path in required.values())
+    if blocked:
+        status = "BLOCKED_PERMISSION"
+    elif missing:
+        status = "PRESENT_PARTIAL"
+    else:
+        status = "PRESENT_COMPLETE"
+    sizes = {key: (path.stat().st_size if path.is_file() else None) for key, path in required.items()}
+    fingerprint = {key: small_file_fingerprint(path) for key, path in required.items()}
+    return {
+        "scene_id": "mp3d." + scan_id,
+        "scene_family": "MP3D",
+        "root": str(scan_root),
+        "habitat_root": str(scan_root),
+        "stage_config_path": None,
+        "scene_asset_path": str(scene_asset),
+        "mesh_path": str(semantic_mesh),
+        "semantic_mesh_path": str(semantic_mesh),
+        "navmesh_path": str(navmesh),
+        "semantic_info_path": str(semantic_info),
+        "textures_present": any(scan_root.glob("*.jpg")) or any(scan_root.glob("*.png")),
+        "file_readable": not blocked and not missing,
+        "key_resource_size_bytes": sizes,
+        "resource_fingerprint": fingerprint,
+        "stage_config_parse_error": None,
+        "stage_config_references": {},
+        "readiness_status": status,
+        "missing_fields": missing,
+        "broken_references": [],
+        "unit_scale_status": "TO_VERIFY_IN_STEP_2B",
+        "materials_mode_expected": "off",
+        "notes": "Step 1B structural readiness only; MP3D .house is semantic metadata; no admission or split.",
+    }
+
+
 def audit_mp3d(root: Path) -> Dict[str, Any]:
-    scans = []
-    for scan_root in sorted(path for path in root.iterdir() if path.is_dir()):
-        if scan_root.name == "v1":
-            for candidate in sorted(path for path in scan_root.rglob("*") if path.is_dir() and path.name != "tasks"):
-                scans.append(make_entry("mp3d." + candidate.name, "MP3D", candidate, candidate))
-        else:
-            scans.append(make_entry("mp3d." + scan_root.name, "MP3D", scan_root, scan_root))
+    scan_parent = root / "mp3d" if (root / "mp3d").is_dir() else root
+    scans = [
+        make_mp3d_entry(scan_root)
+        for scan_root in sorted(path for path in scan_parent.iterdir() if path.is_dir())
+        if (scan_root / (scan_root.name + ".glb")).exists()
+        or (scan_root / (scan_root.name + ".navmesh")).exists()
+    ]
     archives = sorted(str(path) for path in root.rglob("*.zip"))
     return {"scene_family": "MP3D", "root": str(root), "scans": scans, "archives_present": archives, "scan_count": len(scans), "notes": "Archives are not treated as extracted scans."}
 

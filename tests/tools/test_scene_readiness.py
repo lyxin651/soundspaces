@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools.clsdoa_v1.audit_scene_readiness import audit_replica, candidate
+from tools.clsdoa_v1.audit_scene_readiness import audit_mp3d, audit_replica, candidate
 
 
 class SceneReadinessTests(unittest.TestCase):
@@ -19,6 +19,21 @@ class SceneReadinessTests(unittest.TestCase):
         if stage_text is None:
             stage_text = json.dumps({"render_asset": "mesh_semantic.ply", "semantic_asset": "mesh_semantic.ply", "nav_asset": "mesh_semantic.navmesh"})
         (habitat / "scene.stage_config.json").write_text(stage_text, encoding="utf-8")
+        return temp
+
+    def make_mp3d_scene(self, missing=()):
+        temp = Path(tempfile.mkdtemp())
+        scan = temp / "ABCD1234"
+        scan.mkdir()
+        files = {
+            "ABCD1234.glb": b"glb\n",
+            "ABCD1234_semantic.ply": b"ply\n",
+            "ABCD1234.navmesh": b"nav\n",
+            "ABCD1234.house": b"house\n",
+        }
+        for name, content in files.items():
+            if name not in missing:
+                (scan / name).write_bytes(content)
         return temp
 
     def test_complete_fixture(self):
@@ -43,6 +58,19 @@ class SceneReadinessTests(unittest.TestCase):
         self.assertEqual(item["split"], "UNASSIGNED")
         self.assertEqual(item["admitted"], "NOT_RUN")
         self.assertEqual(item["materials_mode"], "off")
+
+    def test_mp3d_official_layout_is_complete(self):
+        result = audit_mp3d(self.make_mp3d_scene())
+        self.assertEqual(result["scan_count"], 1)
+        self.assertEqual(result["scans"][0]["readiness_status"], "PRESENT_COMPLETE")
+        item = candidate(result["scans"][0])
+        self.assertEqual(item["admitted"], "NOT_RUN")
+        self.assertEqual(item["split"], "UNASSIGNED")
+
+    def test_mp3d_missing_core_resource_is_partial(self):
+        result = audit_mp3d(self.make_mp3d_scene(missing={"ABCD1234.navmesh"}))
+        self.assertEqual(result["scans"][0]["readiness_status"], "PRESENT_PARTIAL")
+        self.assertEqual(result["scans"][0]["missing_fields"], ["navmesh"])
 
 
 if __name__ == "__main__":
