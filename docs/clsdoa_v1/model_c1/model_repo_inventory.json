@@ -1,0 +1,93 @@
+{
+  "checkpoint_samples": [
+    {
+      "kind": "checkpoint_or_weight",
+      "path": "/home/leiyuxin/soundspaces/external/seld_models/DCASE2025_TASK3_Stereo_PSELD_Mamba/PSELD_pretrained_ckpts/mACCDOA-CNN14-Conformer-0.582.ckpt",
+      "size_bytes": 799827990
+    },
+    {
+      "kind": "checkpoint_or_weight",
+      "path": "/home/leiyuxin/soundspaces/external/seld_models/DCASE2025_TASK3_Stereo_PSELD_Mamba/pretrained_ckpts/CNN14_BiMambaAC/best_model.pth",
+      "size_bytes": 913345930
+    },
+    {
+      "kind": "checkpoint_or_weight",
+      "path": "/home/leiyuxin/soundspaces/external/seld_models/DCASE2025_seld_baseline/checkpoints/SELDnet_audio_multiACCDOA_20250331_152343/best_model.pth",
+      "size_bytes": 8865512
+    },
+    {
+      "kind": "checkpoint_or_weight",
+      "path": "/home/leiyuxin/soundspaces/external/seld_models/DCASE2025_seld_baseline/checkpoints/SELDnet_audio_multiACCDOA_20250331_152343/config.pkl",
+      "size_bytes": 949
+    }
+  ],
+  "dcase2024": {
+    "present": false,
+    "status": "BLOCKED_RESOURCE"
+  },
+  "dcase2024_expected_paths": [
+    "/home/leiyuxin/soundspaces/external/DCASE2024_seld_baseline",
+    "/home/leiyuxin/soundspaces/external/seld_models/DCASE2024_seld_baseline"
+  ],
+  "discovered_repos": [
+    {
+      "commit": "e86b674a214ab379c6e863c563968941a22a15a1",
+      "is_git_repo": true,
+      "path": "/home/leiyuxin/soundspaces/external/seld_models/BAST",
+      "present": true,
+      "remote": "origin\thttps://github.com/ShengKuangCN/BAST.git (fetch)\norigin\thttps://github.com/ShengKuangCN/BAST.git (push)",
+      "status_short": ""
+    },
+    {
+      "commit": "6790590ba6c19fc01b9a421d50f25b58db635931",
+      "is_git_repo": true,
+      "path": "/home/leiyuxin/soundspaces/external/seld_models/DCASE2025_TASK3_Stereo_PSELD_Mamba",
+      "present": true,
+      "remote": "origin\thttps://github.com/alexandergwm/DCASE2025_TASK3_Stereo_PSELD_Mamba.git (fetch)\norigin\thttps://github.com/alexandergwm/DCASE2025_TASK3_Stereo_PSELD_Mamba.git (push)",
+      "status_short": "M experiments/baseline_config.py\n M pretrained_model/components/__pycache__/__init__.cpython-311.pyc\n M pretrained_model/components/__pycache__/backbone.cpython-311.pyc\n M pretrained_model/components/__pycache__/bmamba.cpython-311.pyc\n M pretrained_model/components/__pycache__/bmamba2.cpython-311.pyc\n M pretrained_model/components/__pycache__/bmamba_ac.cpython-311.pyc\n M pretrained_model/components/__pycache__/htsat.cpython-311.pyc\n M pretrained_model/components/__pycache__/model_utilities.cpython-311.pyc\n M pretrained_model/components/__pycache__/model_utilities_adapt.cpython-311.pyc\n M pretrained_model/components/__pycache__/utils.cpython-311.pyc\n M pretrained_model/components/conformer/__pycache__/__init__.cpython-311.pyc\n M pretrained_model/components/conformer/__pycache__/activation.cpython-311.pyc\n M pretrained_model/components/conformer/__pycache__/attention.cpython-311.pyc\n M pretrained_model/components/conformer/__pycache__/convolution.cpython-311.pyc\n M pretrained_model/components/conformer/__pycache__/embedding.cpython-311.pyc\n M pretrained_model/components/conformer/__pycache__/encoder.cpython-311.pyc\n M pretrained_model/components/conformer/__pycache__/feed_forward.cpython-311.pyc\n M pretrained_model/components/conformer/__pycache__/modules.cpython-311.pyc\n M requirements.txt\n?? PSELD_pretrained_ckpts/\n?? __pycache__/\n?? experiments/__pycache__/\n?? features/\n?? outputs/\n?? pretrained_ckpts/"
+    },
+    {
+      "commit": "089f3c2d9834c3ad1622a1d40aea7f5f4a391221",
+      "is_git_repo": true,
+      "path": "/home/leiyuxin/soundspaces/external/seld_models/MAGENTA",
+      "present": true,
+      "remote": "origin\thttps://github.com/itsjunwei/MAGENTA.git (fetch)\norigin\thttps://github.com/itsjunwei/MAGENTA.git (push)",
+      "status_short": ""
+    },
+    {
+      "commit": "613ab819ebe3a741f7bd5c1c5d19f015bac4c29f",
+      "is_git_repo": true,
+      "path": "/home/leiyuxin/soundspaces/external/seld_models/MFF-EINV2",
+      "present": true,
+      "remote": "origin\thttps://github.com/muuda/MFF-EINV2.git (fetch)\norigin\thttps://github.com/muuda/MFF-EINV2.git (push)",
+      "status_short": ""
+    },
+    {
+      "commit": "f714de5a95613be1b5ba372e0d7adc8349ecb7c8",
+      "is_git_repo": true,
+      "path": "/home/leiyuxin/soundspaces/external/seld_models/Solution_on_3D_SELD",
+      "present": true,
+      "remote": "origin\thttps://github.com/yxdong0320/Solution_on_3D_SELD.git (fetch)\norigin\thttps://github.com/yxdong0320/Solution_on_3D_SELD.git (push)",
+      "status_short": ""
+    }
+  ],
+  "external_root": "/home/leiyuxin/soundspaces/external",
+  "non_target_note": "DCASE2025/MFF-EINV2 repos were inventoried only; Step 1D forbids using them as substitutes.",
+  "pseld": {
+    "present": false,
+    "status": "BLOCKED_RESOURCE"
+  },
+  "pseld_expected_paths": [
+    "/home/leiyuxin/soundspaces/external/PSELDNets",
+    "/home/leiyuxin/soundspaces/external/seld_models/PSELDNets"
+  ],
+  "serialized_artifact_summary": {
+    "checkpoint_or_weight": {
+      "count": 4,
+      "total_size_bytes": 1722040381
+    }
+  },
+  "skipped_feature_cache_roots": [
+    "/home/leiyuxin/soundspaces/external/seld_models/DCASE2025_TASK3_Stereo_PSELD_Mamba/features"
+  ]
+}

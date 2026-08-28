@@ -1,0 +1,11 @@
+{
+  "blockers": [
+    "PSELDNets repository not found locally."
+  ],
+  "checkpoint": "DEFERRED_RESOURCE",
+  "coordinate_label_adapter": "later C2 required / not assessed here",
+  "feature_adapter": "unknown until target repo is present",
+  "loader_adapter": "unknown until target repo is present",
+  "shape_adapter": "unknown until target repo is present",
+  "status": "BLOCKED_RESOURCE"
+}

@@ -1,0 +1,371 @@
+{
+  "accuracy_seld_performance_claimed": "NO",
+  "base_commit": "3d91f093d14a2ed60a1c51734ec8ea0197033ae8",
+  "branch": "dataset-v1/step1d-model-c1",
+  "c1_overall": "BLOCKED_RESOURCE",
+  "channel_order": [
+    "W",
+    "Y",
+    "Z",
+    "X"
+  ],
+  "contract": {
+    "channels": 4,
+    "dtype": "float32",
+    "duration_seconds": 5.0,
+    "normalization": "none",
+    "sample_rate_hz": 24000,
+    "samples": 120000
+  },
+  "data_pilot_blocker_caused_by_model": "NO",
+  "date_executor": "2026-08-28 / Codex",
+  "dcase2024": {
+    "blockers": [
+      "DCASE2024 official baseline repository not found locally."
+    ],
+    "checkpoint": "DEFERRED_RESOURCE",
+    "coordinate_label_adapter": "later C2 required / not assessed here",
+    "feature_adapter": "unknown until target repo is present",
+    "loader_adapter": "likely required if official loader uses int16-only scaling; cannot confirm without repo",
+    "local_float32_int16_assumption_probe": {
+      "dtype_aware_adapter": {
+        "amplitude_preserved": true,
+        "dtype": "float32",
+        "stats": {
+          "channels": 4,
+          "dtype": "float32",
+          "duration_seconds": 5.0,
+          "finite": true,
+          "global_rms": 0.04202312231063843,
+          "inf_count": 0,
+          "nan_count": 0,
+          "nonzero": true,
+          "num_samples": 120000,
+          "per_channel_max": [
+            0.09998979419469833,
+            0.059938229620456696,
+            0.03498481586575508,
+            0.07485565543174744
+          ],
+          "per_channel_min": [
+            -0.09999679774045944,
+            -0.059942442923784256,
+            -0.03499005362391472,
+            -0.07484590262174606
+          ],
+          "per_channel_rms": [
+            0.05877242609858513,
+            0.03526370972394943,
+            0.020569710060954094,
+            0.0440787747502327
+          ],
+          "sample_rate_hz": 24000,
+          "shape": [
+            120000,
+            4
+          ]
+        }
+      },
+      "raw": {
+        "channels": 4,
+        "dtype": "float32",
+        "duration_seconds": 5.0,
+        "finite": true,
+        "global_rms": 0.04202312231063843,
+        "inf_count": 0,
+        "nan_count": 0,
+        "nonzero": true,
+        "num_samples": 120000,
+        "per_channel_max": [
+          0.09998979419469833,
+          0.059938229620456696,
+          0.03498481586575508,
+          0.07485565543174744
+        ],
+        "per_channel_min": [
+          -0.09999679774045944,
+          -0.059942442923784256,
+          -0.03499005362391472,
+          -0.07484590262174606
+        ],
+        "per_channel_rms": [
+          0.05877242609858513,
+          0.03526370972394943,
+          0.020569710060954094,
+          0.0440787747502327
+        ],
+        "sample_rate_hz": 24000,
+        "shape": [
+          120000,
+          4
+        ]
+      },
+      "stock_loader": {
+        "attenuation_db": -90.30899869919436,
+        "attenuation_ratio": 3.0517578125e-05,
+        "dtype": "float32",
+        "stats": {
+          "channels": 4,
+          "dtype": "float32",
+          "duration_seconds": 5.0,
+          "finite": true,
+          "global_rms": 1.2824439181713387e-06,
+          "inf_count": 0,
+          "nan_count": 0,
+          "nonzero": true,
+          "num_samples": 120000,
+          "per_channel_max": [
+            3.051446356039378e-06,
+            1.8291696051164763e-06,
+            1.0676518513719202e-06,
+            2.284413312736433e-06
+          ],
+          "per_channel_min": [
+            -3.0516600872942945e-06,
+            -1.8292981849299395e-06,
+            -1.0678116950657568e-06,
+            -2.284115680595278e-06
+          ],
+          "per_channel_rms": [
+            1.7935921050593606e-06,
+            1.076163016477949e-06,
+            6.277377337937651e-07,
+            1.3451774520945037e-06
+          ],
+          "sample_rate_hz": 24000,
+          "shape": [
+            120000,
+            4
+          ]
+        }
+      }
+    },
+    "shape_adapter": "unknown until target repo is present",
+    "status": "BLOCKED_RESOURCE",
+    "stock_loader": "not audited; DCASE2024 repo missing"
+  },
+  "dcase_float32_scaling_check": {
+    "dtype_aware_adapter": {
+      "amplitude_preserved": true,
+      "dtype": "float32",
+      "stats": {
+        "channels": 4,
+        "dtype": "float32",
+        "duration_seconds": 5.0,
+        "finite": true,
+        "global_rms": 0.04202312231063843,
+        "inf_count": 0,
+        "nan_count": 0,
+        "nonzero": true,
+        "num_samples": 120000,
+        "per_channel_max": [
+          0.09998979419469833,
+          0.059938229620456696,
+          0.03498481586575508,
+          0.07485565543174744
+        ],
+        "per_channel_min": [
+          -0.09999679774045944,
+          -0.059942442923784256,
+          -0.03499005362391472,
+          -0.07484590262174606
+        ],
+        "per_channel_rms": [
+          0.05877242609858513,
+          0.03526370972394943,
+          0.020569710060954094,
+          0.0440787747502327
+        ],
+        "sample_rate_hz": 24000,
+        "shape": [
+          120000,
+          4
+        ]
+      }
+    },
+    "raw": {
+      "channels": 4,
+      "dtype": "float32",
+      "duration_seconds": 5.0,
+      "finite": true,
+      "global_rms": 0.04202312231063843,
+      "inf_count": 0,
+      "nan_count": 0,
+      "nonzero": true,
+      "num_samples": 120000,
+      "per_channel_max": [
+        0.09998979419469833,
+        0.059938229620456696,
+        0.03498481586575508,
+        0.07485565543174744
+      ],
+      "per_channel_min": [
+        -0.09999679774045944,
+        -0.059942442923784256,
+        -0.03499005362391472,
+        -0.07484590262174606
+      ],
+      "per_channel_rms": [
+        0.05877242609858513,
+        0.03526370972394943,
+        0.020569710060954094,
+        0.0440787747502327
+      ],
+      "sample_rate_hz": 24000,
+      "shape": [
+        120000,
+        4
+      ]
+    },
+    "stock_loader": {
+      "attenuation_db": -90.30899869919436,
+      "attenuation_ratio": 3.0517578125e-05,
+      "dtype": "float32",
+      "stats": {
+        "channels": 4,
+        "dtype": "float32",
+        "duration_seconds": 5.0,
+        "finite": true,
+        "global_rms": 1.2824439181713387e-06,
+        "inf_count": 0,
+        "nan_count": 0,
+        "nonzero": true,
+        "num_samples": 120000,
+        "per_channel_max": [
+          3.051446356039378e-06,
+          1.8291696051164763e-06,
+          1.0676518513719202e-06,
+          2.284413312736433e-06
+        ],
+        "per_channel_min": [
+          -3.0516600872942945e-06,
+          -1.8292981849299395e-06,
+          -1.0678116950657568e-06,
+          -2.284115680595278e-06
+        ],
+        "per_channel_rms": [
+          1.7935921050593606e-06,
+          1.076163016477949e-06,
+          6.277377337937651e-07,
+          1.3451774520945037e-06
+        ],
+        "sample_rate_hz": 24000,
+        "shape": [
+          120000,
+          4
+        ]
+      }
+    }
+  },
+  "environment": {
+    "cuda_available": true,
+    "executable": "/home/leiyuxin/miniconda3/envs/ss/bin/python",
+    "habitat_sim": "0.2.2",
+    "librosa": "0.11.0",
+    "numpy": "1.26.4",
+    "python": "3.9.25 (main, Nov  3 2025, 22:33:05) \n[GCC 11.2.0]",
+    "scipy": "1.13.1",
+    "soundfile": "0.13.1",
+    "ss_environment_modified": "NO",
+    "torch": "2.8.0",
+    "torchaudio": "2.8.0+cu128"
+  },
+  "fixture": {
+    "path": "/tmp/clsdoa_step1d/canonical_foa_directional_float32.wav",
+    "sha256": "9fb5c2fb4373788823e504adcad595d5dcad81a3740992732ab8e2bd6b53faee",
+    "stats": {
+      "channels": 4,
+      "dtype": "float32",
+      "duration_seconds": 5.0,
+      "finite": true,
+      "global_rms": 0.04202312231063843,
+      "inf_count": 0,
+      "nan_count": 0,
+      "nonzero": true,
+      "num_samples": 120000,
+      "per_channel_max": [
+        0.09998979419469833,
+        0.059938229620456696,
+        0.03498481586575508,
+        0.07485565543174744
+      ],
+      "per_channel_min": [
+        -0.09999679774045944,
+        -0.059942442923784256,
+        -0.03499005362391472,
+        -0.07484590262174606
+      ],
+      "per_channel_rms": [
+        0.05877242609858513,
+        0.03526370972394943,
+        0.020569710060954094,
+        0.0440787747502327
+      ],
+      "sample_rate_hz": 24000,
+      "shape": [
+        120000,
+        4
+      ]
+    },
+    "subtype": "FLOAT"
+  },
+  "foa_converter_or_golden_modified": "NO",
+  "generic_fixture": {
+    "path": "/tmp/clsdoa_step1d/canonical_foa_generic_float32.wav",
+    "sha256": "d54794293d887fea3d926a250cd7212116073594f63f9008df0502af75561fb0",
+    "stats": {
+      "channels": 4,
+      "dtype": "float32",
+      "duration_seconds": 5.0,
+      "finite": true,
+      "global_rms": 0.034095462411642075,
+      "inf_count": 0,
+      "nan_count": 0,
+      "nonzero": true,
+      "num_samples": 120000,
+      "per_channel_max": [
+        0.07999999821186066,
+        0.02999991737306118,
+        0.019999610260128975,
+        0.03999999910593033
+      ],
+      "per_channel_min": [
+        -0.07999999821186066,
+        -0.02999996766448021,
+        -0.01999961957335472,
+        -0.03999999910593033
+      ],
+      "per_channel_rms": [
+        0.05656707286834717,
+        0.02121315710246563,
+        0.014142720028758049,
+        0.028284238651394844
+      ],
+      "sample_rate_hz": 24000,
+      "shape": [
+        120000,
+        4
+      ]
+    },
+    "subtype": "FLOAT"
+  },
+  "master_dataset_changes_required": "NO",
+  "new_class_doa_head_implemented": "NO",
+  "output_dir": "/home/leiyuxin/soundspaces/worktrees/clsdoa-step1d/data/logs/clsdoa_v1/model_c1",
+  "p0b_ancestry": "PASS",
+  "pseld": {
+    "blockers": [
+      "PSELDNets repository not found locally."
+    ],
+    "checkpoint": "DEFERRED_RESOURCE",
+    "coordinate_label_adapter": "later C2 required / not assessed here",
+    "feature_adapter": "unknown until target repo is present",
+    "loader_adapter": "unknown until target repo is present",
+    "shape_adapter": "unknown until target repo is present",
+    "status": "BLOCKED_RESOURCE"
+  },
+  "status": "STEP 1D COMPLETED \u2014 PENDING HUMAN REVIEW",
+  "tracked_output_dir": "/home/leiyuxin/soundspaces/worktrees/clsdoa-step1d/docs/clsdoa_v1/model_c1",
+  "training_backward_performed": "NO",
+  "worktree": "/home/leiyuxin/soundspaces/worktrees/clsdoa-step1d"
+}

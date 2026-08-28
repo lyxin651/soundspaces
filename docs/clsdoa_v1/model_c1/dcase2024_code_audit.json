@@ -1,0 +1,20 @@
+{
+  "encoder_entry": null,
+  "expected_clip_length": null,
+  "expected_input_dtype": null,
+  "expected_input_shape": null,
+  "expected_paths": [
+    "/home/leiyuxin/soundspaces/external/DCASE2024_seld_baseline",
+    "/home/leiyuxin/soundspaces/external/seld_models/DCASE2024_seld_baseline"
+  ],
+  "expected_sample_rate": null,
+  "feature_frontend_function_or_class": null,
+  "files_inspected": [],
+  "known_incompatibilities": [
+    "Target repository is not present locally; no substitute repo was used."
+  ],
+  "loader_function_or_class": null,
+  "normalization_or_scaling": null,
+  "repo": "DCASE2024 official SELDNet baseline",
+  "status": "BLOCKED_RESOURCE"
+}
