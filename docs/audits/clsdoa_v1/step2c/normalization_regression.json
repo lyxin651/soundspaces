@@ -1,0 +1,20 @@
+{
+  "binaural": {
+    "absolute_error": 2.8959984299525843e-08,
+    "expected_amplitude_ratio": 0.5011872336272722,
+    "gain_db": -6.0,
+    "measured_amplitude_ratio": 0.5011872046672879,
+    "pass": true
+  },
+  "foa": {
+    "absolute_error": 2.8720921974034752e-08,
+    "expected_amplitude_ratio": 0.5011872336272722,
+    "gain_db": -6.0,
+    "measured_amplitude_ratio": 0.5011872049063503,
+    "pass": true
+  },
+  "pass": true,
+  "per_render": false,
+  "per_viewpoint": false,
+  "separate_branch": false
+}

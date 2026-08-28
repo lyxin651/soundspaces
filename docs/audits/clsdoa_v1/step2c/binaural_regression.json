@@ -1,0 +1,152 @@
+{
+  "pass": true,
+  "rows": {
+    "front": {
+      "channel_order": [
+        "LEFT",
+        "RIGHT"
+      ],
+      "num_samples": 120000,
+      "pass": true,
+      "rir": {
+        "dtype": "float32",
+        "finite": true,
+        "non_zero": true,
+        "peak": [
+          0.007641289383172989,
+          0.008026184514164925
+        ],
+        "rms": [
+          0.00014550289475006523,
+          0.0001609177627389961
+        ],
+        "shape": [
+          2,
+          30040
+        ]
+      },
+      "sample_rate_hz": 24000,
+      "source_position_world": [
+        1.6240532398,
+        0.53113,
+        -2.0125486851
+      ],
+      "waveform": {
+        "dtype": "float32",
+        "finite": true,
+        "non_zero": true,
+        "peak": [
+          0.0061132763512432575,
+          0.006527470424771309
+        ],
+        "rms": [
+          0.0013186492752072076,
+          0.001475057232879312
+        ],
+        "shape": [
+          2,
+          120000
+        ]
+      },
+      "yaw_deg": 0.0
+    },
+    "off_axis_yawed": {
+      "channel_order": [
+        "LEFT",
+        "RIGHT"
+      ],
+      "num_samples": 120000,
+      "pass": true,
+      "rir": {
+        "dtype": "float32",
+        "finite": true,
+        "non_zero": true,
+        "peak": [
+          0.0033994929399341345,
+          0.0011251113610342145
+        ],
+        "rms": [
+          4.216769027014839e-05,
+          1.5920070459291454e-05
+        ],
+        "shape": [
+          2,
+          27216
+        ]
+      },
+      "sample_rate_hz": 24000,
+      "source_position_world": [
+        2.35,
+        1.13113,
+        -1.51255
+      ],
+      "waveform": {
+        "dtype": "float32",
+        "finite": true,
+        "non_zero": true,
+        "peak": [
+          0.0016800221055746078,
+          0.0006853286176919937
+        ],
+        "rms": [
+          0.000374162748177941,
+          0.00014837327436980816
+        ],
+        "shape": [
+          2,
+          120000
+        ]
+      },
+      "yaw_deg": 37.0
+    },
+    "right": {
+      "channel_order": [
+        "LEFT",
+        "RIGHT"
+      ],
+      "num_samples": 120000,
+      "pass": true,
+      "rir": {
+        "dtype": "float32",
+        "finite": true,
+        "non_zero": true,
+        "peak": [
+          0.0024579931050539017,
+          0.0010474618757143617
+        ],
+        "rms": [
+          3.7726586717440254e-05,
+          2.7129825409327033e-05
+        ],
+        "shape": [
+          2,
+          28028
+        ]
+      },
+      "sample_rate_hz": 24000,
+      "source_position_world": [
+        3.1240532398,
+        0.53113,
+        -0.5125486851
+      ],
+      "waveform": {
+        "dtype": "float32",
+        "finite": true,
+        "non_zero": true,
+        "peak": [
+          0.0015509199583902955,
+          0.001102181850001216
+        ],
+        "rms": [
+          0.00034139988670411914,
+          0.00024466977237524784
+        ],
+        "shape": [
+          2,
+          120000
+        ]
+      },
+      "yaw_deg": 0.0
+    }
+  }
+}

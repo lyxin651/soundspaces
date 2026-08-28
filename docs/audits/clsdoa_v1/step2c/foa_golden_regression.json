@@ -1,0 +1,16 @@
+{
+  "canonical_verdict": "PASS",
+  "cardinal_rows": {
+    "back": true,
+    "down": true,
+    "front": true,
+    "left": true,
+    "right": true,
+    "up": true
+  },
+  "evidence": "existing P0-B frozen logs; Golden assets were not regenerated",
+  "max_angular_error_deg": 3.078324659199975e-06,
+  "model_facing_verdict": "PASS",
+  "off_axis_yawed": true,
+  "pass": true
+}

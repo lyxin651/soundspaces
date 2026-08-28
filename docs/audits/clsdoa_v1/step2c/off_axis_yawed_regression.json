@@ -1,0 +1,52 @@
+{
+  "binaural": {
+    "channel_order": [
+      "LEFT",
+      "RIGHT"
+    ],
+    "num_samples": 120000,
+    "pass": true,
+    "rir": {
+      "dtype": "float32",
+      "finite": true,
+      "non_zero": true,
+      "peak": [
+        0.0033994929399341345,
+        0.0011251113610342145
+      ],
+      "rms": [
+        4.216769027014839e-05,
+        1.5920070459291454e-05
+      ],
+      "shape": [
+        2,
+        27216
+      ]
+    },
+    "sample_rate_hz": 24000,
+    "source_position_world": [
+      2.35,
+      1.13113,
+      -1.51255
+    ],
+    "waveform": {
+      "dtype": "float32",
+      "finite": true,
+      "non_zero": true,
+      "peak": [
+        0.0016800221055746078,
+        0.0006853286176919937
+      ],
+      "rms": [
+        0.000374162748177941,
+        0.00014837327436980816
+      ],
+      "shape": [
+        2,
+        120000
+      ]
+    },
+    "yaw_deg": 37.0
+  },
+  "golden": true
+}

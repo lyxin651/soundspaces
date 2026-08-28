@@ -1,0 +1,7 @@
+{
+  "episode_count": 3,
+  "production_backend": false,
+  "same_recipe": true,
+  "same_source_gain_offset_pose_yaw_config": true,
+  "verdict": "PARTIAL — V1 PairedRenderer has no real backend"
+}

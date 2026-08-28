@@ -1,0 +1,11 @@
+{
+  "code_commit": "2f0faee278e33158e3bfe62a415883d0933f4e41",
+  "files": {
+    "binaural_regression.json": "6b8c16c3beb602c6bb611cd646e51a10ed296658ae7f6f6df20d426aa33b4f0a",
+    "foa_golden_regression.json": "a6d8cc8c8f70c1bace55a46cda7d13ba70b919c5077ffe883ed647879e5ea02e",
+    "normalization_regression.json": "2a5dd04df5d0e1c347f6b6a9d46c983384131fa1fc961a95cad1ac663014c34b",
+    "off_axis_yawed_regression.json": "248457ae9cfa5f1b0ba83ae8072c2deec7e90b7dba06a84314a384bab7a13123",
+    "paired_regression.json": "c0e1a80e80c0c5922c678f4ac1275838bcec3fe264fb8a4637d4c4592be0e48e",
+    "provenance_evidence.json": "ce82b23c1d0bd69764ad249168c2dc600f18e412ac157799b85e60cf95d38bf0"
+  }
+}
