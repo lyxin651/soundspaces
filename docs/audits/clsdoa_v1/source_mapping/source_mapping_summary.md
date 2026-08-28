@@ -1,37 +1,37 @@
-# ClassDOA V1 Step 1A source mapping audit
+# ClassDOA V1 Step 1A.1 source mapping repair
 
 This is a metadata/provenance audit only. No source audio was downloaded, resampled, normalized, split, auditioned, or rendered.
 
 ## 12-class summary matrix
 
-| canonical class | ESC-50 | DESED isolated | PSELD-selected FSD50K | Step 1A primary suggestion | supplement suggestion | unresolved |
+| canonical class | ESC-50 | DESED isolated | PSELDNets 170-class FSD inventory | Step 1A primary suggestion | supplement suggestion | unresolved |
 |---|---|---|---|---|---|---|
-| coughing | EXACT (40 clips/39 ids) | BLOCKED_RESOURCE | NONE (0 clips/0 ids) | ESC-50 (EXACT) | none identified | DESED isolated foreground |
-| laughing | EXACT (40 clips/36 ids) | BLOCKED_RESOURCE | SEMANTIC_STRONG (606 clips/606 ids) | ESC-50 (EXACT) | PSELD-selected FSD50K | DESED isolated foreground |
-| keyboard_typing | EXACT (40 clips/37 ids) | BLOCKED_RESOURCE | NONE (0 clips/0 ids) | ESC-50 (EXACT) | none identified | DESED isolated foreground |
-| vacuum_cleaner | EXACT (40 clips/30 ids) | BLOCKED_RESOURCE | EXACT (62 clips/62 ids) | ESC-50 (EXACT; DESED/PSELD supplement blocked/metadata-only) | none identified | DESED isolated foreground |
-| clock_alarm | EXACT (40 clips/36 ids) | BLOCKED_RESOURCE | NONE (0 clips/0 ids) | ESC-50 (EXACT) | none identified | DESED isolated foreground |
-| speech | NONE (0 clips/0 ids) | BLOCKED_RESOURCE | SEMANTIC_STRONG (635 clips/635 ids) | DESED isolated foreground (blocked; PSELD supplement metadata-only) | PSELD-selected FSD50K | DESED isolated foreground |
-| running_water | AMBIGUOUS (80 clips/63 ids) | BLOCKED_RESOURCE | SEMANTIC_STRONG (98 clips/98 ids) | DESED isolated foreground (blocked) | PSELD-selected FSD50K | ESC-50, DESED isolated foreground |
-| frying | NONE (0 clips/0 ids) | BLOCKED_RESOURCE | NONE (0 clips/0 ids) | DESED isolated foreground (blocked) | none identified | DESED isolated foreground |
-| mechanical_fan | NONE (0 clips/0 ids) | BLOCKED_RESOURCE | EXACT (91 clips/91 ids) | PSELD-selected FSD50K (EXACT, metadata-only) | none identified | DESED isolated foreground |
-| microwave_oven | NONE (0 clips/0 ids) | BLOCKED_RESOURCE | NONE (0 clips/0 ids) | UNRESOLVED | none identified | DESED isolated foreground |
-| dishes | NONE (0 clips/0 ids) | BLOCKED_RESOURCE | NONE (0 clips/0 ids) | DESED isolated foreground (blocked) | none identified | DESED isolated foreground |
-| printer | NONE (0 clips/0 ids) | BLOCKED_RESOURCE | NONE (0 clips/0 ids) | UNRESOLVED | none identified | DESED isolated foreground |
+| coughing | EXACT (40 clips/39 ids) | NONE | SEMANTIC_STRONG (248 clips/248 ids) | ESC-50 (EXACT) | PSELDNets 170-class FSD inventory | DESED isolated foreground, PSELD-selected FSD50K |
+| laughing | EXACT (40 clips/36 ids) | NONE | SEMANTIC_STRONG (680 clips/680 ids) | ESC-50 (EXACT) | PSELDNets 170-class FSD inventory | DESED isolated foreground, PSELD-selected FSD50K |
+| keyboard_typing | EXACT (40 clips/37 ids) | NONE | SEMANTIC_STRONG (268 clips/268 ids) | ESC-50 (EXACT) | PSELDNets 170-class FSD inventory | DESED isolated foreground, PSELD-selected FSD50K |
+| vacuum_cleaner | EXACT (40 clips/30 ids) | EXACT | NONE (0 clips/0 ids) | ESC-50 (EXACT) | none identified | PSELD-selected FSD50K |
+| clock_alarm | EXACT (40 clips/36 ids) | SEMANTIC_STRONG | SEMANTIC_STRONG (212 clips/212 ids) | ESC-50 (EXACT) | PSELDNets 170-class FSD inventory | DESED isolated foreground, PSELD-selected FSD50K |
+| speech | NONE (0 clips/0 ids) | EXACT | EXACT (252 clips/252 ids) | DESED isolated foreground (EXACT; resource missing) | PSELDNets 170-class FSD inventory | ESC-50 |
+| running_water | AMBIGUOUS (80 clips/63 ids) | EXACT | SEMANTIC_STRONG (95 clips/95 ids) | DESED isolated foreground (EXACT; resource missing) | PSELDNets 170-class FSD inventory | ESC-50, PSELD-selected FSD50K |
+| frying | NONE (0 clips/0 ids) | EXACT | EXACT (76 clips/76 ids) | DESED isolated foreground (EXACT; resource missing) | PSELDNets 170-class FSD inventory | ESC-50 |
+| mechanical_fan | NONE (0 clips/0 ids) | NONE | EXACT (69 clips/69 ids) | PSELDNets 170-class FSD50K inventory (EXACT, metadata-only) | none identified | ESC-50, DESED isolated foreground |
+| microwave_oven | NONE (0 clips/0 ids) | NONE | EXACT (149 clips/149 ids) | PSELDNets 170-class FSD50K inventory (EXACT, metadata-only) | none identified | ESC-50, DESED isolated foreground |
+| dishes | NONE (0 clips/0 ids) | EXACT | SEMANTIC_STRONG (224 clips/224 ids) | DESED isolated foreground (EXACT; resource missing) | PSELDNets 170-class FSD inventory | ESC-50, PSELD-selected FSD50K |
+| printer | NONE (0 clips/0 ids) | NONE | EXACT (127 clips/127 ids) | PSELDNets 170-class FSD50K inventory (EXACT, metadata-only) | none identified | ESC-50, DESED isolated foreground |
 
-## Evidence and review narrative
+## Repair conclusions
 
-ESC-50 official metadata is available for audit with 2,000 rows, five folds, category, target, src_file, and take fields. The local server has no ESC-50 audio root, so exact mappings for coughing, laughing, keyboard_typing, vacuum_cleaner, and clock_alarm are metadata-only; running_water has only the nearby pouring_water/water_drops labels and is AMBIGUOUS. Other canonical classes are NONE in the official category field. Candidate counts are metadata counts and independent identities use src_file, so they are not claims of locally usable audio.
+DESED mapping status is now independent from resource status. With official event-occurrence metadata present, Speech, Running_water, Dishes, Frying, and Vacuum_cleaner are EXACT; Alarm_bell_ringing to clock_alarm is SEMANTIC_STRONG and requires manual review. The isolated foreground registry/audio is still absent locally, so DESED resource_status remains MISSING and candidate/identity counts remain blank.
 
-DESED official documentation and event-occurrence metadata expose the soundbank mechanism and labels for Vacuum_cleaner, Alarm_bell_ringing, Speech, Running_water, Frying, and Dishes, but the local server has no DESED isolated foreground root or per-clip registry. Therefore all 12 DESED rows are BLOCKED_RESOURCE, with known labels retained only as evidence; candidate and identity counts remain blank. Synthetic mixtures, real soundscapes, and the DESED code repository are not treated as isolated source clips.
+PSELDNets class-index metadata contains 170 official classes. The canonical mapping is resolved through the official PSELD label, its AudioSet MID, and the matching SELD-Data-Generator FSD50K TSV. Printer, Microwave oven, and Mechanical fan are now supported by exact PSELD labels and source TSV inventories. Vacuum cleaner is not an official PSELDNets 170-class label and is therefore NONE in this PSELD row; the previous static Vacuum_cleaner mapping was removed.
 
-The official FSD50K_selected.txt registry is present as a small metadata text list with 4,177 entries and numeric FSD/Freesound filenames. It contains exact Mechanical_fan and Vacuum_cleaner groups, and strong semantic Laughter, speech, and Water_tap_and_faucet groups. The local PSELD repository contains code and generated DCASE stereo/feature artifacts but no cls_indices_* or PSELD source crosswalk; the selected registry is consequently usable for metadata mapping but only PARTIAL for PSELD-specific provenance. Selected audio is not locally present.
+The Zenodo FSD50K_selected.txt file is retained only as supplementary DCASE2022 evidence. It is explicitly not treated as a PSELD pretraining registry: DCASE2022_SELECTED_FSD50K != PSELD_PRETRAIN_SELECTED_FSD50K. The repaired PSELD crosswalk is traceable to the 170-class index and generator TSVs, but direct checkpoint-training membership is not proven; pretraining_exposure_traceability remains PARTIAL.
 
-The selected registry has enough distinct numeric filenames for the reported candidate/identity counts; no duplicate exact selected path was found. The audit does not infer duration or audio quality from filenames. No class is proven to lack a source across all three families, but DESED isolated resources and PSELD-specific selection linkage remain blockers for a complete source track.
+PSELD metadata coverage is exact for speech, frying, mechanical_fan, microwave_oven, and printer; semantic-strong for coughing, laughing, keyboard_typing, clock_alarm, running_water, and dishes; and NONE for vacuum_cleaner. Supplement labels for speech and water-related sounds are recorded in evidence but are not silently promoted to exact mappings.
 
-Dataset-level license/documentation is available for ESC-50 and DESED, and FSD/Freesound IDs are traceable for the selected list. Per-recording license completion remains DEFERRED_TO_STEP_2A. PSELD pretraining exposure is PARTIAL: FSD numeric IDs are traceable where selected, but no exact PSELD pretraining membership crosswalk is present.
+License/provenance is dataset-level or source-ID-level only. Per-recording license completion, audio availability, source QC, and audibility remain DEFERRED_TO_STEP_2A. No source audio was downloaded.
 
-Step 2A cannot start as a complete Source Track. The concrete blockers are the missing local ESC audio, missing DESED isolated foreground registry/audio, absent PSELD-specific source crosswalk, and unfinished per-recording license/QC readiness. This audit therefore ends with PARTIAL readiness and awaits human review.
+Step 2A cannot start as a complete Source Track. Remaining blockers are missing local ESC/DESED/PSELD source audio, DESED isolated foreground registry, per-recording license/QC completion, and lack of direct PSELD checkpoint-training membership crosswalk. Readiness remains PARTIAL and awaits human review.
 
 ## Determinism
 
