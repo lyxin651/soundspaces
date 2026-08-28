@@ -47,9 +47,11 @@ class ClassDOAV1ContractTests(unittest.TestCase):
         self.assertEqual(task["target_polyphony"], 1)
         self.assertTrue(task["classification"]["enabled"])
         self.assertEqual(task["classification"]["num_classes"], 12)
+        self.assertTrue(task["localization"]["enabled"])
         self.assertEqual(task["localization"]["target"], "3d_doa_unit_vector")
         for key in ("onset_offset_prediction", "frame_activity_prediction", "distance_prediction", "multi_track_prediction", "pit"):
             self.assertFalse(task[key])
+        self.assertEqual(self.contract["legacy_seld_features_in_clsdoa_v1"], "disabled_not_required")
 
     def test_audio_representations_and_coordinates(self):
         audio = self.contract["audio"]

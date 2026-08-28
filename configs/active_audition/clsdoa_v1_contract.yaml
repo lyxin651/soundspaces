@@ -17,6 +17,7 @@ task:
     enabled: true
     num_classes: 12
   localization:
+    enabled: true
     target: 3d_doa_unit_vector
   onset_offset_prediction: false
   frame_activity_prediction: false
@@ -112,7 +113,7 @@ separation:
   pilot_membership_and_quotas: deferred
 
 legacy_seld_code_status: retained_for_reproducibility
-clsdoa_v1_usage: disabled/not_required
+legacy_seld_features_in_clsdoa_v1: disabled_not_required
 legacy_features_not_core:
   - onset_offset
   - frame_activity
