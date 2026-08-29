@@ -24,6 +24,7 @@ from tools.clsdoa_v1.validate_pilot_plan import (
     validate_render_payload,
     validate_render_record_payload,
     validate_render_rows,
+    validate_plan_payload_absence,
     _payload_expected_keys,
     validate_scene_set,
     validate_source_reuse,
@@ -94,35 +95,32 @@ class R5ExactNegativeMatrixTests(unittest.TestCase):
                 broken = dict(lock, **{field: "0" * 64}); (root / "manifests/plan.lock.json").write_text(json.dumps(broken))
                 with self.subTest(case=case), self.assertRaises(IntegrityError): verify_plan_integrity(root, repo)
 
-    def test_N15_to_N22_payload_files(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            wavfile.write(str(root / "audio.wav"), 24000, np.ones((120000, 2), dtype=np.float32))
-            np.save(root / "rir.npy", np.ones((10, 2), dtype=np.float32))
-            row = {"representation": "binaural", "sample_rate_hz": 24000, "num_samples": 120000, "num_channels": 2, "dtype": "float32", "audio_path": "audio.wav", "rir_path": "rir.npy"}
-            mutations = [("N15", lambda: (root / "cache/rir/test.npy").parent.mkdir(parents=True)), ("N16", lambda: row.update(rir_path="missing.npy")), ("N17", lambda: wavfile.write(str(root / "audio.wav"), 24000, np.ones((120000, 2), dtype=np.int16))), ("N18", lambda: wavfile.write(str(root / "audio.wav"), 24000, np.ones((120000, 1), dtype=np.float32))), ("N20", lambda: np.save(root / "rir.npy", np.ones((2, 10), dtype=np.float32))), ("N22", lambda: np.save(root / "rir.npy", np.ones((10, 2), dtype=np.float64)))]
-            for case, mutate in mutations:
-                mutate()
-                if case == "N15": row["audio_path"] = "missing.wav"
-                with self.subTest(case=case), self.assertRaises((PilotPlanValidationError, FileNotFoundError)): validate_render_record_payload(root, row)
-
     def test_N15_metadata_plan_cache_and_N24_episode_coverage(self):
-        from tools.clsdoa_v1.validate_pilot_plan import validate
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory); (root / "cache/rir").mkdir(parents=True); np.save(root / "cache/rir/test.npy", np.ones((2, 2), dtype=np.float32))
-            with self.assertRaises((PilotPlanValidationError, FileNotFoundError)):
-                validate(root)
+            with self.assertRaisesRegex(PilotPlanValidationError, "^plan contains render payload$"):
+                validate_plan_payload_absence(root)
             (root / "manifests").mkdir(); (root / "manifests/episodes.jsonl").write_text("{}\n")
-            with self.assertRaises(PilotPlanValidationError):
+            with self.assertRaisesRegex(PilotPlanValidationError, "^payload requires all 960 unique episodes$"):
                 _payload_expected_keys(root)
 
-    def test_N19_N21_foa_axes(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory); wavfile.write(str(root / "a.wav"), 24000, np.ones((120000, 4), dtype=np.float32)); np.save(root / "r.npy", np.ones((8, 10), dtype=np.float32))
-            row = {"representation": "foa", "sample_rate_hz": 24000, "num_samples": 120000, "num_channels": 4, "dtype": "float32", "audio_path": "a.wav", "rir_path": "r.npy"}
-            with self.assertRaises(PilotPlanValidationError): validate_render_record_payload(root, row)
-            np.save(root / "r.npy", np.ones((4, 10), dtype=np.float32)); wavfile.write(str(root / "a.wav"), 24000, np.ones((120000, 2), dtype=np.float32))
-            with self.assertRaises(PilotPlanValidationError): validate_render_record_payload(root, row)
+    def _payload_fixture(self, representation, wav_shape, wav_dtype=np.float32, rir_shape=(10, 2), rir_dtype=np.float32):
+        directory = tempfile.TemporaryDirectory()
+        root = Path(directory.name); channels = 2 if representation == "binaural" else 4
+        wavfile.write(str(root / "a.wav"), 24000, np.ones(wav_shape, dtype=wav_dtype)); np.save(root / "r.npy", np.ones(rir_shape, dtype=rir_dtype))
+        return directory, root, {"representation": representation, "sample_rate_hz": 24000, "num_samples": 120000, "num_channels": channels, "dtype": "float32", "audio_path": "a.wav", "rir_path": "r.npy"}
+
+    def test_N16_to_N22_payload_errors_are_isolated_and_exact(self):
+        cases = [("N16", "binaural", (120000, 2), np.float32, (10, 2), np.float32, "render RIR missing", "missing.npy"), ("N17", "binaural", (120000, 2), np.int16, (10, 2), np.float32, "WAV dtype mismatch", "r.npy"), ("N18", "binaural", (120000, 1), np.float32, (10, 2), np.float32, "WAV payload shape/rate mismatch", "r.npy"), ("N19", "foa", (120000, 2), np.float32, (4, 10), np.float32, "WAV payload shape/rate mismatch", "r.npy"), ("N20", "binaural", (120000, 2), np.float32, (2, 10), np.float32, "RIR channel payload mismatch", "r.npy"), ("N21", "foa", (120000, 4), np.float32, (10, 4), np.float32, "RIR channel payload mismatch", "r.npy"), ("N22", "binaural", (120000, 2), np.float32, (10, 2), np.float64, "RIR dtype mismatch", "r.npy")]
+        for case, representation, wav_shape, wav_dtype, rir_shape, rir_dtype, message, rir_path in cases:
+            with self.subTest(case=case):
+                directory, root, row = self._payload_fixture(representation, wav_shape, wav_dtype, rir_shape, rir_dtype)
+                try:
+                    row["rir_path"] = rir_path if case != "N16" else "missing.npy"
+                    with self.assertRaisesRegex(PilotPlanValidationError, "^" + message + "$" ):
+                        validate_render_record_payload(root, row)
+                finally:
+                    directory.cleanup()
 
     def test_N23_N25_strict_journal_and_N24_N26_payload_entry(self):
         expected = {("ep{:03d}".format(i), representation) for i in range(960) for representation in ("binaural", "foa")}
@@ -133,9 +131,11 @@ class R5ExactNegativeMatrixTests(unittest.TestCase):
             with self.subTest(case=case), self.assertRaises(PilotPlanValidationError): validate_render_rows(rows, expected)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory); (root / "manifests").mkdir(); (root / "manifests/episodes.jsonl").write_text("{}\n")
-            for case in ("N24", "N26"):
-                if case == "N26": (root / "_SUCCESS").write_text("premature\n")
-                with self.subTest(case=case), self.assertRaises((PilotPlanValidationError, FileNotFoundError)): validate_render_payload(root)
+            with self.assertRaisesRegex(PilotPlanValidationError, "^payload requires all 960 unique episodes$"):
+                _payload_expected_keys(root)
+            (root / "_SUCCESS").write_text("premature\n")
+            with self.assertRaisesRegex(PilotPlanValidationError, "^dataset already finalized$"):
+                validate_render_payload(root)
 
     def test_good_fixture_normal_and_optimized(self):
         code = "from tools.clsdoa_v1.scheduler import schedule_block; b=schedule_block('train',0,'Replica');\nif len(b['distance']) != 28: raise SystemExit(1)"

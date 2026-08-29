@@ -106,10 +106,15 @@ def validate(root):
             _require(r["diagnostics"].get("source_height_offset_m") is None and r["diagnostics"].get("geodesic_distance_m") is None, "fixed probe contains fabricated geometry diagnostics")
         else:
             _require(0.5 <= r["diagnostics"]["source_height_offset_m"] <= 2.2 + 1e-6, "source height out of range")
-    _require(not list(root.rglob("*.wav")) and not list(root.rglob("*.rir")) and not list((root / "cache/rir").rglob("*")) and not (root / "_SUCCESS").exists(), "plan contains render payload")
+    validate_plan_payload_absence(root)
     _require((root / "manifests/plan.lock.json").is_file(), "plan lock missing")
     verify_plan_integrity(root, ROOT)
     return {"status": "PASS", "episodes": 960, "classes": 12, "unique_sources": 422, "pass_scene_pool": 103, "excluded_fail_scenes": 5, "audio_files": 0, "rir_files": 0}
+
+
+def validate_plan_payload_absence(root):
+    root = Path(root)
+    _require(not list(root.rglob("*.wav")) and not list(root.rglob("*.rir")) and not list((root / "cache/rir").rglob("*")) and not (root / "_SUCCESS").exists(), "plan contains render payload")
 
 
 def validate_render_payload(root):
