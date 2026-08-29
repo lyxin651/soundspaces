@@ -168,7 +168,7 @@ def write_plan(root):
     review_text = "".join(json.dumps(row, sort_keys=True, ensure_ascii=False) + "\n" for row in review)
     (root / "manifests/episodes.jsonl").write_text(episodes, encoding="utf-8")
     (root / "reports/plan_review_index.jsonl").write_text(review_text, encoding="utf-8")
-    summary = {"dataset_id": "clsdoa_v1_pilot_001", "plan_version": "clsdoa_v1_pilot_plan_v1", "episode_count": len(recipes), "source_rows": len(sources), "scene_pass_pool": len(all_pass_scenes), "scene_representatives_loaded": len(scenes), "audio_files": 0, "rir_files": 0, "success_marker": False, "render_started": False, "quota": {"split": dict(Counter(row["split"] for row in recipes)), "family": dict(Counter(row["scene"]["scene_family"] for row in recipes)), "class": dict(Counter(row["source"]["class_id"] for row in recipes))}}
+    summary = {"dataset_id": "clsdoa_v1_pilot_001", "plan_version": "clsdoa_v1_pilot_plan_v1", "episode_count": len(recipes), "source_rows": len(sources), "scene_pass_pool": 103, "scene_representatives_loaded": len(scenes), "audio_files": 0, "rir_files": 0, "success_marker": False, "render_started": False, "quota": {"split": dict(Counter(row["split"] for row in recipes)), "family": dict(Counter(row["scene"]["scene_family"] for row in recipes)), "class": dict(Counter(row["source"]["class_id"] for row in recipes))}}
     (root / "reports/plan_summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     (root / "identity.json").write_text(json.dumps({"dataset_id": "clsdoa_v1_pilot_001", "schema_version": "clsdoa_v1.0", "generation_code_commit": "PENDING_STEP3_CODE_COMMIT"}, indent=2) + "\n", encoding="utf-8")
     return summary
