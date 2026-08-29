@@ -20,6 +20,7 @@ scene:
   source_clearance_radius_m: 0.15
 geometry:
   max_attempts_per_scene: 1024
+  planning_workers: 4
   distance_bins:
     near: [1.0, 2.0]
     mid: [2.0, 4.0]

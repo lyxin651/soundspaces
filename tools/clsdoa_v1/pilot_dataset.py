@@ -2,6 +2,7 @@
 """Deterministic metadata-only ClassDOA V1 Pilot planner."""
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import csv
 import hashlib
 import json
@@ -140,9 +141,11 @@ def build_plan():
         by_class_split[(row["canonical_class"], row["split"])].append(row)
     for rows in by_class_split.values():
         rows.sort(key=lambda row: hashlib.sha256(("source|" + row["base_clip_id"]).encode()).hexdigest())
-    scene_pools = {}
-    for entry in scenes:
-        scene_pools[entry["scene_id"]] = _collect_candidates(entry, config)
+    # 每个 scene 保持独立 simulator；并行只缩短 I/O/初始化等待，不共享 Habitat 状态。
+    workers = int(config.get("geometry", {}).get("planning_workers", 4))
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        loaded = executor.map(lambda entry: (entry["scene_id"], _collect_candidates(entry, config)), scenes)
+        scene_pools = dict(loaded)
     scene_entries = {(family, split): [entry for entry in scenes if entry["scene_family"] == family and entry["split"] == split] for family in ("Replica", "MP3D") for split in ("train", "val", "test")}
     scene_use = Counter()
     recipes = []
