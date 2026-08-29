@@ -181,7 +181,9 @@ def main():
     parser.add_argument("--root", default=str(ROOT / "datasets/binaural_foa_clsdoa_v1/clsdoa_v1_pilot_001"))
     args = parser.parse_args()
     if Path(args.root).exists() and any(Path(args.root).iterdir()):
-        raise SystemExit("refusing to overwrite non-empty dataset root")
+        existing = {path.relative_to(Path(args.root)).as_posix() for path in Path(args.root).rglob("*") if path.is_file()}
+        if not existing.issubset({"manifests/episodes.jsonl", "reports/plan_review_index.jsonl"}):
+            raise SystemExit("refusing to overwrite non-empty dataset root")
     print(json.dumps(write_plan(Path(args.root)), sort_keys=True))
 
 
