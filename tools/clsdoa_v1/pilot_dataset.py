@@ -148,7 +148,7 @@ def build_plan():
                     key = (family, split)
                     candidate = _pick_candidate(all_candidates[key], distance_bin, elevation_bin, stable_int(config["global_seed"], class_id, split, family, local))
                     scene_id = next(entry["scene_id"] for entry in scenes if entry["scene_family"] == family and entry["split"] == split and candidate in scene_pools[entry["scene_id"]])
-                    source = by_class_split[(class_name, split)][local % len(by_class_split[(class_name, split)])]
+                    source = by_class_split[(class_name, split)][(family_offset + local) % len(by_class_split[(class_name, split)])]
                     duration = float(source["canonical_duration_sec"])
                     offset = 0.0 if duration >= 5.0 else float(np.random.default_rng(stable_int(config["global_seed"], source["source_clip_id"], slots, "offset")).uniform(0.0, 5.0 - duration))
                     gain = -6.0 + 12.0 * ((local % 10) + 0.5) / 10.0

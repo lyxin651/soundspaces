@@ -36,6 +36,9 @@ def validate(root):
         assert Counter(int((r["label"]["azimuth_project_deg"] + 180) // 45) for r in rows) == Counter({i: 10 for i in range(8)})
         assert Counter(r["diagnostics"]["distance_bin"] for r in review if r["label"]["class_id"] == class_id) == Counter(near=32, mid=32, far=16)
         assert Counter(r["diagnostics"]["elevation_bin"] for r in review if r["label"]["class_id"] == class_id) == Counter(small=60, nonzero=20)
+        for split in ("train", "val", "test"):
+            counts = Counter(r["source"]["base_clip_id"] for r in episodes if r["label"]["class_id"] == class_id and r["split"] == split)
+            assert max(counts.values()) - min(counts.values()) <= 1
     for r in episodes:
         assert set(r["representations"]) == {"binaural", "foa"}
         assert r["listener"]["sensor_position_world"] == [r["listener"]["base_position_world"][0], r["listener"]["base_position_world"][1] + 1.5, r["listener"]["base_position_world"][2]]
