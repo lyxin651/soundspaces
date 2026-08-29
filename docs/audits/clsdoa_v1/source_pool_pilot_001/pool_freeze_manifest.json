@@ -1,0 +1,15 @@
+{
+  "schema_version": "clsdoa_v1_pool_freeze_manifest_v1",
+  "pool_id": "source_pool_pilot_001",
+  "status": "FINALIZED",
+  "external_pool_root": "/home/leiyuxin/soundspaces/source_assets/clsdoa_v1/prepared/source_pool_pilot_001",
+  "split_version": "clsdoa_source_split_v2_stratified",
+  "accepted_identity_count": 422,
+  "source_registry_snapshot_sha256": "f7a59a7e245a8ae0016e5fbd47a5599c64627951e344fe049fef3ff48bab5ad1",
+  "canonical_contract": "mono/24000 Hz/float32/finite/non-empty/duration in (0,5]",
+  "normalization": "active_rms_v1; target -24 dBFS; peak guard 0.50; source-level once",
+  "duplicate_audit": "PASS",
+  "determinism": "PASS",
+  "hard_validation": "PASS",
+  "success_marker": "ClassDOA V1 source pool finalized"
+}

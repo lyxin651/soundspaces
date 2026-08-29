@@ -1,0 +1,33 @@
+{
+  "status": "ACQUISITION_AND_AUTOMATED_QC_COMPLETE_MANUAL_QC_PENDING",
+  "manual_qc_performed": false,
+  "ESC-50": {
+    "resource_status": "ACQUIRED",
+    "dataset_license_status": "DATASET_LEVEL_VERIFIED",
+    "per_recording_status": "DEFERRED_TO_MANUAL_REVIEW",
+    "candidate_rows": 200,
+    "candidate_independent_identity_count": 178
+  },
+  "DESED isolated foreground": {
+    "resource_status": "ACQUIRED_OFFICIAL_SOUNDBANK",
+    "license_status": "PER_RECORDING_METADATA",
+    "candidate_rows": 734,
+    "candidate_independent_identity_count": 383,
+    "supported_classes": ["speech", "running_water", "frying", "dishes", "vacuum_cleaner", "clock_alarm"],
+    "clock_alarm_mapping": "SEMANTIC_STRONG; all candidates require human review",
+    "excluded": ["mixtures", "background_recordings", "foreground_on_off", "3 macOS AppleDouble extraction artifacts"]
+  },
+  "PSELD-selected FSD50K": {
+    "resource_status": "ACQUIRED_OFFICIAL_DEV_EVAL",
+    "metadata_crosswalk_status": "TRACEABLE_170_CLASS_TO_MID_TO_FSD_CLIP",
+    "candidate_rows": 3416,
+    "candidate_independent_identity_count": 3416,
+    "resolved_waveforms": 3416,
+    "missing_waveforms": 0,
+    "duplicate_ids": 0,
+    "metadata_mismatch": 16,
+    "pretrain_seen_status": "likely_yes_for_selected_candidates",
+    "provenance_note": "DCASE2022_SELECTED_FSD50K != PSELD_PRETRAIN_SELECTED_FSD50K; selected candidate provenance uses PSELDNets 170-class metadata plus SELD-Data-Generator MID TSVs and FSD50K official metadata."
+  },
+  "final_pool_status": "NOT_READY; manual listening review and subsequent gates remain required"
+}

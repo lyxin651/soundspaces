@@ -1,0 +1,97 @@
+{
+  "accepted_total": 422,
+  "determinism": "PASS",
+  "duplicate_audit": {
+    "canonical_duplicate_conflicts": [],
+    "canonical_pcm_duplicate_groups": {},
+    "raw_sha_duplicate_groups": {}
+  },
+  "hard_validation": "PASS",
+  "license_provenance": {
+    "pretrain_seen_status": {
+      "likely_yes": 135,
+      "unknown": 287
+    },
+    "usable_rows": 422
+  },
+  "normalization": {
+    "max_peak_after": 0.448356211,
+    "method": "active_rms_v1",
+    "min_peak_after": 0.08723335,
+    "peak_guard": 0.5,
+    "peak_guard_limited_rows": 0,
+    "target_active_rms_dbfs": -24.0
+  },
+  "per_class_split": {
+    "clock_alarm": {
+      "test": 5,
+      "train": 24,
+      "val": 5
+    },
+    "coughing": {
+      "test": 6,
+      "train": 26,
+      "val": 6
+    },
+    "dishes": {
+      "test": 5,
+      "train": 20,
+      "val": 5
+    },
+    "frying": {
+      "test": 6,
+      "train": 25,
+      "val": 6
+    },
+    "keyboard_typing": {
+      "test": 6,
+      "train": 27,
+      "val": 6
+    },
+    "laughing": {
+      "test": 5,
+      "train": 23,
+      "val": 5
+    },
+    "mechanical_fan": {
+      "test": 5,
+      "train": 26,
+      "val": 5
+    },
+    "microwave_oven": {
+      "test": 5,
+      "train": 23,
+      "val": 5
+    },
+    "printer": {
+      "test": 5,
+      "train": 24,
+      "val": 5
+    },
+    "running_water": {
+      "test": 5,
+      "train": 23,
+      "val": 5
+    },
+    "speech": {
+      "test": 6,
+      "train": 27,
+      "val": 6
+    },
+    "vacuum_cleaner": {
+      "test": 5,
+      "train": 26,
+      "val": 5
+    }
+  },
+  "pool_id": "source_pool_pilot_001",
+  "registry_path": "/home/leiyuxin/soundspaces/source_assets/clsdoa_v1/prepared/source_pool_pilot_001/source_registry_snapshot.csv",
+  "registry_sha256": "f7a59a7e245a8ae0016e5fbd47a5599c64627951e344fe049fef3ff48bab5ad1",
+  "schema_version": "clsdoa_v1_source_pool_final_audit_v1",
+  "split_overlap": {
+    "train_vs_test": [],
+    "train_vs_val": [],
+    "val_vs_test": []
+  },
+  "status": "PASS"
+}

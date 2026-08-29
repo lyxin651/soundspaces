@@ -1,0 +1,17 @@
+{
+  "clip_duration_sec": 5.0,
+  "foa_adapter_sha256": "a07e49200a390c4037f0ee022faa0ee1d2f0c9f12cfac658d8d53b69f9b23930",
+  "indirect_ray_count": 5000,
+  "materials": "off",
+  "normalization": {
+    "per_render": false,
+    "per_viewpoint": false
+  },
+  "production_renderer_commit": "4dd94a4b06977acaecdb0ba9af7ab7a7ba2ca78d",
+  "receiver": "listener_base + [0,1.5,0]",
+  "renderer_diff_vs_production_commit": "",
+  "renderer_sha256": "e8f62baaede185f95828c5c92da86e94792c228beb8eae8e14545f1348fd2602",
+  "sample_rate_hz": 24000,
+  "source_ray_count": 200,
+  "status": "PASS"
+}

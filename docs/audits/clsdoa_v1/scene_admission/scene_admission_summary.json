@@ -1,0 +1,51 @@
+{
+  "admission_count": 108,
+  "binaural_pass": 103,
+  "excluded": [
+    {
+      "mp3d.E9uDoFAP3SH": "FAIL_GEOMETRY_CLEARANCE"
+    },
+    {
+      "mp3d.VzqfbhrpDEA": "FAIL_GEOMETRY_CLEARANCE"
+    },
+    {
+      "mp3d.dhjEzFoUFzH": "FAIL_GEOMETRY_CLEARANCE"
+    },
+    {
+      "mp3d.fzynW3qQPVF": "FAIL_GEOMETRY_CLEARANCE"
+    },
+    {
+      "mp3d.kEZ7cmS4wCh": "FAIL_GEOMETRY_CLEARANCE"
+    }
+  ],
+  "fail": 5,
+  "family": {
+    "MP3D": {
+      "FAIL": 5,
+      "PASS": 85,
+      "REVIEW_REQUIRED": 0
+    },
+    "Replica": {
+      "FAIL": 0,
+      "PASS": 18,
+      "REVIEW_REQUIRED": 0
+    }
+  },
+  "foa_pass": 103,
+  "materials_mode": "off",
+  "pass": 103,
+  "registry": "registries/clsdoa_v1_scenes.yaml",
+  "review_required": 0,
+  "split_counts": {
+    "MP3D/test": 15,
+    "MP3D/train": 54,
+    "MP3D/val": 16,
+    "Replica/test": 1,
+    "Replica/train": 14,
+    "Replica/val": 3
+  },
+  "status": "STEP 2B COMPLETED - PENDING HUMAN REVIEW",
+  "step_2b_next": "PENDING HUMAN REVIEW",
+  "step_3": "DEVIATION REQUIRING REVIEW because 5 MP3D candidates failed geometry sampling and unit scale is PASS_WITH_REVIEW",
+  "unit_scale_report": "mp3d_unit_scale_report.json"
+}

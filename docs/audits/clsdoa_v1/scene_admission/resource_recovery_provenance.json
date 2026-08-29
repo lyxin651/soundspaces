@@ -1,0 +1,34 @@
+{
+  "archive": {
+    "download_or_repair": "not performed",
+    "extraction_exit_code": 0,
+    "path": "/home/leiyuxin/soundspaces/sound-spaces/data/scene_datasets/mp3d/v1/tasks/mp3d_habitat.zip",
+    "sha256": null,
+    "sha256_note": "Not available: long sequential hash read was reclaimed by the execution environment; no partial digest was recorded.",
+    "size_bytes": 16085306031,
+    "source_kind": "existing local official MP3D Habitat archive",
+    "validation": "7z extraction with CRC validation",
+    "zipinfo_test": "452 files, 22341949721 bytes uncompressed, 16085215071 bytes compressed"
+  },
+  "asset_changes": "none; extracted data is outside Git index",
+  "candidate_contract": {
+    "admitted": "NOT_RUN",
+    "split": "UNASSIGNED"
+  },
+  "extraction_destination": "/home/leiyuxin/soundspaces/sound-spaces/data/scene_datasets/mp3d",
+  "generated_at_utc": "2026-08-28T14:57:43.587701+00:00",
+  "readiness_status_counts": {
+    "BROKEN_PATH": 0,
+    "PRESENT_COMPLETE": 90,
+    "PRESENT_PARTIAL": 0
+  },
+  "required_resources_per_scan": [
+    "<scan>.glb",
+    "<scan>.navmesh",
+    "<scan>_semantic.ply",
+    "<scan>.house"
+  ],
+  "scan_count": 90,
+  "structural_smoke": "see structural_smoke.json; status STRUCTURAL_SMOKE only",
+  "zero_byte_files": []
+}

@@ -1,0 +1,27 @@
+{
+  "foa_adapter_integrity": "PASS",
+  "full_tests": "PASS",
+  "integrated_smoke": {
+    "probe_id": "probe_0",
+    "scene_id": "replica.office_1",
+    "source_clip_id": "ESC-50:102435",
+    "status": "PASS"
+  },
+  "integration_code_commit": "552c299",
+  "no_resources_lock_created": true,
+  "production_renderer_integrity": "PASS",
+  "python_optimized_validator": "PASS",
+  "scene_leakage": "PASS",
+  "scene_registry_path": "registries/clsdoa_v1_scenes.yaml",
+  "scene_registry_sha256_candidate": "06f90a902e78bb26d0e23fdb267bebde55f56d0abe794ecaf763a172784b9508",
+  "scene_split_version": "clsdoa_v1_scene_split_v2",
+  "source_leakage": "PASS",
+  "source_registry_path": "registries/source_audio.csv",
+  "source_registry_sha256_candidate": "f7a59a7e245a8ae0016e5fbd47a5599c64627951e344fe049fef3ff48bab5ad1",
+  "source_split_version": "clsdoa_source_split_v2_stratified",
+  "step2a_final_hardening_commit": "8f2e0888fde6fbc69d92293b0204066fcd54398d",
+  "step2a_pool_generation_commit": "d55153ffab31fd1f9841fc65bb5ae0909fa58a55",
+  "step2b_final_commit": "86d8b6f8c65220fa5801d81437009ed4382ab34d",
+  "step2c_preintegration_evidence_commit": "507fcdeeda90a262446597306e02f42d54584ff4",
+  "step2c_production_code_commit": "4dd94a4b06977acaecdb0ba9af7ab7a7ba2ca78d"
+}

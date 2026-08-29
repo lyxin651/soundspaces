@@ -1,0 +1,34 @@
+{
+  "fail": 5,
+  "fail_scene_ids": [
+    "mp3d.E9uDoFAP3SH",
+    "mp3d.VzqfbhrpDEA",
+    "mp3d.dhjEzFoUFzH",
+    "mp3d.fzynW3qQPVF",
+    "mp3d.kEZ7cmS4wCh"
+  ],
+  "failed_splits": [
+    "UNASSIGNED"
+  ],
+  "materials_values": [
+    "off"
+  ],
+  "pass": 103,
+  "registry_path": "registries/clsdoa_v1_scenes.yaml",
+  "registry_sha256_candidate": "06f90a902e78bb26d0e23fdb267bebde55f56d0abe794ecaf763a172784b9508",
+  "scene_id_unique": true,
+  "split_counts": {
+    "MP3D:test": 13,
+    "MP3D:train": 59,
+    "MP3D:val": 13,
+    "Replica:test": 3,
+    "Replica:train": 12,
+    "Replica:val": 3
+  },
+  "split_version": "clsdoa_v1_scene_split_v2",
+  "status": "PASS",
+  "total_records": 108,
+  "unit_scale_values": [
+    "PASS"
+  ]
+}

@@ -1,0 +1,956 @@
+{
+  "classification": "B",
+  "geometry_resampled": false,
+  "previous_step2b2r_fail_still_valid": true,
+  "probe_count": 16,
+  "production_frozen_commit": "4dd94a4b06977acaecdb0ba9af7ab7a7ba2ca78d",
+  "rows": [
+    {
+      "frozen_recipe_listener_base_position_world": [
+        0.14776939153671265,
+        -0.9688690304756165,
+        1.0934944152832031
+      ],
+      "frozen_recipe_sensor_position_world": [
+        0.14776939153671265,
+        0.5311309695243835,
+        1.0934944152832031
+      ],
+      "probe_id": "probe_0",
+      "production_agent_world_position": [
+        0.14776939153671265,
+        -0.9688690304756165,
+        1.0934944152832031
+      ],
+      "production_effective_receiver_world": [
+        0.14776939153671265,
+        0.5311309695243835,
+        1.0934944152832031
+      ],
+      "production_error_m": 0.0,
+      "production_local_AudioSensorSpec_position": [
+        0.0,
+        1.5,
+        0.0
+      ],
+      "production_matches_canonical_sensor_center": true,
+      "production_sensor_absolute_world_position": [
+        0.14776939153671265,
+        0.5311309695243835,
+        1.0934944152832031
+      ],
+      "scene_family": "Replica",
+      "scene_id": "replica.office_0",
+      "step2b_agent_world_position": [
+        0.14776939153671265,
+        -0.9688690304756165,
+        1.0934944152832031
+      ],
+      "step2b_effective_receiver_world": [
+        0.14776939153671265,
+        -0.9688690304756165,
+        1.0934944152832031
+      ],
+      "step2b_error_m": 1.5,
+      "step2b_local_AudioSensorSpec_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "step2b_matches_canonical_sensor_center": false,
+      "step2b_sensor_absolute_world_position": [
+        0.14776939153671265,
+        -0.9688690304756165,
+        1.0934944152832031
+      ]
+    },
+    {
+      "frozen_recipe_listener_base_position_world": [
+        0.3410969078540802,
+        -0.9688690304756165,
+        2.5472536087036133
+      ],
+      "frozen_recipe_sensor_position_world": [
+        0.3410969078540802,
+        0.5311309695243835,
+        2.5472536087036133
+      ],
+      "probe_id": "probe_1",
+      "production_agent_world_position": [
+        0.3410969078540802,
+        -0.9688690304756165,
+        2.5472536087036133
+      ],
+      "production_effective_receiver_world": [
+        0.3410969078540802,
+        0.5311309695243835,
+        2.5472536087036133
+      ],
+      "production_error_m": 0.0,
+      "production_local_AudioSensorSpec_position": [
+        0.0,
+        1.5,
+        0.0
+      ],
+      "production_matches_canonical_sensor_center": true,
+      "production_sensor_absolute_world_position": [
+        0.3410969078540802,
+        0.5311309695243835,
+        2.5472536087036133
+      ],
+      "scene_family": "Replica",
+      "scene_id": "replica.office_0",
+      "step2b_agent_world_position": [
+        0.3410969078540802,
+        -0.9688690304756165,
+        2.5472536087036133
+      ],
+      "step2b_effective_receiver_world": [
+        0.3410969078540802,
+        -0.9688690304756165,
+        2.5472536087036133
+      ],
+      "step2b_error_m": 1.5,
+      "step2b_local_AudioSensorSpec_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "step2b_matches_canonical_sensor_center": false,
+      "step2b_sensor_absolute_world_position": [
+        0.3410969078540802,
+        -0.9688690304756165,
+        2.5472536087036133
+      ]
+    },
+    {
+      "frozen_recipe_listener_base_position_world": [
+        0.945178747177124,
+        1.4252347946166992,
+        2.171769618988037
+      ],
+      "frozen_recipe_sensor_position_world": [
+        0.945178747177124,
+        2.925234794616699,
+        2.171769618988037
+      ],
+      "probe_id": "probe_0",
+      "production_agent_world_position": [
+        0.945178747177124,
+        1.4252347946166992,
+        2.171769618988037
+      ],
+      "production_effective_receiver_world": [
+        0.945178747177124,
+        2.925234794616699,
+        2.171769618988037
+      ],
+      "production_error_m": 0.0,
+      "production_local_AudioSensorSpec_position": [
+        0.0,
+        1.5,
+        0.0
+      ],
+      "production_matches_canonical_sensor_center": true,
+      "production_sensor_absolute_world_position": [
+        0.945178747177124,
+        2.925234794616699,
+        2.171769618988037
+      ],
+      "scene_family": "Replica",
+      "scene_id": "replica.apartment_0",
+      "step2b_agent_world_position": [
+        0.945178747177124,
+        1.4252347946166992,
+        2.171769618988037
+      ],
+      "step2b_effective_receiver_world": [
+        0.945178747177124,
+        1.4252347946166992,
+        2.171769618988037
+      ],
+      "step2b_error_m": 1.5,
+      "step2b_local_AudioSensorSpec_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "step2b_matches_canonical_sensor_center": false,
+      "step2b_sensor_absolute_world_position": [
+        0.945178747177124,
+        1.4252347946166992,
+        2.171769618988037
+      ]
+    },
+    {
+      "frozen_recipe_listener_base_position_world": [
+        2.435539960861206,
+        1.4252347946166992,
+        6.096940040588379
+      ],
+      "frozen_recipe_sensor_position_world": [
+        2.435539960861206,
+        2.925234794616699,
+        6.096940040588379
+      ],
+      "probe_id": "probe_1",
+      "production_agent_world_position": [
+        2.435539960861206,
+        1.4252347946166992,
+        6.096940040588379
+      ],
+      "production_effective_receiver_world": [
+        2.435539960861206,
+        2.925234794616699,
+        6.096940040588379
+      ],
+      "production_error_m": 0.0,
+      "production_local_AudioSensorSpec_position": [
+        0.0,
+        1.5,
+        0.0
+      ],
+      "production_matches_canonical_sensor_center": true,
+      "production_sensor_absolute_world_position": [
+        2.435539960861206,
+        2.925234794616699,
+        6.096940040588379
+      ],
+      "scene_family": "Replica",
+      "scene_id": "replica.apartment_0",
+      "step2b_agent_world_position": [
+        2.435539960861206,
+        1.4252347946166992,
+        6.096940040588379
+      ],
+      "step2b_effective_receiver_world": [
+        2.435539960861206,
+        1.4252347946166992,
+        6.096940040588379
+      ],
+      "step2b_error_m": 1.5,
+      "step2b_local_AudioSensorSpec_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "step2b_matches_canonical_sensor_center": false,
+      "step2b_sensor_absolute_world_position": [
+        2.435539960861206,
+        1.4252347946166992,
+        6.096940040588379
+      ]
+    },
+    {
+      "frozen_recipe_listener_base_position_world": [
+        4.6041646003723145,
+        -1.3273628950119019,
+        -1.3507872819900513
+      ],
+      "frozen_recipe_sensor_position_world": [
+        4.6041646003723145,
+        0.17263710498809814,
+        -1.3507872819900513
+      ],
+      "probe_id": "probe_0",
+      "production_agent_world_position": [
+        4.6041646003723145,
+        -1.3273628950119019,
+        -1.3507872819900513
+      ],
+      "production_effective_receiver_world": [
+        4.6041646003723145,
+        0.17263710498809814,
+        -1.3507872819900513
+      ],
+      "production_error_m": 0.0,
+      "production_local_AudioSensorSpec_position": [
+        0.0,
+        1.5,
+        0.0
+      ],
+      "production_matches_canonical_sensor_center": true,
+      "production_sensor_absolute_world_position": [
+        4.6041646003723145,
+        0.17263710498809814,
+        -1.3507872819900513
+      ],
+      "scene_family": "Replica",
+      "scene_id": "replica.room_0",
+      "step2b_agent_world_position": [
+        4.6041646003723145,
+        -1.3273628950119019,
+        -1.3507872819900513
+      ],
+      "step2b_effective_receiver_world": [
+        4.6041646003723145,
+        -1.3273628950119019,
+        -1.3507872819900513
+      ],
+      "step2b_error_m": 1.5,
+      "step2b_local_AudioSensorSpec_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "step2b_matches_canonical_sensor_center": false,
+      "step2b_sensor_absolute_world_position": [
+        4.6041646003723145,
+        -1.3273628950119019,
+        -1.3507872819900513
+      ]
+    },
+    {
+      "frozen_recipe_listener_base_position_world": [
+        6.311933994293213,
+        -1.3273628950119019,
+        0.0217350572347641
+      ],
+      "frozen_recipe_sensor_position_world": [
+        6.311933994293213,
+        0.17263710498809814,
+        0.0217350572347641
+      ],
+      "probe_id": "probe_1",
+      "production_agent_world_position": [
+        6.311933994293213,
+        -1.3273628950119019,
+        0.0217350572347641
+      ],
+      "production_effective_receiver_world": [
+        6.311933994293213,
+        0.17263710498809814,
+        0.0217350572347641
+      ],
+      "production_error_m": 0.0,
+      "production_local_AudioSensorSpec_position": [
+        0.0,
+        1.5,
+        0.0
+      ],
+      "production_matches_canonical_sensor_center": true,
+      "production_sensor_absolute_world_position": [
+        6.311933994293213,
+        0.17263710498809814,
+        0.0217350572347641
+      ],
+      "scene_family": "Replica",
+      "scene_id": "replica.room_0",
+      "step2b_agent_world_position": [
+        6.311933994293213,
+        -1.3273628950119019,
+        0.0217350572347641
+      ],
+      "step2b_effective_receiver_world": [
+        6.311933994293213,
+        -1.3273628950119019,
+        0.0217350572347641
+      ],
+      "step2b_error_m": 1.5,
+      "step2b_local_AudioSensorSpec_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "step2b_matches_canonical_sensor_center": false,
+      "step2b_sensor_absolute_world_position": [
+        6.311933994293213,
+        -1.3273628950119019,
+        0.0217350572347641
+      ]
+    },
+    {
+      "frozen_recipe_listener_base_position_world": [
+        2.1306376457214355,
+        -1.2815582752227783,
+        -2.7361979484558105
+      ],
+      "frozen_recipe_sensor_position_world": [
+        2.1306376457214355,
+        0.21844172477722168,
+        -2.7361979484558105
+      ],
+      "probe_id": "probe_0",
+      "production_agent_world_position": [
+        2.1306376457214355,
+        -1.2815582752227783,
+        -2.7361979484558105
+      ],
+      "production_effective_receiver_world": [
+        2.1306376457214355,
+        0.21844172477722168,
+        -2.7361979484558105
+      ],
+      "production_error_m": 0.0,
+      "production_local_AudioSensorSpec_position": [
+        0.0,
+        1.5,
+        0.0
+      ],
+      "production_matches_canonical_sensor_center": true,
+      "production_sensor_absolute_world_position": [
+        2.1306376457214355,
+        0.21844172477722168,
+        -2.7361979484558105
+      ],
+      "scene_family": "Replica",
+      "scene_id": "replica.frl_apartment_2",
+      "step2b_agent_world_position": [
+        2.1306376457214355,
+        -1.2815582752227783,
+        -2.7361979484558105
+      ],
+      "step2b_effective_receiver_world": [
+        2.1306376457214355,
+        -1.2815582752227783,
+        -2.7361979484558105
+      ],
+      "step2b_error_m": 1.5,
+      "step2b_local_AudioSensorSpec_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "step2b_matches_canonical_sensor_center": false,
+      "step2b_sensor_absolute_world_position": [
+        2.1306376457214355,
+        -1.2815582752227783,
+        -2.7361979484558105
+      ]
+    },
+    {
+      "frozen_recipe_listener_base_position_world": [
+        3.673680067062378,
+        -1.2815582752227783,
+        -1.8567137718200684
+      ],
+      "frozen_recipe_sensor_position_world": [
+        3.673680067062378,
+        0.21844172477722168,
+        -1.8567137718200684
+      ],
+      "probe_id": "probe_1",
+      "production_agent_world_position": [
+        3.673680067062378,
+        -1.2815582752227783,
+        -1.8567137718200684
+      ],
+      "production_effective_receiver_world": [
+        3.673680067062378,
+        0.21844172477722168,
+        -1.8567137718200684
+      ],
+      "production_error_m": 0.0,
+      "production_local_AudioSensorSpec_position": [
+        0.0,
+        1.5,
+        0.0
+      ],
+      "production_matches_canonical_sensor_center": true,
+      "production_sensor_absolute_world_position": [
+        3.673680067062378,
+        0.21844172477722168,
+        -1.8567137718200684
+      ],
+      "scene_family": "Replica",
+      "scene_id": "replica.frl_apartment_2",
+      "step2b_agent_world_position": [
+        3.673680067062378,
+        -1.2815582752227783,
+        -1.8567137718200684
+      ],
+      "step2b_effective_receiver_world": [
+        3.673680067062378,
+        -1.2815582752227783,
+        -1.8567137718200684
+      ],
+      "step2b_error_m": 1.5,
+      "step2b_local_AudioSensorSpec_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "step2b_matches_canonical_sensor_center": false,
+      "step2b_sensor_absolute_world_position": [
+        3.673680067062378,
+        -1.2815582752227783,
+        -1.8567137718200684
+      ]
+    },
+    {
+      "frozen_recipe_listener_base_position_world": [
+        67.03042602539062,
+        0.08020400255918503,
+        -23.111398696899414
+      ],
+      "frozen_recipe_sensor_position_world": [
+        67.03042602539062,
+        1.580204002559185,
+        -23.111398696899414
+      ],
+      "probe_id": "probe_0",
+      "production_agent_world_position": [
+        67.03042602539062,
+        0.08020400255918503,
+        -23.111398696899414
+      ],
+      "production_effective_receiver_world": [
+        67.03042602539062,
+        1.5802040100097656,
+        -23.111398696899414
+      ],
+      "production_error_m": 7.450580596923828e-09,
+      "production_local_AudioSensorSpec_position": [
+        0.0,
+        1.5,
+        0.0
+      ],
+      "production_matches_canonical_sensor_center": true,
+      "production_sensor_absolute_world_position": [
+        67.03042602539062,
+        1.5802040100097656,
+        -23.111398696899414
+      ],
+      "scene_family": "MP3D",
+      "scene_id": "mp3d.B6ByNegPMKs",
+      "step2b_agent_world_position": [
+        67.03042602539062,
+        0.08020400255918503,
+        -23.111398696899414
+      ],
+      "step2b_effective_receiver_world": [
+        67.03042602539062,
+        0.08020400255918503,
+        -23.111398696899414
+      ],
+      "step2b_error_m": 1.5,
+      "step2b_local_AudioSensorSpec_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "step2b_matches_canonical_sensor_center": false,
+      "step2b_sensor_absolute_world_position": [
+        67.03042602539062,
+        0.08020400255918503,
+        -23.111398696899414
+      ]
+    },
+    {
+      "frozen_recipe_listener_base_position_world": [
+        44.22767639160156,
+        0.08020400255918503,
+        12.53746509552002
+      ],
+      "frozen_recipe_sensor_position_world": [
+        44.22767639160156,
+        1.580204002559185,
+        12.53746509552002
+      ],
+      "probe_id": "probe_1",
+      "production_agent_world_position": [
+        44.22767639160156,
+        0.08020400255918503,
+        12.53746509552002
+      ],
+      "production_effective_receiver_world": [
+        44.22767639160156,
+        1.5802040100097656,
+        12.53746509552002
+      ],
+      "production_error_m": 7.450580596923828e-09,
+      "production_local_AudioSensorSpec_position": [
+        0.0,
+        1.5,
+        0.0
+      ],
+      "production_matches_canonical_sensor_center": true,
+      "production_sensor_absolute_world_position": [
+        44.22767639160156,
+        1.5802040100097656,
+        12.53746509552002
+      ],
+      "scene_family": "MP3D",
+      "scene_id": "mp3d.B6ByNegPMKs",
+      "step2b_agent_world_position": [
+        44.22767639160156,
+        0.08020400255918503,
+        12.53746509552002
+      ],
+      "step2b_effective_receiver_world": [
+        44.22767639160156,
+        0.08020400255918503,
+        12.53746509552002
+      ],
+      "step2b_error_m": 1.5,
+      "step2b_local_AudioSensorSpec_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "step2b_matches_canonical_sensor_center": false,
+      "step2b_sensor_absolute_world_position": [
+        44.22767639160156,
+        0.08020400255918503,
+        12.53746509552002
+      ]
+    },
+    {
+      "frozen_recipe_listener_base_position_world": [
+        2.4511449337005615,
+        0.07244700193405151,
+        -1.4135117530822754
+      ],
+      "frozen_recipe_sensor_position_world": [
+        2.4511449337005615,
+        1.5724470019340515,
+        -1.4135117530822754
+      ],
+      "probe_id": "probe_0",
+      "production_agent_world_position": [
+        2.4511449337005615,
+        0.07244700193405151,
+        -1.4135117530822754
+      ],
+      "production_effective_receiver_world": [
+        2.4511449337005615,
+        1.5724470615386963,
+        -1.4135117530822754
+      ],
+      "production_error_m": 5.960464477539063e-08,
+      "production_local_AudioSensorSpec_position": [
+        0.0,
+        1.5,
+        0.0
+      ],
+      "production_matches_canonical_sensor_center": true,
+      "production_sensor_absolute_world_position": [
+        2.4511449337005615,
+        1.5724470615386963,
+        -1.4135117530822754
+      ],
+      "scene_family": "MP3D",
+      "scene_id": "mp3d.17DRP5sb8fy",
+      "step2b_agent_world_position": [
+        2.4511449337005615,
+        0.07244700193405151,
+        -1.4135117530822754
+      ],
+      "step2b_effective_receiver_world": [
+        2.4511449337005615,
+        0.07244700193405151,
+        -1.4135117530822754
+      ],
+      "step2b_error_m": 1.5,
+      "step2b_local_AudioSensorSpec_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "step2b_matches_canonical_sensor_center": false,
+      "step2b_sensor_absolute_world_position": [
+        2.4511449337005615,
+        0.07244700193405151,
+        -1.4135117530822754
+      ]
+    },
+    {
+      "frozen_recipe_listener_base_position_world": [
+        -3.492335796356201,
+        0.07244700193405151,
+        -2.471327543258667
+      ],
+      "frozen_recipe_sensor_position_world": [
+        -3.492335796356201,
+        1.5724470019340515,
+        -2.471327543258667
+      ],
+      "probe_id": "probe_1",
+      "production_agent_world_position": [
+        -3.492335796356201,
+        0.07244700193405151,
+        -2.471327543258667
+      ],
+      "production_effective_receiver_world": [
+        -3.492335796356201,
+        1.5724470615386963,
+        -2.471327543258667
+      ],
+      "production_error_m": 5.960464477539063e-08,
+      "production_local_AudioSensorSpec_position": [
+        0.0,
+        1.5,
+        0.0
+      ],
+      "production_matches_canonical_sensor_center": true,
+      "production_sensor_absolute_world_position": [
+        -3.492335796356201,
+        1.5724470615386963,
+        -2.471327543258667
+      ],
+      "scene_family": "MP3D",
+      "scene_id": "mp3d.17DRP5sb8fy",
+      "step2b_agent_world_position": [
+        -3.492335796356201,
+        0.07244700193405151,
+        -2.471327543258667
+      ],
+      "step2b_effective_receiver_world": [
+        -3.492335796356201,
+        0.07244700193405151,
+        -2.471327543258667
+      ],
+      "step2b_error_m": 1.5,
+      "step2b_local_AudioSensorSpec_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "step2b_matches_canonical_sensor_center": false,
+      "step2b_sensor_absolute_world_position": [
+        -3.492335796356201,
+        0.07244700193405151,
+        -2.471327543258667
+      ]
+    },
+    {
+      "frozen_recipe_listener_base_position_world": [
+        -2.591444730758667,
+        -2.915588855743408,
+        15.509353637695312
+      ],
+      "frozen_recipe_sensor_position_world": [
+        -2.591444730758667,
+        -1.4155888557434082,
+        15.509353637695312
+      ],
+      "probe_id": "probe_0",
+      "production_agent_world_position": [
+        -2.591444730758667,
+        -2.915588855743408,
+        15.509353637695312
+      ],
+      "production_effective_receiver_world": [
+        -2.591444730758667,
+        -1.4155888557434082,
+        15.509353637695312
+      ],
+      "production_error_m": 0.0,
+      "production_local_AudioSensorSpec_position": [
+        0.0,
+        1.5,
+        0.0
+      ],
+      "production_matches_canonical_sensor_center": true,
+      "production_sensor_absolute_world_position": [
+        -2.591444730758667,
+        -1.4155888557434082,
+        15.509353637695312
+      ],
+      "scene_family": "MP3D",
+      "scene_id": "mp3d.1LXtFkjw3qL",
+      "step2b_agent_world_position": [
+        -2.591444730758667,
+        -2.915588855743408,
+        15.509353637695312
+      ],
+      "step2b_effective_receiver_world": [
+        -2.591444730758667,
+        -2.915588855743408,
+        15.509353637695312
+      ],
+      "step2b_error_m": 1.5,
+      "step2b_local_AudioSensorSpec_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "step2b_matches_canonical_sensor_center": false,
+      "step2b_sensor_absolute_world_position": [
+        -2.591444730758667,
+        -2.915588855743408,
+        15.509353637695312
+      ]
+    },
+    {
+      "frozen_recipe_listener_base_position_world": [
+        1.1560888290405273,
+        -2.31558895111084,
+        0.07325181365013123
+      ],
+      "frozen_recipe_sensor_position_world": [
+        1.1560888290405273,
+        -0.8155889511108398,
+        0.07325181365013123
+      ],
+      "probe_id": "probe_1",
+      "production_agent_world_position": [
+        1.1560888290405273,
+        -2.31558895111084,
+        0.07325181365013123
+      ],
+      "production_effective_receiver_world": [
+        1.1560888290405273,
+        -0.8155889511108398,
+        0.07325181365013123
+      ],
+      "production_error_m": 0.0,
+      "production_local_AudioSensorSpec_position": [
+        0.0,
+        1.5,
+        0.0
+      ],
+      "production_matches_canonical_sensor_center": true,
+      "production_sensor_absolute_world_position": [
+        1.1560888290405273,
+        -0.8155889511108398,
+        0.07325181365013123
+      ],
+      "scene_family": "MP3D",
+      "scene_id": "mp3d.1LXtFkjw3qL",
+      "step2b_agent_world_position": [
+        1.1560888290405273,
+        -2.31558895111084,
+        0.07325181365013123
+      ],
+      "step2b_effective_receiver_world": [
+        1.1560888290405273,
+        -2.31558895111084,
+        0.07325181365013123
+      ],
+      "step2b_error_m": 1.5,
+      "step2b_local_AudioSensorSpec_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "step2b_matches_canonical_sensor_center": false,
+      "step2b_sensor_absolute_world_position": [
+        1.1560888290405273,
+        -2.31558895111084,
+        0.07325181365013123
+      ]
+    },
+    {
+      "frozen_recipe_listener_base_position_world": [
+        50.48324203491211,
+        3.3015520572662354,
+        17.996706008911133
+      ],
+      "frozen_recipe_sensor_position_world": [
+        50.48324203491211,
+        4.801552057266235,
+        17.996706008911133
+      ],
+      "probe_id": "probe_0",
+      "production_agent_world_position": [
+        50.48324203491211,
+        3.3015520572662354,
+        17.996706008911133
+      ],
+      "production_effective_receiver_world": [
+        50.48324203491211,
+        4.801551818847656,
+        17.996706008911133
+      ],
+      "production_error_m": 2.384185791015625e-07,
+      "production_local_AudioSensorSpec_position": [
+        0.0,
+        1.5,
+        0.0
+      ],
+      "production_matches_canonical_sensor_center": true,
+      "production_sensor_absolute_world_position": [
+        50.48324203491211,
+        4.801551818847656,
+        17.996706008911133
+      ],
+      "scene_family": "MP3D",
+      "scene_id": "mp3d.Vt2qJdWjCF2",
+      "step2b_agent_world_position": [
+        50.48324203491211,
+        3.3015520572662354,
+        17.996706008911133
+      ],
+      "step2b_effective_receiver_world": [
+        50.48324203491211,
+        3.3015520572662354,
+        17.996706008911133
+      ],
+      "step2b_error_m": 1.5,
+      "step2b_local_AudioSensorSpec_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "step2b_matches_canonical_sensor_center": false,
+      "step2b_sensor_absolute_world_position": [
+        50.48324203491211,
+        3.3015520572662354,
+        17.996706008911133
+      ]
+    },
+    {
+      "frozen_recipe_listener_base_position_world": [
+        6.656996726989746,
+        0.5015520453453064,
+        9.500553131103516
+      ],
+      "frozen_recipe_sensor_position_world": [
+        6.656996726989746,
+        2.0015520453453064,
+        9.500553131103516
+      ],
+      "probe_id": "probe_1",
+      "production_agent_world_position": [
+        6.656996726989746,
+        0.5015520453453064,
+        9.500553131103516
+      ],
+      "production_effective_receiver_world": [
+        6.656996726989746,
+        2.001552104949951,
+        9.500553131103516
+      ],
+      "production_error_m": 5.960464477539063e-08,
+      "production_local_AudioSensorSpec_position": [
+        0.0,
+        1.5,
+        0.0
+      ],
+      "production_matches_canonical_sensor_center": true,
+      "production_sensor_absolute_world_position": [
+        6.656996726989746,
+        2.001552104949951,
+        9.500553131103516
+      ],
+      "scene_family": "MP3D",
+      "scene_id": "mp3d.Vt2qJdWjCF2",
+      "step2b_agent_world_position": [
+        6.656996726989746,
+        0.5015520453453064,
+        9.500553131103516
+      ],
+      "step2b_effective_receiver_world": [
+        6.656996726989746,
+        0.5015520453453064,
+        9.500553131103516
+      ],
+      "step2b_error_m": 1.5,
+      "step2b_local_AudioSensorSpec_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "step2b_matches_canonical_sensor_center": false,
+      "step2b_sensor_absolute_world_position": [
+        6.656996726989746,
+        0.5015520453453064,
+        9.500553131103516
+      ]
+    }
+  ],
+  "scene_count": 8,
+  "step2b_frozen_commit": "3ca4d8b537750ff31f789cf4347c9f56ce264571",
+  "tolerance_m": 1e-05
+}

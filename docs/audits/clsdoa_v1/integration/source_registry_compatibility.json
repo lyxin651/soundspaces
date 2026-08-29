@@ -1,0 +1,42 @@
+{
+  "base_clip_ids_unique": true,
+  "canonical_paths_existing": 422,
+  "class_minimums": {
+    "clock_alarm": 5,
+    "coughing": 6,
+    "dishes": 5,
+    "frying": 6,
+    "keyboard_typing": 6,
+    "laughing": 5,
+    "mechanical_fan": 5,
+    "microwave_oven": 5,
+    "printer": 5,
+    "running_water": 5,
+    "speech": 6,
+    "vacuum_cleaner": 5
+  },
+  "classes": 12,
+  "external_pool_exists": true,
+  "external_pool_root": "/home/leiyuxin/soundspaces/source_assets/clsdoa_v1/prepared/source_pool_pilot_001",
+  "final_hardening_commit": "8f2e0888fde6fbc69d92293b0204066fcd54398d",
+  "pilot_eligible_values": [
+    "true"
+  ],
+  "pool_generation_commit": "d55153ffab31fd1f9841fc65bb5ae0909fa58a55",
+  "pool_manifest_snapshot_sha256": "f7a59a7e245a8ae0016e5fbd47a5599c64627951e344fe049fef3ff48bab5ad1",
+  "registry_path": "registries/source_audio.csv",
+  "registry_sha256_candidate": "f7a59a7e245a8ae0016e5fbd47a5599c64627951e344fe049fef3ff48bab5ad1",
+  "rows": 422,
+  "split_counts": {
+    "test": 64,
+    "train": 294,
+    "val": 64
+  },
+  "split_overlap": {
+    "train:test": 0,
+    "train:val": 0,
+    "val:test": 0
+  },
+  "split_version": "clsdoa_source_split_v2_stratified",
+  "status": "PASS"
+}

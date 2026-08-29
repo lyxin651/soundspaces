@@ -1,0 +1,101 @@
+{
+  "source_clip_id": "ESC-50:102435",
+  "source_path": "/home/leiyuxin/soundspaces/source_assets/clsdoa_v1/prepared/source_pool_pilot_001/wav/clock_alarm/esc50__102435.wav",
+  "scene_id": "replica.office_1",
+  "probe_id": "probe_0",
+  "recipe": {
+    "schema_version": "clsdoa_v1.0",
+    "episode_id": "controlled_integration.office_1.probe_0",
+    "split": "train",
+    "scene": {
+      "scene_id": "replica.office_1",
+      "scene_family": "Replica"
+    },
+    "source": {
+      "source_clip_id": "ESC-50:102435",
+      "base_clip_id": "esc50:102435",
+      "source_dataset": "ESC-50",
+      "class_id": 4,
+      "source_position_world": [
+        2.255892276763916,
+        0.9042549571076821,
+        -0.7904938459396362
+      ],
+      "source_gain_db": 0.0,
+      "source_offset_sec": 0.0
+    },
+    "listener": {
+      "base_position_world": [
+        0.771392822265625,
+        -0.7533844709396362,
+        -0.9560223817825317
+      ],
+      "sensor_position_world": [
+        0.771392822265625,
+        0.7466155290603638,
+        -0.9560223817825317
+      ],
+      "yaw_deg": -72.40115285289416
+    },
+    "label": {
+      "class_id": 4,
+      "azimuth_project_deg": 168.76361463144104,
+      "elevation_project_deg": 6.024480293591072,
+      "doa_unit_project": [
+        0.193781093488962,
+        0.10495337485433907,
+        0.9754146179512109
+      ],
+      "distance_m": 1.501994845483533
+    },
+    "representations": {
+      "binaural": {
+        "required": true
+      },
+      "foa": {
+        "required": true
+      }
+    }
+  },
+  "records": [
+    {
+      "episode_id": "controlled_integration.office_1.probe_0",
+      "representation": "binaural",
+      "audio_path": "audio/binaural/controlled_integration.office_1.probe_0.wav",
+      "rir_path": "cache/rir/binaural/controlled_integration.office_1.probe_0.npy",
+      "sample_rate_hz": 24000,
+      "num_channels": 2,
+      "num_samples": 120000,
+      "dtype": "float32",
+      "format": "WAV",
+      "render_status": "complete",
+      "failure_reason": null
+    },
+    {
+      "episode_id": "controlled_integration.office_1.probe_0",
+      "representation": "foa",
+      "audio_path": "audio/foa/controlled_integration.office_1.probe_0.wav",
+      "rir_path": "cache/rir/foa/controlled_integration.office_1.probe_0.npy",
+      "sample_rate_hz": 24000,
+      "num_channels": 4,
+      "num_samples": 120000,
+      "dtype": "float32",
+      "format": "AmbiX ACN/SN3D",
+      "render_status": "complete",
+      "failure_reason": null
+    }
+  ],
+  "contract": {
+    "sample_rate_hz": 24000,
+    "num_samples": 120000,
+    "materials_enabled": false,
+    "indirect_ray_count": 5000,
+    "source_ray_count": 200,
+    "normalization_applied": false,
+    "receiver": [
+      0.771392822265625,
+      0.7466155290603638,
+      -0.9560223817825317
+    ]
+  }
+}

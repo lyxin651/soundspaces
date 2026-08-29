@@ -1,0 +1,70 @@
+{
+  "hard_exclusion_applied": false,
+  "method": "3xIQR on PASS Binaural probe energy",
+  "reviewed": [
+    {
+      "binaural_finite_nonzero": true,
+      "closure": "ACCEPTED_SOFT_OUTLIER",
+      "family": "MP3D",
+      "final_admitted_status": "PASS",
+      "foa_finite_nonzero": true,
+      "hard_acoustic_failure": false,
+      "observed_value": 9.126357193270204,
+      "paired_geometry": true,
+      "reference_threshold": {
+        "lower": 0,
+        "upper": 5.713634693480594
+      },
+      "scene_id": "mp3d.Vt2qJdWjCF2",
+      "trigger_metric": "binaural_energy"
+    },
+    {
+      "binaural_finite_nonzero": true,
+      "closure": "ACCEPTED_SOFT_OUTLIER",
+      "family": "Replica",
+      "final_admitted_status": "PASS",
+      "foa_finite_nonzero": true,
+      "hard_acoustic_failure": false,
+      "observed_value": 6.348157963826868,
+      "paired_geometry": true,
+      "reference_threshold": {
+        "lower": 0,
+        "upper": 5.713634693480594
+      },
+      "scene_id": "replica.frl_apartment_2",
+      "trigger_metric": "binaural_energy"
+    },
+    {
+      "binaural_finite_nonzero": true,
+      "closure": "ACCEPTED_SOFT_OUTLIER",
+      "family": "Replica",
+      "final_admitted_status": "PASS",
+      "foa_finite_nonzero": true,
+      "hard_acoustic_failure": false,
+      "observed_value": 6.14222098683292,
+      "paired_geometry": true,
+      "reference_threshold": {
+        "lower": 0,
+        "upper": 5.713634693480594
+      },
+      "scene_id": "replica.office_0",
+      "trigger_metric": "binaural_energy"
+    },
+    {
+      "binaural_finite_nonzero": true,
+      "closure": "ACCEPTED_SOFT_OUTLIER",
+      "family": "Replica",
+      "final_admitted_status": "PASS",
+      "foa_finite_nonzero": true,
+      "hard_acoustic_failure": false,
+      "observed_value": 6.4354470015730225,
+      "paired_geometry": true,
+      "reference_threshold": {
+        "lower": 0,
+        "upper": 5.713634693480594
+      },
+      "scene_id": "replica.office_1",
+      "trigger_metric": "binaural_energy"
+    }
+  ]
+}

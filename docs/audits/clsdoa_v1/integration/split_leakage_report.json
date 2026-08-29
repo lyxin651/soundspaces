@@ -1,0 +1,11 @@
+{
+  "scene_identity_leakage": true,
+  "scene_split_overlap": 0,
+  "source_identity_leakage": true,
+  "source_split_overlap": {
+    "train:test": 0,
+    "train:val": 0,
+    "val:test": 0
+  },
+  "status": "PASS"
+}

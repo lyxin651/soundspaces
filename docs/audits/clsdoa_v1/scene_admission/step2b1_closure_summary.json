@@ -1,0 +1,24 @@
+{
+  "admission_facts": {
+    "FAIL": 5,
+    "PASS": 103,
+    "REVIEW_REQUIRED": 0,
+    "unchanged": true
+  },
+  "audio_rerendered": false,
+  "manual_scene_override": false,
+  "registry": "registries/clsdoa_v1_scenes.yaml",
+  "soft_outliers": "4 ACCEPTED_SOFT_OUTLIER",
+  "split_counts": {
+    "MP3D/test": 13,
+    "MP3D/train": 59,
+    "MP3D/val": 13,
+    "Replica/test": 3,
+    "Replica/train": 12,
+    "Replica/val": 3
+  },
+  "split_version": "clsdoa_v1_scene_split_v2",
+  "status": "STEP 2B.1 CLOSED - PENDING HUMAN REVIEW",
+  "step_3": "PENDING HUMAN REVIEW",
+  "unit_scale": "PASS"
+}
