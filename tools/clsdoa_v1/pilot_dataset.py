@@ -129,7 +129,7 @@ def build_plan():
     scene_pools = {}
     for entry in scenes:
         scene_pools[entry["scene_id"]] = _collect_candidates(entry, config)
-    all_candidates = {(entry["scene_family"], entry["split"]): [candidate for entry in scenes if entry["scene_family"] == family and entry["split"] == split for candidate in scene_pools[entry["scene_id"]]] for family in ("Replica", "MP3D") for split in ("train", "val", "test")}
+    all_candidates = {(family, split): [candidate for entry in scenes if entry["scene_family"] == family and entry["split"] == split for candidate in scene_pools[entry["scene_id"]]] for family in ("Replica", "MP3D") for split in ("train", "val", "test")}
     recipes = []
     review = []
     slots = 0
