@@ -101,7 +101,7 @@ def _collect_candidates(entry, config):
 def _load_step2b_seed_bank(entries):
     evidence = ROOT / "docs/audits/clsdoa_v1/scene_admission/exact_production_acoustic_revalidation.json"
     data = json.loads(evidence.read_text(encoding="utf-8"))
-    if data.get("status") != "PASS" or data.get("geometry_resampled") is not False or data.get("scenes") != 103:
+    if not str(data.get("status", "")).startswith("AUTHORITATIVE") or data.get("geometry_resampled") is not False or data.get("scenes") != 103:
         raise RuntimeError("Step 2B evidence is not authoritative geometry seed bank")
     allowed = {entry["scene_id"] for entry in entries}
     bank = defaultdict(list)
