@@ -97,6 +97,8 @@ def validate_render_payload(root):
     renders = root / "manifests/renders.jsonl"
     _require(renders.is_file(), "render manifest missing")
     rows = [json.loads(line) for line in renders.read_text().splitlines() if line]
+    _require(len(rows) == 1920, "render journal must contain exactly 1920 records")
+    _require(all(row.get("render_status") == "complete" for row in rows), "render journal contains non-complete records")
     verify_plan_integrity(root, ROOT)
     episodes = [json.loads(line) for line in (root / "manifests/episodes.jsonl").read_text().splitlines() if line]
     _require(len(episodes) == 960 and len({row["episode_id"] for row in episodes}) == 960, "payload requires all 960 unique episodes")
@@ -122,6 +124,7 @@ def validate_render_record_payload(root, row):
     _require(audio.dtype == np.dtype("float32"), "WAV dtype mismatch")
     _require(np.isfinite(audio).all() and np.any(np.abs(audio)), "WAV must be finite and non-zero")
     rir = np.asarray(np.load(str(root / row["rir_path"]), allow_pickle=False))
+    _require(rir.dtype == np.dtype("float32"), "RIR dtype mismatch")
     _require(rir.ndim == 2 and ((row["representation"] == "binaural" and rir.shape[1] == 2) or (row["representation"] == "foa" and rir.shape[0] == 4)), "RIR channel payload mismatch")
     _require(np.isfinite(rir).all() and np.any(np.abs(rir)), "RIR must be finite and non-zero")
 

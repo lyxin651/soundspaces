@@ -1,3 +1,4 @@
+import json
 import subprocess
 import sys
 import tempfile
@@ -5,6 +6,7 @@ import unittest
 from pathlib import Path
 import numpy as np
 from scipy.io import wavfile
+from unittest import mock
 
 from tools.clsdoa_v1.git_identity import GitIdentityError, current_clean_head
 from tools.clsdoa_v1.scheduler import (
@@ -73,6 +75,45 @@ class Pilot004CommandSurfaceTests(unittest.TestCase):
         foa = {"episode_id": "ep", "representation": "foa", "render_status": "complete"}
         rows = upsert_render_record([binaural], foa)
         self.assertEqual({(row["episode_id"], row["representation"]) for row in rows}, {("ep", "binaural"), ("ep", "foa")})
+
+    def test_render_dataset_resume_keeps_binaural_and_renders_only_foa(self):
+        from active_audition.datasets.binaural_foa_clsdoa.recipe import make_episode_recipe
+        from active_audition.datasets.binaural_foa_clsdoa.schema import RenderRecord
+        import tools.clsdoa_v1.orchestration as orchestration
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "manifests").mkdir()
+            recipe = make_episode_recipe(episode_id="ep", split="train", scene_id="replica.office_0", scene_family="Replica", source_clip_id="clip", base_clip_id="base", source_dataset="fixture", class_id=0, source_position_world=(1.0, 0.5, 1.0), source_gain_db=0.0, source_offset_sec=0.0, listener_base_position_world=(0.0, 0.0, 0.0), listener_sensor_position_world=(0.0, 1.5, 0.0), listener_yaw_deg=0.0).to_dict()
+            (root / "manifests/episodes.jsonl").write_text(json.dumps(recipe) + "\n")
+            (root / "config_resolved.yaml").write_text("storage:\n  require_rir: true\n  save_rir: true\n")
+            (root / "identity.json").write_text(json.dumps({"generation_code_commit": "clean"}))
+            (root / "manifests/plan.lock.json").write_text(json.dumps({"plan_generation_code_commit": "clean"}))
+            audio = root / "binaural.wav"
+            rir = root / "binaural.npy"
+            audio.write_bytes(b"mock")
+            rir.write_bytes(b"mock")
+            old = {"episode_id": "ep", "representation": "binaural", "render_status": "complete", "audio_path": "binaural.wav", "rir_path": "binaural.npy"}
+            (root / "manifests/renders.jsonl").write_text(json.dumps(old) + "\n")
+            calls = []
+            class MockRenderer:
+                def __init__(self, **kwargs):
+                    pass
+                def render_episode(self, recipe, representation):
+                    calls.append(representation)
+                    return RenderRecord(episode_id=recipe.episode_id, representation=representation, audio_path="foa.wav", rir_path="foa.npy", sample_rate_hz=24000, num_channels=4, num_samples=120000, dtype="float32", format="AmbiX ACN/SN3D", render_status="complete")
+            with mock.patch.object(orchestration, "verify_plan_integrity"), mock.patch.object(orchestration, "current_clean_head", return_value="clean"), mock.patch.object(orchestration, "read_source_registry", return_value=[{"source_clip_id": "clip", "canonical_path": "source.wav"}]), mock.patch.object(orchestration, "resolve_generation_scene_resources", return_value={"scene_asset": "scene.ply", "navmesh": "scene.navmesh"}), mock.patch.object(orchestration, "SoundSpacesPairedRenderer", MockRenderer):
+                orchestration.render_dataset(root, resume=True, renderer_factory=MockRenderer)
+            rows = [json.loads(line) for line in (root / "manifests/renders.jsonl").read_text().splitlines() if line]
+            self.assertEqual(calls, ["foa"])
+            self.assertEqual({row["representation"] for row in rows}, {"binaural", "foa"})
+            self.assertEqual(len(rows), 2)
+
+    def test_journal_upsert_rejects_no_key_loss_by_construction(self):
+        from tools.clsdoa_v1.orchestration import upsert_render_record
+        rows = [{"episode_id": "ep", "representation": "binaural", "render_status": "complete"}, {"episode_id": "ep", "representation": "foa", "render_status": "failed"}]
+        updated = upsert_render_record(rows, {"episode_id": "ep", "representation": "foa", "render_status": "complete"})
+        self.assertEqual(len(updated), 2)
+        self.assertEqual({row["representation"] for row in updated}, {"binaural", "foa"})
 
     def test_membership_split_and_family_gates(self):
         from tools.clsdoa_v1.validate_pilot_plan import PilotPlanValidationError, validate_episode_membership
