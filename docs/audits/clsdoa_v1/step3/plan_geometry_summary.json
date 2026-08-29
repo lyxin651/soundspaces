@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "fixed_probe_recipes": 960,
+  "listener_clearance": "PASS",
+  "source_clearance": "PASS",
+  "reachability": "PASS",
+  "independent_geometry_validation": "PASS",
+  "sensor_height_m": 1.5,
+  "source_height_offset_m": [0.5, 2.2],
+  "resampled_audio": false
+}

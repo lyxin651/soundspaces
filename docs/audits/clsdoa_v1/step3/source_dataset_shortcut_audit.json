@@ -1,0 +1,7 @@
+{
+  "status": "AUDIT_ONLY",
+  "source_dataset_counts": {"ESC-50": 370, "PSELD-selected FSD50K": 310, "DESED isolated foreground": 280},
+  "all_422_identities_used": true,
+  "shortcut_blocker": false,
+  "interpretation": "Natural source-pool composition is retained; no artificial rebalancing or source bypass was used."
+}

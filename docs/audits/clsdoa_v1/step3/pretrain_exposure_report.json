@@ -1,0 +1,7 @@
+{
+  "status": "DIAGNOSTIC_ONLY",
+  "test_pretrain_seen_status": {"unknown": 94, "likely_yes": 50},
+  "likely_yes_rewritten": false,
+  "strict_unseen_claim": "PROHIBITED",
+  "note": "Exposure labels are carried from the finalized source registry and are not a Step 3 admission blocker."
+}

@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "dataset_id": "clsdoa_v1_pilot_001",
+  "generation_code_commit": "6551caf4de4db297eb5509c46caa89f9b011333a",
+  "step2_foundation": "31928fe7bdf651360552db3e1d4a1ac0e778f351",
+  "step2_closure_evidence": "dc1759268443e8c9b7382200c71f133e8184133d",
+  "source_rows": 422,
+  "scene_rows": 108,
+  "pass_scenes": 103,
+  "excluded_geometry_failures": 5,
+  "materials": "OFF",
+  "audio_files": 0,
+  "rir_files": 0,
+  "success_marker": false,
+  "structural_smoke": "PASS",
+  "stage_config_production_loader_use_count": 0
+}

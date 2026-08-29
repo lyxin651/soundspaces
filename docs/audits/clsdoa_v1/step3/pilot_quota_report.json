@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "per_class": {"count": 80, "azimuth_bins": "8 bins x 10", "distance_bins": {"near": 32, "mid": 32, "far": 16}, "elevation_bins": {"small": 60, "nonzero": 20}},
+  "split": {"train": 672, "val": 144, "test": 144},
+  "family": {"Replica": 480, "MP3D": 480},
+  "receiver": "sensor = listener base + [0, 1.5, 0]",
+  "source_height_offset_m": [0.5, 2.2],
+  "gain_db": [-5.4, 5.4],
+  "source_offset": "deterministic; short clips in [0, 5-duration], 5s clips at 0",
+  "geometry": {"clearance": "PASS", "reachable": "PASS", "independent_recompute": "PASS"}
+}

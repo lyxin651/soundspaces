@@ -1,0 +1,9 @@
+{
+  "status": "PASS",
+  "materials": "OFF",
+  "stage_config_production_loader_use_count": 0,
+  "direct_core": {"Replica": ["mesh_semantic.ply", "mesh_semantic.navmesh", "info_semantic.json"], "MP3D": ["<scan>.glb", "<scan>.navmesh", "<scan>.house"]},
+  "representatives_loaded_without_audio_sensor": 21,
+  "admitted_scene_pool_validated": 103,
+  "geometry_only": true
+}

@@ -1,0 +1,14 @@
+{
+  "status": "PASS",
+  "generation_code_commit": "6551caf4de4db297eb5509c46caa89f9b011333a",
+  "temporary_root": "/tmp/clsdoa_v1_pilot_repeat_20260829_b",
+  "comparisons": {
+    "episodes_sha256": "6cab6acfac8e1798d372f6879f06c61388601b4b6d52e781ed1410ae94d42fc4",
+    "review_index_sha256": "b1dd44ea5ec9449eaae22b39a5f35c1aad0368bd38c70c521311b2b2e9b6fc31",
+    "config_resolved_sha256": "632d089fc26a87f1f5567a0f118e0bb14a3f71fa9030ed03f08bf1903bc417e0",
+    "resources_lock_sha256": "92499e37ce3f584137801bb290a24ca1b2ee7cc9ff52a3438f75c2bccfe16012",
+    "plan_summary_sha256": "0ce6837b99656e9849ef15ff82742bfedf7104cc57a4b47ea458df5abc966905"
+  },
+  "episodes_byte_equivalent": true,
+  "review_index_byte_equivalent": true
+}

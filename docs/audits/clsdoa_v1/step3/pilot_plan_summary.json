@@ -1,0 +1,12 @@
+{
+  "episodes": 960,
+  "classes": 12,
+  "episodes_per_class": 80,
+  "split": {"train": 672, "val": 144, "test": 144},
+  "family": {"Replica": 480, "MP3D": 480},
+  "class_split_family": {"train": "28 Replica + 28 MP3D per class", "val": "6 Replica + 6 MP3D per class", "test": "6 Replica + 6 MP3D per class"},
+  "unique_sources": 422,
+  "used_pass_scenes": 21,
+  "fallback_count": 0,
+  "payload": {"wav": 0, "rir": 0, "success_marker": false}
+}
