@@ -7,8 +7,13 @@ import hashlib
 import json
 import math
 import shutil
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 import numpy as np
 import quaternion
@@ -21,7 +26,6 @@ from active_audition.datasets.binaural_foa_clsdoa.scene_registry import resolve_
 from active_audition.datasets.binaural_foa_clsdoa.source_registry import read_source_registry
 
 
-ROOT = Path(__file__).resolve().parents[2]
 LOCK = ROOT / "configs/active_audition/clsdoa_v1_resources.lock.json"
 CONFIG = ROOT / "configs/active_audition/clsdoa_v1_pilot_001.yaml"
 SCENES = ROOT / "registries/clsdoa_v1_scenes.yaml"
