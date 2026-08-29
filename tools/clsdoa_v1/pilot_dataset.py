@@ -98,6 +98,23 @@ def _collect_candidates(entry, config):
         sim.close()
 
 
+def _load_step2b_seed_bank(entries):
+    evidence = ROOT / "docs/audits/clsdoa_v1/scene_admission/exact_production_acoustic_revalidation.json"
+    data = json.loads(evidence.read_text(encoding="utf-8"))
+    if data.get("status") != "PASS" or data.get("geometry_resampled") is not False or data.get("scenes") != 103:
+        raise RuntimeError("Step 2B evidence is not authoritative geometry seed bank")
+    allowed = {entry["scene_id"] for entry in entries}
+    bank = defaultdict(list)
+    for row in data["rows"]:
+        if row["scene_id"] not in allowed:
+            raise RuntimeError("seed bank scene is absent from current registry")
+        sensor = np.asarray(row["listener_sensor_position_world"], dtype=np.float64)
+        source = np.asarray(row["source_position_world"], dtype=np.float64)
+        delta = source - sensor
+        bank[row["scene_id"]].append({"listener": row["listener_base_position_world"], "sensor": row["listener_sensor_position_world"], "source": row["source_position_world"], "source_height_offset": 1.5, "distance": float(np.linalg.norm(delta)), "elevation": math.degrees(math.atan2(float(delta[1]), float(np.linalg.norm(delta[[0, 2]])))), "geodesic": float(np.linalg.norm(delta)), "attempt": "step2b_fixed_probe"})
+    return bank
+
+
 def _load_config():
     path = Path(os.environ["STEP3_PILOT_CONFIG"])
     return yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -141,11 +158,20 @@ def build_plan():
         by_class_split[(row["canonical_class"], row["split"])].append(row)
     for rows in by_class_split.values():
         rows.sort(key=lambda row: hashlib.sha256(("source|" + row["base_clip_id"]).encode()).hexdigest())
-    # 每个 scene 保持独立 simulator；并行只缩短 I/O/初始化等待，不共享 Habitat 状态。
-    workers = int(config.get("geometry", {}).get("planning_workers", 4))
-    with ThreadPoolExecutor(max_workers=workers) as executor:
-        loaded = executor.map(lambda entry: (entry["scene_id"], _collect_candidates(entry, config)), scenes)
-        scene_pools = dict(loaded)
+    seed_bank = _load_step2b_seed_bank(scenes)
+    scene_pools = {entry["scene_id"]: list(seed_bank.get(entry["scene_id"], ())) for entry in scenes}
+    needed = {(d, e) for d in ("near", "mid", "far") for e in ("small", "nonzero")}
+    for family in ("Replica", "MP3D"):
+        for split in ("train", "val", "test"):
+            candidates = [entry for entry in scenes if entry["scene_family"] == family and entry["split"] == split]
+            for distance_bin, elevation_bin in sorted(needed):
+                supported = lambda entry: any(distance_bin == ("near" if c["distance"] < 2 else "mid" if c["distance"] < 4 else "far") and elevation_bin == ("small" if abs(c["elevation"]) < 5 else "nonzero") for c in scene_pools[entry["scene_id"]])
+                if any(supported(entry) for entry in candidates):
+                    continue
+                if not candidates:
+                    raise RuntimeError("no scene for lazy target {} / {}".format(family, split))
+                # Lazy fill is restricted to the first compatible family/split scene.
+                scene_pools[candidates[0]["scene_id"]].extend(_collect_candidates(candidates[0], config))
     scene_entries = {(family, split): [entry for entry in scenes if entry["scene_family"] == family and entry["split"] == split] for family in ("Replica", "MP3D") for split in ("train", "val", "test")}
     scene_use = Counter()
     recipes = []
