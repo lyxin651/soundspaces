@@ -119,7 +119,7 @@ def _load_step2b_seed_bank(entries):
 
 
 def _load_config():
-    path = Path(os.environ["STEP3_PILOT_CONFIG"])
+    path = Path(CONFIG_PATH)
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
