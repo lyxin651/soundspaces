@@ -35,9 +35,33 @@ def validate_episode_membership(episodes, source_registry, scene_registry):
         scene = scenes.get(row["scene"]["scene_id"])
         _require(source is not None, "episode source is absent from registry")
         _require(scene is not None, "episode scene is absent from registry")
+        _require(scene.get("admitted", "PASS") == "PASS", "episode scene is not PASS admitted")
         _require(source["split"] == row["split"], "source split mismatch")
         _require(scene["split"] == row["split"], "scene split mismatch")
         _require(scene["scene_family"] == row["scene"]["scene_family"], "scene family mismatch")
+
+
+def validate_scene_set(used_scene_ids, scene_registry):
+    scenes = scene_registry.get("scenes", scene_registry)
+    pass_ids = {sid for sid, row in scenes.items() if row.get("admitted") == "PASS"}
+    _require(set(used_scene_ids) == pass_ids, "scene set must equal exact PASS set")
+
+
+def validate_episode_ids(episodes):
+    _require(len({row["episode_id"] for row in episodes}) == len(episodes), "episode IDs must be unique")
+
+
+def validate_source_reuse(episodes, class_id, split):
+    counts = Counter(row["source"]["base_clip_id"] for row in episodes if row["label"]["class_id"] == class_id and row["split"] == split)
+    _require(counts and max(counts.values()) - min(counts.values()) <= 1, "source reuse imbalance")
+
+
+def validate_family_block(block, class_id, split, family):
+    """Hard-check one class/split/family micro-pattern."""
+    _require(Counter(row["diagnostics"]["distance_bin"] for row in block) == Counter(distance_schedule(split, class_id, family)), "family distance micro-pattern mismatch")
+    _require(Counter(row["diagnostics"]["elevation_bin"] for row in block) == Counter(elevation_schedule(split, class_id, family)), "family elevation micro-pattern mismatch")
+    _require(Counter(row["diagnostics"]["azimuth_bin"] for row in block) == Counter(azimuth_schedule(split, class_id, family)), "family azimuth micro-pattern mismatch")
+    _require(Counter(row["diagnostics"]["gain_bin"] for row in block) == Counter(gain_schedule(split, class_id, family)), "family gain micro-pattern mismatch")
 
 
 def validate(root):
@@ -45,7 +69,7 @@ def validate(root):
     episodes = [json.loads(line) for line in (root / "manifests/episodes.jsonl").read_text().splitlines() if line]
     review = [json.loads(line) for line in (root / "reports/plan_review_index.jsonl").read_text().splitlines() if line]
     _require(len(episodes) == len(review) == 960, "episode/review count must be 960")
-    _require(len({r["episode_id"] for r in episodes}) == 960, "episode IDs must be unique")
+    validate_episode_ids(episodes)
     _require(Counter(r["split"] for r in episodes) == Counter(train=672, val=144, test=144), "split quota mismatch")
     _require(Counter(r["scene"]["scene_family"] for r in episodes) == Counter(Replica=480, MP3D=480), "family quota mismatch")
     _require(Counter(r["label"]["class_id"] for r in episodes) == Counter({i: 80 for i in CLASSES}), "class quota mismatch")
@@ -56,7 +80,7 @@ def validate(root):
     pass_ids = {sid for sid, r in scene_registry.items() if r["admitted"] == "PASS"}
     fail_ids = {sid for sid, r in scene_registry.items() if r["admitted"] != "PASS"}
     used_scene_ids = {r["scene"]["scene_id"] for r in episodes}
-    _require(used_scene_ids == pass_ids, "scene pool must equal exact PASS scene set")
+    validate_scene_set(used_scene_ids, scene_registry)
     _require(not (used_scene_ids & fail_ids), "scene pool contains non-PASS scene")
     for class_id in CLASSES:
         rows = [r for r in episodes if r["label"]["class_id"] == class_id]
@@ -65,16 +89,14 @@ def validate(root):
         _require(Counter(r["diagnostics"]["elevation_bin"] for r in review if r["label"]["class_id"] == class_id) == Counter(small=60, nonzero=20), "elevation quota mismatch")
         for split in ("train", "val", "test"):
             counts = Counter(r["source"]["base_clip_id"] for r in episodes if r["label"]["class_id"] == class_id and r["split"] == split)
-            _require(max(counts.values()) - min(counts.values()) <= 1, "source reuse imbalance")
+            validate_source_reuse(episodes, class_id, split)
             split_rows = [r for r in review if r["label"]["class_id"] == class_id and r["split"] == split]
             _require(set(r["diagnostics"]["azimuth_bin"] for r in split_rows) == set(range(8)), "split azimuth coverage mismatch")
             _require(set(r["diagnostics"]["gain_bin"] for r in split_rows) == set(range(8)), "split gain coverage mismatch")
             for family in ("Replica", "MP3D"):
                 block = [r for r in split_rows if r["scene"]["scene_family"] == family]
-                _require([r["diagnostics"]["distance_bin"] for r in block] and Counter(r["diagnostics"]["distance_bin"] for r in block) == Counter(distance_schedule(split, class_id, family)), "family distance micro-pattern mismatch")
-                _require(Counter(r["diagnostics"]["elevation_bin"] for r in block) == Counter(elevation_schedule(split, class_id, family)), "family elevation micro-pattern mismatch")
-                _require(Counter(r["diagnostics"]["azimuth_bin"] for r in block) == Counter(azimuth_schedule(split, class_id, family)), "family azimuth micro-pattern mismatch")
-                _require(Counter(r["diagnostics"]["gain_bin"] for r in block) == Counter(gain_schedule(split, class_id, family)), "family gain micro-pattern mismatch")
+                _require(block, "empty family micro-pattern")
+                validate_family_block(block, class_id, split, family)
     for r in episodes:
         _require(set(r["representations"]) == {"binaural", "foa"}, "representation mismatch")
         _require(r["listener"]["sensor_position_world"] == [r["listener"]["base_position_world"][0], r["listener"]["base_position_world"][1] + 1.5, r["listener"]["base_position_world"][2]], "receiver invariant mismatch")
@@ -97,19 +119,28 @@ def validate_render_payload(root):
     renders = root / "manifests/renders.jsonl"
     _require(renders.is_file(), "render manifest missing")
     rows = [json.loads(line) for line in renders.read_text().splitlines() if line]
-    _require(len(rows) == 1920, "render journal must contain exactly 1920 records")
-    _require(all(row.get("render_status") == "complete" for row in rows), "render journal contains non-complete records")
+    expected = _payload_expected_keys(root)
+    validate_render_rows(rows, expected)
     verify_plan_integrity(root, ROOT)
     episodes = [json.loads(line) for line in (root / "manifests/episodes.jsonl").read_text().splitlines() if line]
     _require(len(episodes) == 960 and len({row["episode_id"] for row in episodes}) == 960, "payload requires all 960 unique episodes")
-    expected = {(row["episode_id"], representation) for row in episodes for representation in ("binaural", "foa")}
-    complete = [row for row in rows if row.get("render_status") == "complete"]
-    keys = {(row.get("episode_id"), row.get("representation")) for row in complete}
-    _require(keys == expected and len(complete) == 1920, "payload must contain exactly one complete binaural and foa record per episode")
-    for row in complete:
+    for row in rows:
         validate_render_record_payload(root, row)
     _require(not (root / "_SUCCESS").exists(), "dataset already finalized")
     return True
+
+
+def _payload_expected_keys(root):
+    episodes = [json.loads(line) for line in (Path(root) / "manifests/episodes.jsonl").read_text().splitlines() if line]
+    _require(len(episodes) == 960 and len({row["episode_id"] for row in episodes}) == 960, "payload requires all 960 unique episodes")
+    return {(row["episode_id"], representation) for row in episodes for representation in ("binaural", "foa")}
+
+
+def validate_render_rows(rows, expected):
+    _require(len(rows) == 1920, "render journal must contain exactly 1920 records")
+    _require(all(row.get("render_status") == "complete" for row in rows), "render journal contains non-complete records")
+    keys = {(row.get("episode_id"), row.get("representation")) for row in rows}
+    _require(keys == expected and len(keys) == 1920, "payload must contain exactly one complete binaural and foa record per episode")
 
 
 def validate_render_record_payload(root, row):
