@@ -25,10 +25,11 @@ from active_audition.datasets.binaural_foa_clsdoa.geometry import project_geomet
 from active_audition.datasets.binaural_foa_clsdoa.recipe import make_episode_recipe
 from active_audition.datasets.binaural_foa_clsdoa.scene_registry import resolve_generation_scene_resources
 from active_audition.datasets.binaural_foa_clsdoa.source_registry import read_source_registry
+from active_audition.datasets.binaural_foa_clsdoa.storage import merge_resolved_config
 
 
 LOCK = ROOT / "configs/active_audition/clsdoa_v1_resources.lock.json"
-CONFIG = ROOT / "configs/active_audition/clsdoa_v1_pilot_001.yaml"
+CONTRACT = ROOT / "configs/active_audition/clsdoa_v1_contract.yaml"
 SCENES = ROOT / "registries/clsdoa_v1_scenes.yaml"
 CLASSES = ["coughing", "laughing", "keyboard_typing", "vacuum_cleaner", "clock_alarm", "speech", "running_water", "frying", "mechanical_fan", "microwave_oven", "dishes", "printer"]
 
@@ -67,7 +68,7 @@ def _collect_candidates(entry, config):
     try:
         if not sim.pathfinder.is_loaded:
             sim.pathfinder.load_nav_mesh(entry["navmesh"])
-        rng = np.random.default_rng(stable_int(config["global_seed"], entry["scene_id"], "geometry"))
+        sim.pathfinder.seed(stable_int(config["global_seed"], entry["scene_id"], "pathfinder") & 0xFFFFFFFF)
         candidates = []
         for attempt in range(int(config["geometry"]["max_attempts_per_scene"])):
             listener = np.asarray(sim.pathfinder.get_random_navigable_point(), dtype=np.float64)
@@ -97,7 +98,8 @@ def _collect_candidates(entry, config):
 
 
 def _load_config():
-    return yaml.safe_load(CONFIG.read_text(encoding="utf-8"))
+    path = Path(os.environ["STEP3_PILOT_CONFIG"])
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
 def _source_rows():
@@ -120,9 +122,7 @@ def build_plan():
     config = _load_config()
     sources = _source_rows()
     all_pass_scenes = _scene_rows()
-    # Load all Replica PASS scenes for its smaller geometry pool; use one stable MP3D representative per split.
-    scenes = [row for row in all_pass_scenes if row["scene_family"] == "Replica"]
-    scenes.extend(next(row for row in all_pass_scenes if row["scene_family"] == "MP3D" and row["split"] == split) for split in ("train", "val", "test"))
+    scenes = all_pass_scenes
     by_class_split = defaultdict(list)
     for row in sources:
         by_class_split[(row["canonical_class"], row["split"])].append(row)
@@ -157,7 +157,7 @@ def build_plan():
                     world_bearing = math.degrees(math.atan2(float(delta[0]), -float(delta[2])))
                     target_azimuth = -157.5 + 45.0 * (slot // 10)
                     yaw = world_bearing - target_azimuth
-                    episode_id = "clsdoa_v1_pilot_001_ep_{:06d}".format(slots + 1)
+                    episode_id = "{}_ep_{:06d}".format(config["dataset_id"], slots + 1)
                     recipe = make_episode_recipe(episode_id=episode_id, split=split, scene_id=scene_id, scene_family=family, source_clip_id=source["source_clip_id"], base_clip_id=source["base_clip_id"], source_dataset=source["source_dataset"], class_id=class_id, source_position_world=candidate["source"], source_gain_db=gain, source_offset_sec=offset, listener_base_position_world=candidate["listener"], listener_sensor_position_world=candidate["sensor"], listener_yaw_deg=yaw)
                     validate_geometry_independently(recipe.source_position_world, recipe.listener_sensor_position_world, recipe.listener_yaw_deg, {"distance_m": recipe.distance_m, "azimuth_project_deg": recipe.azimuth_project_deg, "elevation_project_deg": recipe.elevation_project_deg, "doa_unit_project": recipe.doa_unit_project})
                     recipes.append(recipe.to_dict())
@@ -168,6 +168,7 @@ def build_plan():
 
 def write_plan(root):
     recipes, review, scenes, sources = build_plan()
+    config = _load_config()
     root.mkdir(parents=True, exist_ok=True)
     (root / "manifests").mkdir(exist_ok=True)
     (root / "reports").mkdir(exist_ok=True)
@@ -175,12 +176,15 @@ def write_plan(root):
     review_text = "".join(json.dumps(row, sort_keys=True, ensure_ascii=False) + "\n" for row in review)
     (root / "manifests/episodes.jsonl").write_text(episodes, encoding="utf-8")
     (root / "reports/plan_review_index.jsonl").write_text(review_text, encoding="utf-8")
-    summary = {"dataset_id": "clsdoa_v1_pilot_001", "plan_version": "clsdoa_v1_pilot_plan_v1", "episode_count": len(recipes), "source_rows": len(sources), "scene_pass_pool": 103, "scene_representatives_loaded": len(scenes), "audio_files": 0, "rir_files": 0, "success_marker": False, "render_started": False, "quota": {"split": dict(Counter(row["split"] for row in recipes)), "family": dict(Counter(row["scene"]["scene_family"] for row in recipes)), "class": dict(Counter(row["source"]["class_id"] for row in recipes))}}
+    summary = {"dataset_id": config["dataset_id"], "plan_version": config["plan_version"], "episode_count": len(recipes), "source_rows": len(sources), "scene_pass_pool": 103, "scene_representatives_loaded": len(scenes), "audio_files": 0, "rir_files": 0, "success_marker": False, "render_started": False, "quota": {"split": dict(Counter(row["split"] for row in recipes)), "family": dict(Counter(row["scene"]["scene_family"] for row in recipes)), "class": dict(Counter(row["source"]["class_id"] for row in recipes))}}
     (root / "reports/plan_summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     code_commit = os.environ.get("STEP3_GENERATION_CODE_COMMIT", "PENDING_STEP3_CODE_COMMIT")
-    (root / "identity.json").write_text(json.dumps({"dataset_id": "clsdoa_v1_pilot_001", "schema_version": "clsdoa_v1.0", "generation_code_commit": code_commit}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    config = _load_config()
-    config["resolved_from"] = {"contract": "configs/active_audition/clsdoa_v1_contract.yaml", "pilot": "configs/active_audition/clsdoa_v1_pilot_001.yaml"}
+    def file_sha(path):
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    (root / "identity.json").write_text(json.dumps({"dataset_id": config["dataset_id"], "dataset_family": "soundspaces_binaural_foa_clsdoa_v1", "schema_version": "clsdoa_v1.0", "generation_code_commit": code_commit, "created_at": "2026-08-29T00:00:00Z", "config_sha256": file_sha(CONFIG_PATH), "ontology_sha256": file_sha(ROOT / "registries/ontology.yaml"), "source_registry_sha256": file_sha(ROOT / "registries/source_audio.csv"), "scene_registry_sha256": file_sha(ROOT / "registries/clsdoa_v1_scenes.yaml")}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    config["resolved_from"] = {"contract": "configs/active_audition/clsdoa_v1_contract.yaml", "pilot": str(CONFIG_PATH.relative_to(ROOT))}
+    config["contract"] = yaml.safe_load(CONTRACT.read_text(encoding="utf-8"))
+    config = merge_resolved_config(config["contract"], {k: v for k, v in config.items() if k != "contract"})
     config["generation_code_commit"] = code_commit
     (root / "config_resolved.yaml").write_text(yaml.safe_dump(config, sort_keys=True), encoding="utf-8")
     global_lock = json.loads(LOCK.read_text(encoding="utf-8"))
@@ -192,7 +196,7 @@ def write_plan(root):
     def sha256(path):
         return hashlib.sha256(path.read_bytes()).hexdigest()
     (root / "manifests/plan.lock.json").write_text(json.dumps({
-        "dataset_id": "clsdoa_v1_pilot_001", "plan_version": "clsdoa_v1_pilot_plan_v1",
+        "dataset_id": config["dataset_id"], "plan_version": config["plan_version"],
         "plan_generation_code_commit": code_commit,
         "step2_generation_foundation_commit": "31928fe7bdf651360552db3e1d4a1ac0e778f351",
         "step2_closure_evidence_commit": "dc1759268443e8c9b7382200c71f133e8184133d",
@@ -245,6 +249,9 @@ def main():
     parser.add_argument("--config", required=True)
     parser.add_argument("--root", default=str(ROOT / "datasets/binaural_foa_clsdoa_v1/clsdoa_v1_pilot_001"))
     args = parser.parse_args()
+    global CONFIG_PATH
+    CONFIG_PATH = (ROOT / args.config).resolve() if not Path(args.config).is_absolute() else Path(args.config).resolve()
+    os.environ["STEP3_PILOT_CONFIG"] = str(CONFIG_PATH)
     if Path(args.root).exists() and any(Path(args.root).iterdir()):
         existing = {path.relative_to(Path(args.root)).as_posix() for path in Path(args.root).rglob("*") if path.is_file()}
         allowed = {"identity.json", "config_resolved.yaml", "resources.lock.json", "manifests/episodes.jsonl", "manifests/plan.lock.json"}
