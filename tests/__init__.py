@@ -1,1 +1,1 @@
-"""M0 unit tests."""
+"""Project test package for unified unittest discovery."""

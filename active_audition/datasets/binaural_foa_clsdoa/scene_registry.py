@@ -6,7 +6,7 @@ from typing import Any, Mapping, Sequence
 import yaml
 
 
-SCENE_FIELDS = ("scene_id", "scene_family", "scene_asset", "stage_config", "navmesh", "semantic_info", "materials_mode", "unit_scale", "resource_hash", "admitted", "exclude_reason", "split")
+SCENE_FIELDS = ("scene_id", "scene_family", "scene_asset", "stage_config", "navmesh", "semantic_info", "materials_mode", "admitted", "split")
 ALLOWED_SCENE_FAMILIES = ("Replica", "MP3D")
 
 
@@ -28,16 +28,30 @@ def validate_scene_rows(rows: Mapping[str, Mapping[str, Any]]) -> Sequence[Mappi
         seen.add(row["scene_id"])
         if row["scene_family"] not in ALLOWED_SCENE_FAMILIES:
             raise SceneRegistryError("scene_family must be Replica or MP3D")
-        if row["materials_mode"] != "OFF":
+        if str(row["materials_mode"]).lower() != "off":
             raise SceneRegistryError("materials_mode must be OFF")
         if row["admitted"] not in ("NOT_RUN", "UNASSIGNED", "PASS", "FAIL"):
             raise SceneRegistryError("invalid scene admission state: {}".format(row["admitted"]))
         if row["split"] not in ("train", "val", "test", "UNASSIGNED"):
             raise SceneRegistryError("invalid scene split: {}".format(row["split"]))
-        if float(row["unit_scale"]) <= 0.0:
+        if "unit_scale" in row and float(row["unit_scale"]) <= 0.0:
             raise SceneRegistryError("unit_scale must be positive")
+        if "unit_scale_status" in row and row["unit_scale_status"] != "PASS":
+            raise SceneRegistryError("finalized scene unit_scale_status must be PASS")
         normalized.append(row)
     return tuple(sorted(normalized, key=lambda row: str(row["scene_id"])))
+
+
+def resolve_generation_scene_resources(row: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Resolve direct family-specific resources; stage_config is provenance only."""
+    resolved = dict(row)
+    resolved["materials_mode"] = "OFF"
+    for key in ("scene_asset", "navmesh", "semantic_info"):
+        path = Path(str(resolved[key]))
+        if not path.is_file():
+            raise SceneRegistryError("scene {} resource missing: {}".format(row["scene_id"], path))
+        resolved[key] = str(path.resolve())
+    return resolved
 
 
 def read_scene_registry(path: str) -> Sequence[Mapping[str, Any]]:

@@ -16,6 +16,12 @@ SOURCE_FIELDS = (
     "crop_start_sec", "crop_end_sec", "source_offset_policy", "license", "split", "qc_status",
     "qc_notes", "pretrain_seen_status", "sha256",
 )
+FINALIZED_SOURCE_FIELDS = (
+    "source_clip_id", "base_clip_id", "canonical_class", "source_dataset", "canonical_path",
+    "split", "split_version", "manual_decision", "resource_status", "pretrain_seen_status",
+    "canonical_sample_rate_hz", "canonical_channels", "canonical_dtype", "canonical_duration_sec",
+    "pilot_eligible",
+)
 
 
 class SourceRegistryError(ValueError):
@@ -47,7 +53,22 @@ def validate_source_rows(rows: Iterable[Mapping[str, Any]]) -> Sequence[Mapping[
 
 def read_source_registry(path: str) -> Sequence[Mapping[str, Any]]:
     with Path(path).open(encoding="utf-8", newline="") as handle:
-        return validate_source_rows(csv.DictReader(handle))
+        rows = list(csv.DictReader(handle))
+    if rows and all(key in rows[0] for key in FINALIZED_SOURCE_FIELDS):
+        seen = set()
+        for row in rows:
+            missing = [key for key in FINALIZED_SOURCE_FIELDS if not row.get(key)]
+            if missing:
+                raise SourceRegistryError("finalized source row missing fields: {}".format(", ".join(missing)))
+            if row["source_clip_id"] in seen:
+                raise SourceRegistryError("duplicate source_clip_id: {}".format(row["source_clip_id"]))
+            seen.add(row["source_clip_id"])
+            if row["manual_decision"] != "ACCEPT" or row["resource_status"] != "PRESENT" or row["split"] not in ("train", "val", "test"):
+                raise SourceRegistryError("finalized source is not pilot eligible: {}".format(row["source_clip_id"]))
+            if row["split_version"] != "clsdoa_source_split_v2_stratified" or row["canonical_dtype"] != "float32" or int(row["canonical_sample_rate_hz"]) != 24000 or int(row["canonical_channels"]) != 1 or not Path(row["canonical_path"]).is_file() or not (0.0 < float(row["canonical_duration_sec"]) <= 5.0):
+                raise SourceRegistryError("finalized source contract mismatch: {}".format(row["source_clip_id"]))
+        return tuple(rows)
+    return validate_source_rows(rows)
 
 
 def build_observation_timeline(
