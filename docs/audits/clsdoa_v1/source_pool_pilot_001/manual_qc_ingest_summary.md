@@ -33,9 +33,9 @@ split is `DATASET_LEVEL_VERIFIED=302` and `PER_RECORDING_METADATA=120`.
 `pretrain_seen_status` is `likely_yes=135`, `unknown=287`; unknown values were
 not rewritten to `NO` and do not block this Pilot gate.
 
-The former `dishes` blocker was resolved only by the explicit 11-row human
-incremental review. Those rows are recorded in the external incremental queue
-and carry the human batch note; no reserve row was silently accepted:
+The former `dishes` blocker was resolved by 11 human-authorized incremental
+`ACCEPT` rows. `dishes` is now at 30 accepted independent identities and Step
+2A is finalized; no reserve row was silently accepted:
 
 `/home/leiyuxin/soundspaces/source_assets/clsdoa_v1/review/source_pool_pilot_001/incremental_manual_review_queue.csv`
 

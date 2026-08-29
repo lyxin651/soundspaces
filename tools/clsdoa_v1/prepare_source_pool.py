@@ -13,15 +13,16 @@ from pathlib import Path
 
 import numpy as np
 import soundfile as sf
+import yaml
 from scipy.io import wavfile
 from scipy.signal import resample_poly
 
 
 POOL_ID = "source_pool_pilot_001"
-SAMPLE_RATE = 24000
-MAX_DURATION_SEC = 5.0
-TARGET_ACTIVE_RMS = 10.0 ** (-24.0 / 20.0)
-PEAK_GUARD = 0.50
+ALLOWED_LICENSE_STATUSES = {
+    "PER_RECORDING_METADATA",
+    "DATASET_LEVEL_VERIFIED",
+}
 REGISTRY_FIELDS = [
     "source_clip_id", "canonical_class", "source_dataset", "source_label",
     "original_id", "base_clip_id", "identity_key", "audio_path",
@@ -67,18 +68,62 @@ def _dbfs(value):
     return -float("inf") if value <= 0 else 20.0 * math.log10(value)
 
 
-def _resample(mono, source_rate):
+def load_source_prep_config(config_path):
+    """Load the source-prep YAML and reject drift from the frozen contract."""
+    with Path(config_path).open(encoding="utf-8") as handle:
+        config = yaml.safe_load(handle)
+    canonical = config.get("canonical", {})
+    normalization = config.get("normalization", {})
+    split = config.get("split", {})
+    expected = {
+        "sample_rate": 24000,
+        "channels": 1,
+        "dtype": "float32",
+        "max_duration_sec": 5.0,
+        "normalization_method": "active_rms_v1",
+        "target_active_rms_dbfs": -24.0,
+        "peak_guard": 0.50,
+        "split_version": "clsdoa_source_split_v2_stratified",
+    }
+    actual = {
+        "sample_rate": canonical.get("sample_rate"),
+        "channels": canonical.get("channels"),
+        "dtype": canonical.get("dtype"),
+        "max_duration_sec": canonical.get("max_duration_sec"),
+        "normalization_method": normalization.get("method"),
+        "target_active_rms_dbfs": normalization.get("target_active_rms_dbfs"),
+        "peak_guard": normalization.get("peak_guard"),
+        "split_version": split.get("version"),
+    }
+    if actual != expected:
+        raise ValueError("source-prep YAML disagrees with the frozen contract: {}".format(actual))
+    return config
+
+
+def source_offset_contract(canonical_duration_sec, config):
+    """Return the frozen offset rule; Step 3 supplies random offsets for shorts."""
+    max_duration = float(config["canonical"]["max_duration_sec"])
+    duration = float(canonical_duration_sec)
+    if duration <= 0 or duration > max_duration:
+        raise ValueError("canonical duration outside source-offset contract")
+    if math.isclose(duration, max_duration, rel_tol=0.0, abs_tol=1e-9):
+        return "fixed_zero", 0.0
+    return config["canonical"]["short_source_offset_policy"], None
+
+
+def _resample(mono, source_rate, target_rate):
     source_rate = int(source_rate)
-    if source_rate == SAMPLE_RATE:
+    target_rate = int(target_rate)
+    if source_rate == target_rate:
         return mono.astype(np.float32, copy=True)
-    divisor = math.gcd(source_rate, SAMPLE_RATE)
+    divisor = math.gcd(source_rate, target_rate)
     return resample_poly(
-        mono, up=SAMPLE_RATE // divisor, down=source_rate // divisor,
+        mono, up=target_rate // divisor, down=source_rate // divisor,
         window=("kaiser", 5.0), padtype="constant",
     ).astype(np.float32)
 
 
-def _normalize(waveform):
+def _normalize(waveform, target_active_rms, peak_guard):
     peak_before = float(np.max(np.abs(waveform))) if len(waveform) else 0.0
     if not np.isfinite(waveform).all() or peak_before <= 1e-8:
         raise ValueError("canonical waveform is empty, nonfinite, or silent")
@@ -87,10 +132,10 @@ def _normalize(waveform):
     if len(active) == 0:
         raise ValueError("canonical waveform has no active samples")
     active_rms_before = float(np.sqrt(np.mean(np.square(active))))
-    gain = TARGET_ACTIVE_RMS / active_rms_before
+    gain = float(target_active_rms) / active_rms_before
     limited = False
-    if peak_before * gain > PEAK_GUARD:
-        gain = PEAK_GUARD / peak_before
+    if peak_before * gain > float(peak_guard):
+        gain = float(peak_guard) / peak_before
         limited = True
     output = (waveform * np.float32(gain)).astype(np.float32)
     peak_after = float(np.max(np.abs(output)))
@@ -121,7 +166,95 @@ def _split_map(split_path):
     return result
 
 
-def prepare_once(membership_path, split_path, output_root):
+def _ontology_classes(ontology_path):
+    with Path(ontology_path).open(encoding="utf-8") as handle:
+        ontology = yaml.safe_load(handle)["ontology"]["classes"]
+    return {item["name"] for item in ontology}
+
+
+def validate_registry_metadata(records, config, ontology_classes):
+    """Validate non-audio hard gates before a pool can be finalized."""
+    classes = {row.get("canonical_class") for row in records}
+    if len(classes) != 12 or classes != set(ontology_classes):
+        raise ValueError("canonical class set is not exactly the frozen 12-class ontology")
+    if any(row.get("manual_decision") != "ACCEPT" for row in records):
+        raise ValueError("pilot registry contains a non-ACCEPT source")
+    if any(row.get("license_status") not in ALLOWED_LICENSE_STATUSES for row in records):
+        raise ValueError("pilot registry contains an unusable license status")
+    if any(not row.get("provenance_source") for row in records):
+        raise ValueError("pilot registry contains a source without provenance")
+    if any(row.get("pilot_eligible") != "true" for row in records):
+        raise ValueError("pilot registry contains a non-eligible source")
+    peak_guard = float(config["normalization"]["peak_guard"])
+    if any(
+        not np.isfinite(float(row.get("peak_after", "nan")))
+        or float(row["peak_after"]) > peak_guard + 1e-7
+        for row in records
+    ):
+        raise ValueError("canonical peak exceeds configured peak guard")
+
+
+def validate_canonical_files(records, config):
+    """Validate physical WAV properties; soundfile dtype conversion is insufficient."""
+    canonical = config["canonical"]
+    sample_rate = int(canonical["sample_rate"])
+    max_duration = float(canonical["max_duration_sec"])
+    peak_guard = float(config["normalization"]["peak_guard"])
+    for row in records:
+        path = Path(row["canonical_path"])
+        info = sf.info(str(path))
+        if info.subtype != "FLOAT":
+            raise ValueError("canonical WAV is not FLOAT subtype: {}".format(path))
+        if info.samplerate != sample_rate or info.channels != int(canonical["channels"]):
+            raise ValueError("canonical WAV format validation failed: {}".format(path))
+        if info.frames <= 0 or info.frames / float(info.samplerate) > max_duration:
+            raise ValueError("canonical duration validation failed: {}".format(path))
+        data, _ = sf.read(str(path), dtype="float32")
+        if data.ndim != 1 or not np.isfinite(data).all() or len(data) == 0:
+            raise ValueError("canonical finite/non-empty validation failed: {}".format(path))
+        if float(np.max(np.abs(data))) > peak_guard + 1e-7:
+            raise ValueError("physical canonical peak exceeds configured guard: {}".format(path))
+        if _sha256_file(path) != row["canonical_wav_sha256"]:
+            raise ValueError("canonical WAV SHA validation failed: {}".format(path))
+
+
+def validate_split(records):
+    by_split = defaultdict(set)
+    by_class = defaultdict(Counter)
+    for row in records:
+        by_split[row["split"]].add(row["base_clip_id"])
+        by_class[row["canonical_class"]][row["split"]] += 1
+    overlap = {
+        left + "_vs_" + right: sorted(by_split[left] & by_split[right])
+        for left, right in (("train", "val"), ("train", "test"), ("val", "test"))
+    }
+    if {row["split"] for row in records} != {"train", "val", "test"}:
+        raise ValueError("split set is not exactly train/val/test")
+    if any(overlap.values()):
+        raise ValueError("train/val/test base_clip_id overlap detected")
+    for canonical_class, counts in by_class.items():
+        if counts["train"] < 20 or counts["val"] < 4 or counts["test"] < 4:
+            raise ValueError("split minimum failed for {}".format(canonical_class))
+    return overlap, {
+        key: {split: counts[split] for split in ("train", "val", "test")}
+        for key, counts in sorted(by_class.items())
+    }
+
+
+def validate_final_records(records, config, ontology_path):
+    """Run the complete future-finalize hard gate without mutating any asset."""
+    validate_registry_metadata(records, config, _ontology_classes(ontology_path))
+    validate_split(records)
+    validate_canonical_files(records, config)
+
+
+def prepare_once(membership_path, split_path, output_root, config):
+    canonical_config = config["canonical"]
+    normalization_config = config["normalization"]
+    sample_rate = int(canonical_config["sample_rate"])
+    max_duration = float(canonical_config["max_duration_sec"])
+    target_active_rms = 10.0 ** (float(normalization_config["target_active_rms_dbfs"]) / 20.0)
+    peak_guard = float(normalization_config["peak_guard"])
     membership = _read_csv(membership_path)
     split_by_base = _split_map(split_path)
     if len(membership) != len(split_by_base):
@@ -135,7 +268,7 @@ def prepare_once(membership_path, split_path, output_root):
         if not row.get("license_status") or not row.get("provenance_source"):
             raise ValueError("unusable license/provenance for {}".format(row["base_clip_id"]))
         split = split_by_base.get(row["base_clip_id"])
-        if split is None or split.get("split_version") != "clsdoa_source_split_v2_stratified":
+        if split is None or split.get("split_version") != config["split"]["version"]:
             raise ValueError("missing v2 split for {}".format(row["base_clip_id"]))
         path = Path(row["audio_path"])
         if not path.is_file():
@@ -147,24 +280,24 @@ def prepare_once(membership_path, split_path, output_root):
             raise ValueError("raw audio is empty/nonfinite: {}".format(path))
         mono = data.mean(axis=1, dtype=np.float32)
         duration = len(mono) / float(source_rate)
-        if duration <= MAX_DURATION_SEC:
+        if duration <= max_duration:
             crop_start = 0
             crop_policy = "preserve_full_short_source"
         else:
-            crop_count = int(round(MAX_DURATION_SEC * source_rate))
+            crop_count = int(round(max_duration * source_rate))
             crop_start = (len(mono) - crop_count) // 2
             mono = mono[crop_start:crop_start + crop_count]
             crop_policy = "deterministic_center"
-        canonical = _resample(mono, source_rate)
-        if len(canonical) == 0 or len(canonical) > int(MAX_DURATION_SEC * SAMPLE_RATE):
+        canonical = _resample(mono, source_rate, sample_rate)
+        if len(canonical) == 0 or len(canonical) > int(max_duration * sample_rate):
             raise ValueError("canonical duration outside contract: {}".format(path))
-        canonical, norm = _normalize(canonical)
+        canonical, norm = _normalize(canonical, target_active_rms, peak_guard)
         relpath = Path("wav") / row["canonical_class"] / (
             _safe_name(row["base_clip_id"]) + ".wav"
         )
         canonical_path = output_root / relpath
         canonical_path.parent.mkdir(parents=True, exist_ok=True)
-        wavfile.write(str(canonical_path), SAMPLE_RATE, canonical.astype("<f4"))
+        wavfile.write(str(canonical_path), sample_rate, canonical.astype("<f4"))
         written, written_rate = sf.read(str(canonical_path), dtype="float32")
         if written_rate != SAMPLE_RATE or written.ndim != 1 or not np.isfinite(written).all():
             raise ValueError("written canonical WAV validation failed: {}".format(canonical_path))
@@ -197,9 +330,9 @@ def prepare_once(membership_path, split_path, output_root):
             "provenance_source": row["provenance_source"],
             "pretrain_seen_status": row.get("pretrain_seen_status", "unknown") or "unknown",
             "resource_status": row.get("resource_status", "PRESENT"),
-            "canonical_sample_rate_hz": str(SAMPLE_RATE),
+            "canonical_sample_rate_hz": str(sample_rate),
             "canonical_channels": "1", "canonical_dtype": "float32",
-            "canonical_duration_sec": "{:.9f}".format(len(canonical) / SAMPLE_RATE),
+            "canonical_duration_sec": "{:.9f}".format(len(canonical) / sample_rate),
             "crop_policy": crop_policy,
             "crop_start_sec": "{:.9f}".format(crop_start_sec),
             "crop_end_sec": "{:.9f}".format(crop_end_sec),
@@ -248,48 +381,22 @@ def _compare_records(first, second):
 
 def finalize(membership_path, split_path, config_path, output_root, repo_registry_path,
              report_path):
+    config = load_source_prep_config(config_path)
+    ontology_path = Path(__file__).resolve().parents[2] / "registries/ontology.yaml"
     output_root = Path(output_root)
     if (output_root / "_SUCCESS").exists():
         raise ValueError("refusing to overwrite an already frozen pool")
     output_root.mkdir(parents=True, exist_ok=True)
-    records, duplicate_audit = prepare_once(membership_path, split_path, output_root)
+    records, duplicate_audit = prepare_once(membership_path, split_path, output_root, config)
     with tempfile.TemporaryDirectory(prefix="clsdoa_pilot_prep_") as temp:
-        rerun_records, _ = prepare_once(membership_path, split_path, Path(temp))
+        rerun_records, _ = prepare_once(membership_path, split_path, Path(temp), config)
         determinism = _compare_records(records, rerun_records)
     if not determinism:
         raise ValueError("canonical preparation determinism failed")
 
-    by_split = defaultdict(set)
-    by_class = defaultdict(Counter)
-    for row in records:
-        by_split[row["split"]].add(row["base_clip_id"])
-        by_class[row["canonical_class"]][row["split"]] += 1
-        info = sf.info(row["canonical_path"])
-        if info.samplerate != SAMPLE_RATE or info.channels != 1:
-            raise ValueError("canonical format validation failed")
-        if info.frames <= 0 or info.frames > SAMPLE_RATE * 5:
-            raise ValueError("canonical duration validation failed")
-        data, _ = sf.read(row["canonical_path"], dtype="float32")
-        if not np.isfinite(data).all() or len(data) == 0:
-            raise ValueError("canonical finite/non-empty validation failed")
-        if _sha256_file(Path(row["canonical_path"])) != row["canonical_wav_sha256"]:
-            raise ValueError("canonical WAV SHA validation failed")
-    split_overlap = {
-        left + "_vs_" + right: sorted(by_split[left] & by_split[right])
-        for left, right in (("train", "val"), ("train", "test"), ("val", "test"))
-    }
-    per_class = {
-        key: {split: counts[split] for split in ("train", "val", "test")}
-        for key, counts in sorted(by_class.items())
-    }
-    all_pass = (
-        all(not values for values in split_overlap.values())
-        and all(item["train"] >= 20 and item["val"] >= 4 and item["test"] >= 4
-                for item in per_class.values())
-        and all(row["pilot_eligible"] == "true" for row in records)
-    )
-    if not all_pass:
-        raise ValueError("final hard validation failed")
+    validate_registry_metadata(records, config, _ontology_classes(ontology_path))
+    split_overlap, per_class = validate_split(records)
+    validate_canonical_files(records, config)
 
     repo_registry_path = Path(repo_registry_path)
     _write_csv(repo_registry_path, records, REGISTRY_FIELDS)
@@ -313,11 +420,16 @@ def finalize(membership_path, split_path, config_path, output_root, repo_registr
         "schema_version": "clsdoa_v1_pool_identity_v1",
         "pool_id": POOL_ID,
         "status": "FINALIZED",
-        "split_version": "clsdoa_source_split_v2_stratified",
+        "split_version": config["split"]["version"],
         "accepted_identity_count": len(records),
-        "canonical_preparation": "mono_24000_float32_deterministic_crop",
-        "normalization": {"method": "active_rms_v1", "target_active_rms_dbfs": -24.0,
-                          "peak_guard": 0.50, "source_level_only": True},
+        "canonical_preparation": "mono_{}_{}_{}_deterministic_crop".format(
+            config["canonical"]["sample_rate"], config["canonical"]["dtype"],
+            config["canonical"]["channels"]
+        ),
+        "normalization": {"method": config["normalization"]["method"],
+                          "target_active_rms_dbfs": config["normalization"]["target_active_rms_dbfs"],
+                          "peak_guard": config["normalization"]["peak_guard"],
+                          "source_level_only": True},
         "config_sha256": config_sha,
         "source_registry_snapshot_sha256": registry_sha,
         "determinism": "PASS",
@@ -338,8 +450,9 @@ def finalize(membership_path, split_path, config_path, output_root, repo_registr
             "pretrain_seen_status": dict(Counter(row["pretrain_seen_status"] for row in records)),
         },
         "normalization": {
-            "method": "active_rms_v1", "target_active_rms_dbfs": -24.0,
-            "peak_guard": 0.50,
+            "method": config["normalization"]["method"],
+            "target_active_rms_dbfs": config["normalization"]["target_active_rms_dbfs"],
+            "peak_guard": config["normalization"]["peak_guard"],
             "peak_guard_limited_rows": sum(row["peak_guard_limited"] == "true" for row in records),
             "max_peak_after": max(float(row["peak_after"]) for row in records),
             "min_peak_after": min(float(row["peak_after"]) for row in records),

@@ -34,8 +34,8 @@
     "exact_audio_path_duplicate_groups": 0
   },
   "license_provenance": {
-    "usable_license_rows": 411,
-    "known_provenance_rows": 411,
+    "usable_license_rows": 422,
+    "known_provenance_rows": 422,
     "license_status": {
       "DATASET_LEVEL_VERIFIED": 302,
       "PER_RECORDING_METADATA": 120
