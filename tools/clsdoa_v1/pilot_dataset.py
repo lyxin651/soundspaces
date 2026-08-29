@@ -19,6 +19,7 @@ import numpy as np
 import quaternion
 import yaml
 import habitat_sim
+import magnum as mn
 
 from active_audition.datasets.binaural_foa_clsdoa.geometry import project_geometry, validate_geometry_independently
 from active_audition.datasets.binaural_foa_clsdoa.recipe import make_episode_recipe
@@ -51,7 +52,8 @@ def _scene_rows():
 def _clear(sim, point, radius):
     directions = (np.array([1, 0, 0]), np.array([-1, 0, 0]), np.array([0, 1, 0]), np.array([0, -1, 0]), np.array([0, 0, 1]), np.array([0, 0, -1]))
     for direction in directions:
-        hits = sim.cast_ray(habitat_sim.geo.Ray(np.asarray(point, dtype=np.float32), direction), max_distance=radius)
+        ray = habitat_sim.geo.Ray(mn.Vector3(np.asarray(point, dtype=np.float32)), mn.Vector3(direction))
+        hits = sim.cast_ray(ray)
         if hits.has_hits() and float(hits.hits[0].ray_distance) < radius:
             return False
     return True
