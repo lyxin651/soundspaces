@@ -10,7 +10,7 @@ def stable_key(namespace, *parts):
 
 
 def stable_permutation(values, namespace, *parts):
-    return sorted(values, key=lambda value: stable_key(namespace, *parts, value))
+    return [value for _, value in sorted(enumerate(values), key=lambda item: stable_key(namespace, *parts, item[1], item[0]))]
 
 
 def family_block_size(split):
@@ -47,13 +47,14 @@ def elevation_schedule(split, class_id, family):
 
 def _eight_bin_schedule(split, class_id, family, namespace):
     if split == "train":
-        rotated = {(class_id + i) % 8 for i in range(4)}
+        rotation = (class_id + (0 if namespace == "azimuth_schedule_v2" else 3)) % 8
+        rotated = {(rotation + i) % 8 for i in range(4)}
         counts = {index: (4 if index in rotated else 3) for index in range(8)}
         if family == "MP3D":
             counts = {index: 7 - count for index, count in counts.items()}
         values = [index for index in range(8) for _ in range(counts[index])]
     else:
-        rotation = (class_id + (0 if split == "val" else 2)) % 8
+        rotation = (class_id + (0 if split == "val" else 2) + (0 if namespace == "azimuth_schedule_v2" else 3)) % 8
         first = {(rotation + index) % 8 for index in range(6)}
         second = {(rotation + index) % 8 for index in (0, 1, 2, 3, 6, 7)}
         chosen = first if family == "Replica" else second

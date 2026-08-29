@@ -11,6 +11,7 @@ from active_audition.datasets.binaural_foa_clsdoa.schema import RenderPolicy
 from active_audition.datasets.binaural_foa_clsdoa.scene_registry import resolve_generation_scene_resources
 from active_audition.datasets.binaural_foa_clsdoa.source_registry import read_source_registry
 from tools.clsdoa_v1.git_identity import current_clean_head
+from tools.clsdoa_v1.integrity import verify_plan_integrity
 
 
 def _read_json(path):
@@ -25,6 +26,7 @@ def _atomic_jsonl(path, rows):
 
 def render_dataset(root, resume=False, renderer_factory=SoundSpacesPairedRenderer):
     root = Path(root)
+    verify_plan_integrity(root, Path(__file__).resolve().parents[2])
     identity = _read_json(root / "identity.json")
     lock = _read_json(root / "manifests/plan.lock.json")
     if current_clean_head(Path(__file__).resolve().parents[2]) != identity["generation_code_commit"]:

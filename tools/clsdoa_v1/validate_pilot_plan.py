@@ -7,7 +7,10 @@ import sys
 from collections import Counter
 from pathlib import Path
 import yaml
+import numpy as np
+from scipy.io import wavfile
 from tools.clsdoa_v1.scheduler import distance_schedule, elevation_schedule, azimuth_schedule, gain_schedule
+from tools.clsdoa_v1.integrity import verify_plan_integrity
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
@@ -68,15 +71,8 @@ def validate(root):
         else:
             _require(0.5 <= r["diagnostics"]["source_height_offset_m"] <= 2.2 + 1e-6, "source height out of range")
     _require(not list(root.rglob("*.wav")) and not list(root.rglob("*.rir")) and not list((root / "cache/rir").rglob("*")) and not (root / "_SUCCESS").exists(), "plan contains render payload")
-    lock = root / "manifests/plan.lock.json"
-    if lock.is_file():
-        plan_lock = json.loads(lock.read_text())
-        for field, relative in (("episodes_sha256", "manifests/episodes.jsonl"), ("config_resolved_sha256", "config_resolved.yaml"), ("resources_lock_sha256", "resources.lock.json")):
-            _require(hashlib.sha256((root / relative).read_bytes()).hexdigest() == plan_lock[field], field + " mismatch")
-        _require(plan_lock["source_registry_sha256"] == hashlib.sha256((ROOT / "registries/source_audio.csv").read_bytes()).hexdigest(), "source registry SHA mismatch")
-        _require(plan_lock["scene_registry_sha256"] == hashlib.sha256((ROOT / "registries/clsdoa_v1_scenes.yaml").read_bytes()).hexdigest(), "scene registry SHA mismatch")
-        identity = json.loads((root / "identity.json").read_text())
-        _require(identity["generation_code_commit"] == plan_lock["plan_generation_code_commit"], "generation identity mismatch")
+    _require((root / "manifests/plan.lock.json").is_file(), "plan lock missing")
+    verify_plan_integrity(root, ROOT)
     return {"status": "PASS", "episodes": 960, "classes": 12, "unique_sources": 422, "pass_scene_pool": 103, "excluded_fail_scenes": 5, "audio_files": 0, "rir_files": 0}
 
 
@@ -87,9 +83,25 @@ def validate_render_payload(root):
     renders = root / "manifests/renders.jsonl"
     _require(renders.is_file(), "render manifest missing")
     rows = [json.loads(line) for line in renders.read_text().splitlines() if line]
-    _require(rows, "PLAN-only dataset has no render records")
-    by_episode = Counter(row.get("episode_id") for row in rows if row.get("render_status") == "complete")
-    _require(by_episode and all(value == 2 for value in by_episode.values()), "each episode needs complete Binaural and FOA records")
+    verify_plan_integrity(root, ROOT)
+    episodes = [json.loads(line) for line in (root / "manifests/episodes.jsonl").read_text().splitlines() if line]
+    _require(len(episodes) == 960 and len({row["episode_id"] for row in episodes}) == 960, "payload requires all 960 unique episodes")
+    expected = {(row["episode_id"], representation) for row in episodes for representation in ("binaural", "foa")}
+    complete = [row for row in rows if row.get("render_status") == "complete"]
+    keys = {(row.get("episode_id"), row.get("representation")) for row in complete}
+    _require(keys == expected and len(complete) == 1920, "payload must contain exactly one complete binaural and foa record per episode")
+    for row in complete:
+        _require(row["sample_rate_hz"] == 24000 and row["num_samples"] == 120000 and row["dtype"] == "float32", "payload audio contract mismatch")
+        _require(row["num_channels"] == (2 if row["representation"] == "binaural" else 4), "payload channel contract mismatch")
+        _require(Path(root / row["audio_path"]).is_file(), "render WAV missing")
+        _require(row.get("rir_path") and Path(root / row["rir_path"]).is_file(), "render RIR missing")
+        sample_rate, audio = wavfile.read(str(root / row["audio_path"]))
+        audio = np.asarray(audio)
+        _require(int(sample_rate) == 24000 and audio.shape[0] == 120000, "WAV payload shape/rate mismatch")
+        _require(audio.ndim == 1 or audio.shape[1] == row["num_channels"], "WAV channel payload mismatch")
+        _require(np.isfinite(audio).all() and np.any(np.abs(audio)), "WAV must be finite and non-zero")
+        rir = np.asarray(np.load(str(root / row["rir_path"]), allow_pickle=False))
+        _require(rir.ndim == 2 and np.isfinite(rir).all() and np.any(np.abs(rir)), "RIR must be finite and non-zero")
     _require(not (root / "_SUCCESS").exists(), "dataset already finalized")
     return True
 

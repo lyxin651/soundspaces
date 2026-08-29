@@ -30,6 +30,14 @@ class Pilot004SchedulerTests(unittest.TestCase):
         self.assertEqual(set(azimuth_schedule("val", 0, "Replica")) | set(azimuth_schedule("val", 0, "MP3D")), set(range(8)))
         self.assertEqual(set(gain_schedule("test", 4, "Replica")) | set(gain_schedule("test", 4, "MP3D")), set(range(8)))
 
+    def test_duplicate_occurrences_are_stably_permuted_and_gain_pattern_is_independent(self):
+        from tools.clsdoa_v1.scheduler import stable_permutation
+        values = ["near"] * 8 + ["mid"] * 8
+        first = stable_permutation(values, "distance_schedule_v2", 1, "train", "Replica")
+        self.assertEqual(first, stable_permutation(values, "distance_schedule_v2", 1, "train", "Replica"))
+        self.assertNotEqual(first, values)
+        self.assertNotEqual(azimuth_schedule("train", 1, "Replica"), gain_schedule("train", 1, "Replica"))
+
 
 class Pilot004IdentityTests(unittest.TestCase):
     def test_clean_and_dirty_git_identity(self):

@@ -211,7 +211,7 @@ def build_plan():
     return recipes, review, scenes, sources
 
 
-def write_plan(root):
+def write_plan(root, code_commit):
     recipes, review, scenes, sources = build_plan()
     config = _load_config()
     root.mkdir(parents=True, exist_ok=True)
@@ -223,7 +223,6 @@ def write_plan(root):
     (root / "reports/plan_review_index.jsonl").write_text(review_text, encoding="utf-8")
     summary = {"dataset_id": config["dataset_id"], "plan_version": config["plan_version"], "episode_count": len(recipes), "source_rows": len(sources), "scene_pass_pool": 103, "scene_representatives_loaded": len(scenes), "audio_files": 0, "rir_files": 0, "success_marker": False, "render_started": False, "quota": {"split": dict(Counter(row["split"] for row in recipes)), "family": dict(Counter(row["scene"]["scene_family"] for row in recipes)), "class": dict(Counter(row["source"]["class_id"] for row in recipes))}}
     (root / "reports/plan_summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    code_commit = current_clean_head(ROOT)
     def file_sha(path):
         return hashlib.sha256(path.read_bytes()).hexdigest()
     (root / "identity.json").write_text(json.dumps({"dataset_id": config["dataset_id"], "dataset_family": "soundspaces_binaural_foa_clsdoa_v1", "schema_version": "clsdoa_v1.0", "generation_code_commit": code_commit, "created_at": "2026-08-29T00:00:00Z", "config_sha256": file_sha(CONFIG_PATH), "ontology_sha256": file_sha(ROOT / "registries/ontology.yaml"), "source_registry_sha256": file_sha(ROOT / "registries/source_audio.csv"), "scene_registry_sha256": file_sha(ROOT / "registries/clsdoa_v1_scenes.yaml")}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -293,20 +292,29 @@ def main():
     parser.add_argument("command", choices=["plan", "render", "validate", "finalize"])
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--config")
-    parser.add_argument("--root", default=str(ROOT / "datasets/binaural_foa_clsdoa_v1/clsdoa_v1_pilot_001"))
+    parser.add_argument("--root")
     args = parser.parse_args()
     global CONFIG_PATH
     if args.command == "plan" and not args.config:
         parser.error("plan requires --config")
     if args.command == "plan":
         CONFIG_PATH = (ROOT / args.config).resolve() if not Path(args.config).is_absolute() else Path(args.config).resolve()
+        config_preview = yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
+        root = Path(args.root) if args.root else ROOT / "datasets/binaural_foa_clsdoa_v1" / str(config_preview["dataset_id"])
+        code_commit = current_clean_head(ROOT)
     elif args.config:
         parser.error("non-plan commands read config_resolved.yaml from the dataset root")
     if args.command != "plan":
+        if not args.root:
+            parser.error("non-plan commands require --root")
         root = Path(args.root)
         if args.command == "validate":
-            from tools.clsdoa_v1.validate_pilot_plan import validate
-            print(json.dumps(validate(root), sort_keys=True))
+            from tools.clsdoa_v1.validate_pilot_plan import validate, validate_render_payload
+            if (root / "manifests/renders.jsonl").is_file():
+                validate_render_payload(root)
+                print(json.dumps({"status": "PASS", "mode": "payload"}, sort_keys=True))
+            else:
+                raise SystemExit("payload validation requires manifests/renders.jsonl; use the metadata validator as an internal API")
             return
         if args.command == "finalize":
             from tools.clsdoa_v1.validate_pilot_plan import validate_render_payload
@@ -316,13 +324,9 @@ def main():
         from tools.clsdoa_v1.orchestration import render_dataset
         print(json.dumps({"render_records": len(render_dataset(root, resume=args.resume))}, sort_keys=True))
         return
-    if Path(args.root).exists() and any(Path(args.root).iterdir()):
-        existing = {path.relative_to(Path(args.root)).as_posix() for path in Path(args.root).rglob("*") if path.is_file()}
-        allowed = {"identity.json", "config_resolved.yaml", "resources.lock.json", "manifests/episodes.jsonl", "manifests/plan.lock.json"}
-        allowed.update({"reports/" + name for name in ("readiness.json", "plan_summary.json", "plan_distribution.json", "plan_review_index.jsonl", "source_dataset_shortcut_audit.json", "pretrain_exposure_report.json", "scene_loader_contract.json", "plan_geometry_summary.json")})
-        if not existing.issubset(allowed):
-            raise SystemExit("refusing to overwrite non-empty dataset root")
-    print(json.dumps(write_plan(Path(args.root)), sort_keys=True))
+    if root.exists() and any(root.iterdir()):
+        raise SystemExit("refusing to overwrite non-empty dataset root")
+    print(json.dumps(write_plan(root, code_commit), sort_keys=True))
 
 
 if __name__ == "__main__":
