@@ -119,8 +119,9 @@ def build_plan():
     config = _load_config()
     sources = _source_rows()
     all_pass_scenes = _scene_rows()
-    # Load one stable representative per family/split; the reader still validates all 103 PASS rows.
-    scenes = [next(row for row in all_pass_scenes if row["scene_family"] == family and row["split"] == split) for family in ("Replica", "MP3D") for split in ("train", "val", "test")]
+    # Load all Replica PASS scenes for its smaller geometry pool; use one stable MP3D representative per split.
+    scenes = [row for row in all_pass_scenes if row["scene_family"] == "Replica"]
+    scenes.extend(next(row for row in all_pass_scenes if row["scene_family"] == "MP3D" and row["split"] == split) for split in ("train", "val", "test"))
     by_class_split = defaultdict(list)
     for row in sources:
         by_class_split[(row["canonical_class"], row["split"])].append(row)
