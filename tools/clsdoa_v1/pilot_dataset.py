@@ -61,7 +61,7 @@ def _collect_candidates(entry, config):
     backend = habitat_sim.SimulatorConfiguration()
     backend.scene_id = entry["scene_asset"]
     backend.load_semantic_mesh = True
-    sim = habitat_sim.Simulator(habitat_sim.Configuration(backend, []))
+    sim = habitat_sim.Simulator(habitat_sim.Configuration(backend, [habitat_sim.agent.AgentConfiguration()]))
     try:
         if not sim.pathfinder.is_loaded:
             sim.pathfinder.load_nav_mesh(entry["navmesh"])
