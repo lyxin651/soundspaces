@@ -27,12 +27,15 @@ from active_audition.datasets.binaural_foa_clsdoa.recipe import make_episode_rec
 from active_audition.datasets.binaural_foa_clsdoa.scene_registry import resolve_generation_scene_resources
 from active_audition.datasets.binaural_foa_clsdoa.source_registry import read_source_registry
 from active_audition.datasets.binaural_foa_clsdoa.storage import merge_resolved_config
+from tools.clsdoa_v1.git_identity import current_clean_head
+from tools.clsdoa_v1.scheduler import azimuth_schedule, distance_schedule, elevation_schedule, gain_db, gain_schedule
 
 
 LOCK = ROOT / "configs/active_audition/clsdoa_v1_resources.lock.json"
 CONTRACT = ROOT / "configs/active_audition/clsdoa_v1_contract.yaml"
 SCENES = ROOT / "registries/clsdoa_v1_scenes.yaml"
 CLASSES = ["coughing", "laughing", "keyboard_typing", "vacuum_cleaner", "clock_alarm", "speech", "running_water", "frying", "mechanical_fan", "microwave_oven", "dishes", "printer"]
+CONFIG_PATH = ROOT / "configs/active_audition/clsdoa_v1_pilot_004.yaml"
 
 
 def stable_int(*parts):
@@ -111,7 +114,7 @@ def _load_step2b_seed_bank(entries):
         sensor = np.asarray(row["listener_sensor_position_world"], dtype=np.float64)
         source = np.asarray(row["source_position_world"], dtype=np.float64)
         delta = source - sensor
-        bank[row["scene_id"]].append({"listener": row["listener_base_position_world"], "sensor": row["listener_sensor_position_world"], "source": row["source_position_world"], "source_height_offset": 1.5, "distance": float(np.linalg.norm(delta)), "elevation": math.degrees(math.atan2(float(delta[1]), float(np.linalg.norm(delta[[0, 2]])))), "geodesic": float(np.linalg.norm(delta)), "attempt": "step2b_fixed_probe"})
+        bank[row["scene_id"]].append({"listener": row["listener_base_position_world"], "sensor": row["listener_sensor_position_world"], "source": row["source_position_world"], "source_height_offset": None, "distance": float(np.linalg.norm(delta)), "elevation": math.degrees(math.atan2(float(delta[1]), float(np.linalg.norm(delta[[0, 2]])))), "geodesic": None, "attempt": row.get("probe_id", "step2b_fixed_probe"), "candidate_origin": "STEP2B_FIXED_PROBE"})
     return bank
 
 
@@ -136,18 +139,6 @@ def _pick_candidate(pool, distance_bin, elevation_bin, slot):
     return options[slot % len(options)]
 
 
-def _schedule(split, count, namespace, class_id):
-    if namespace == "distance":
-        n = {"train": (22, 22, 12), "val": (5, 5, 2), "test": (5, 5, 2)}[split]
-        return (["near"] * n[0]) + (["mid"] * n[1]) + (["far"] * n[2])
-    if namespace == "elevation":
-        n = {"train": (42, 14), "val": (9, 3), "test": (9, 3)}[split]
-        return (["small"] * n[0]) + (["nonzero"] * n[1])
-    offset = 0 if split == "val" else 4
-    values = [item for item in range(8) for _ in range(7)] if split == "train" else [item for item in range(8) for _ in range(2 if item in {(class_id + offset + i) % 8 for i in range(4)} else 1)]
-    return values
-
-
 def build_plan():
     config = _load_config()
     sources = _source_rows()
@@ -160,7 +151,7 @@ def build_plan():
         rows.sort(key=lambda row: hashlib.sha256(("source|" + row["base_clip_id"]).encode()).hexdigest())
     seed_bank = _load_step2b_seed_bank(scenes)
     scene_pools = {entry["scene_id"]: list(seed_bank.get(entry["scene_id"], ())) for entry in scenes}
-    progressive_config = dict(config, geometry=dict(config["geometry"], max_attempts_per_scene=64))
+    progressive_config = dict(config, geometry=dict(config["geometry"], max_attempts_per_scene=int(config["planning"].get("lazy_attempt_budget", 64))))
     for entry in scenes:
         if not any(c["distance"] < 4.0 and abs(c["elevation"]) < 5.0 for c in scene_pools[entry["scene_id"]]):
             scene_pools[entry["scene_id"]].extend(_collect_candidates(entry, progressive_config))
@@ -186,10 +177,9 @@ def build_plan():
             for family in ("Replica", "MP3D"):
                 count = split_count // 2
                 for local in range(count):
-                    family_offset = 0 if family == "Replica" else count
-                    slot = family_offset + local
-                    distance_bin = _schedule(split, split_count, "distance", class_id)[slot]
-                    elevation_bin = _schedule(split, split_count, "elevation", class_id)[slot]
+                    slot = local
+                    distance_bin = distance_schedule(split, class_id, family)[slot]
+                    elevation_bin = elevation_schedule(split, class_id, family)[slot]
                     key = (family, split)
                     eligible = [entry for entry in scene_entries[key] if any((distance_bin == ("near" if c["distance"] < 2 else "mid" if c["distance"] < 4 else "far") and elevation_bin == ("small" if abs(c["elevation"]) < 5 else "nonzero")) for c in scene_pools[entry["scene_id"]])]
                     unused = [entry for entry in eligible if scene_use[entry["scene_id"]] == 0]
@@ -199,22 +189,24 @@ def build_plan():
                     candidate = _pick_candidate(scene_pools[entry["scene_id"]], distance_bin, elevation_bin, stable_int(config["global_seed"], class_id, split, family, local, "geometry"))
                     scene_id = entry["scene_id"]
                     scene_use[scene_id] += 1
-                    source = by_class_split[(class_name, split)][(family_offset + local) % len(by_class_split[(class_name, split)])]
+                    source_rows = by_class_split[(class_name, split)]
+                    source_slot = (local * 2 + (0 if family == "Replica" else 1)) % len(source_rows)
+                    source = source_rows[source_slot]
                     duration = float(source["canonical_duration_sec"])
                     offset = 0.0 if duration >= 5.0 else float(np.random.default_rng(stable_int(config["global_seed"], source["source_clip_id"], slots, "offset")).uniform(0.0, 5.0 - duration))
-                    gain_bin = _schedule(split, split_count, "gain", class_id)[slot]
-                    gain = -6.0 + 1.5 * gain_bin + 0.75
+                    gain_bin = gain_schedule(split, class_id, family)[slot]
+                    gain = gain_db(gain_bin, class_id, split, family, slot)
                     # 用世界方位反解 yaw，精确覆盖每类每个方位 bin。
                     delta = np.asarray(candidate["source"], dtype=np.float64) - np.asarray(candidate["sensor"], dtype=np.float64)
                     world_bearing = math.degrees(math.atan2(float(delta[0]), -float(delta[2])))
-                    azimuth_bin = _schedule(split, split_count, "azimuth", class_id)[slot]
+                    azimuth_bin = azimuth_schedule(split, class_id, family)[slot]
                     target_azimuth = -157.5 + 45.0 * azimuth_bin
                     yaw = world_bearing - target_azimuth
                     episode_id = "{}_ep_{:06d}".format(config["dataset_id"], slots + 1)
                     recipe = make_episode_recipe(episode_id=episode_id, split=split, scene_id=scene_id, scene_family=family, source_clip_id=source["source_clip_id"], base_clip_id=source["base_clip_id"], source_dataset=source["source_dataset"], class_id=class_id, source_position_world=candidate["source"], source_gain_db=gain, source_offset_sec=offset, listener_base_position_world=candidate["listener"], listener_sensor_position_world=candidate["sensor"], listener_yaw_deg=yaw)
                     validate_geometry_independently(recipe.source_position_world, recipe.listener_sensor_position_world, recipe.listener_yaw_deg, {"distance_m": recipe.distance_m, "azimuth_project_deg": recipe.azimuth_project_deg, "elevation_project_deg": recipe.elevation_project_deg, "doa_unit_project": recipe.doa_unit_project})
                     recipes.append(recipe.to_dict())
-                    review.append(dict(recipe.to_dict(), diagnostics={"distance_bin": distance_bin, "elevation_bin": elevation_bin, "azimuth_bin": azimuth_bin, "gain_bin": gain_bin, "source_height_offset_m": candidate["source_height_offset"], "geodesic_distance_m": candidate["geodesic"], "sampling_attempt": candidate["attempt"], "clearance": "PASS", "reachable": "PASS"}, source_duration_sec=duration, pretrain_seen_status=source["pretrain_seen_status"]))
+                    review.append(dict(recipe.to_dict(), diagnostics={"distance_bin": distance_bin, "elevation_bin": elevation_bin, "azimuth_bin": azimuth_bin, "gain_bin": gain_bin, "candidate_origin": candidate.get("candidate_origin", "LAZY64"), "source_height_offset_m": candidate.get("source_height_offset"), "geodesic_distance_m": candidate.get("geodesic"), "sampling_attempt": candidate["attempt"], "clearance": "PASS", "reachable": "PASS"}, source_duration_sec=duration, pretrain_seen_status=source["pretrain_seen_status"]))
                     slots += 1
     return recipes, review, scenes, sources
 
@@ -231,7 +223,7 @@ def write_plan(root):
     (root / "reports/plan_review_index.jsonl").write_text(review_text, encoding="utf-8")
     summary = {"dataset_id": config["dataset_id"], "plan_version": config["plan_version"], "episode_count": len(recipes), "source_rows": len(sources), "scene_pass_pool": 103, "scene_representatives_loaded": len(scenes), "audio_files": 0, "rir_files": 0, "success_marker": False, "render_started": False, "quota": {"split": dict(Counter(row["split"] for row in recipes)), "family": dict(Counter(row["scene"]["scene_family"] for row in recipes)), "class": dict(Counter(row["source"]["class_id"] for row in recipes))}}
     (root / "reports/plan_summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    code_commit = os.environ.get("STEP3_GENERATION_CODE_COMMIT", "PENDING_STEP3_CODE_COMMIT")
+    code_commit = current_clean_head(ROOT)
     def file_sha(path):
         return hashlib.sha256(path.read_bytes()).hexdigest()
     (root / "identity.json").write_text(json.dumps({"dataset_id": config["dataset_id"], "dataset_family": "soundspaces_binaural_foa_clsdoa_v1", "schema_version": "clsdoa_v1.0", "generation_code_commit": code_commit, "created_at": "2026-08-29T00:00:00Z", "config_sha256": file_sha(CONFIG_PATH), "ontology_sha256": file_sha(ROOT / "registries/ontology.yaml"), "source_registry_sha256": file_sha(ROOT / "registries/source_audio.csv"), "scene_registry_sha256": file_sha(ROOT / "registries/clsdoa_v1_scenes.yaml")}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -298,13 +290,32 @@ def _write_reports(root, recipes, review, scenes, sources, config, code_commit):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("plan", choices=["plan"])
-    parser.add_argument("--config", required=True)
+    parser.add_argument("command", choices=["plan", "render", "validate", "finalize"])
+    parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--config")
     parser.add_argument("--root", default=str(ROOT / "datasets/binaural_foa_clsdoa_v1/clsdoa_v1_pilot_001"))
     args = parser.parse_args()
     global CONFIG_PATH
-    CONFIG_PATH = (ROOT / args.config).resolve() if not Path(args.config).is_absolute() else Path(args.config).resolve()
-    os.environ["STEP3_PILOT_CONFIG"] = str(CONFIG_PATH)
+    if args.command == "plan" and not args.config:
+        parser.error("plan requires --config")
+    if args.command == "plan":
+        CONFIG_PATH = (ROOT / args.config).resolve() if not Path(args.config).is_absolute() else Path(args.config).resolve()
+    elif args.config:
+        parser.error("non-plan commands read config_resolved.yaml from the dataset root")
+    if args.command != "plan":
+        root = Path(args.root)
+        if args.command == "validate":
+            from tools.clsdoa_v1.validate_pilot_plan import validate
+            print(json.dumps(validate(root), sort_keys=True))
+            return
+        if args.command == "finalize":
+            from tools.clsdoa_v1.validate_pilot_plan import validate_render_payload
+            validate_render_payload(root)
+            (root / "_SUCCESS").write_text("Dataset finalized / immutable\n", encoding="utf-8")
+            return
+        from tools.clsdoa_v1.orchestration import render_dataset
+        print(json.dumps({"render_records": len(render_dataset(root, resume=args.resume))}, sort_keys=True))
+        return
     if Path(args.root).exists() and any(Path(args.root).iterdir()):
         existing = {path.relative_to(Path(args.root)).as_posix() for path in Path(args.root).rglob("*") if path.is_file()}
         allowed = {"identity.json", "config_resolved.yaml", "resources.lock.json", "manifests/episodes.jsonl", "manifests/plan.lock.json"}
