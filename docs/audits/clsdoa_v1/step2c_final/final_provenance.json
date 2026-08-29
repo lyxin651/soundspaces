@@ -1,0 +1,22 @@
+{
+  "schema_version": "clsdoa_v1.final_provenance.1",
+  "closure_implementation_commit": "0566ecda50abd58bf91cfcb278598c6d95e60612",
+  "production_renderer_origin_commit": "4dd94a4b06977acaecdb0ba9af7ab7a7ba2ca78d",
+  "integrated_generation_code_commit": "552c299fa14d355f877eca7ff068154dcc463c21",
+  "integration_evidence_commit": "825c391685ba5c56869f03b7eeda96604766d0d4",
+  "integration_evidence_hygiene_commit": "5adb70a59490da4db3bf13e3e31e4fb23974230b",
+  "source_pool_generation_commit": "d55153ffab31fd1f9841fc65bb5ae0909fa58a55",
+  "source_track_final_hardening_commit": "8f2e0888fde6fbc69d92293b0204066fcd54398d",
+  "scene_track_final_commit": "86d8b6f8c65220fa5801d81437009ed4382ab34d",
+  "foa_contract_commit": "3e3c21ab0151a0b0d8e8d1e0946e9fa015c7bf92",
+  "source_registry_sha256": "f7a59a7e245a8ae0016e5fbd47a5599c64627951e344fe049fef3ff48bab5ad1",
+  "scene_registry_sha256": "06f90a902e78bb26d0e23fdb267bebde55f56d0abe794ecaf763a172784b9508",
+  "source_split_version": "clsdoa_source_split_v2_stratified",
+  "scene_split_version": "clsdoa_v1_scene_split_v2",
+  "ontology_sha256": "51e48305099afc21c887e207ced250808d82e251649f7e2e72a794cc1beb87ce",
+  "habitat_sim_version": "0.2.2",
+  "rlraudio_propagation_sha256": "31e948eef4908d8cbb403b5f445d9d0eab59fc81b05a658538f8795984f9bfb4",
+  "step2b_evidence_authority_pointer": "docs/audits/clsdoa_v1/integration/step2b_evidence_authority.json",
+  "authoritative_step2b_final_commit": "86d8b6f8c65220fa5801d81437009ed4382ab34d",
+  "superseded_evidence_entered_resources_lock": false
+}

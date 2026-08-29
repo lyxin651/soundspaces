@@ -1,0 +1,153 @@
+{
+  "acoustics": {
+    "clip_duration_sec": 5.0,
+    "indirect_ray_count": 5000,
+    "materials_enabled": false,
+    "normalization": {
+      "per_render": false,
+      "per_viewpoint": false
+    },
+    "paired_lifecycle": "sequential_sensor_lifecycle",
+    "receiver_contract": "listener_base + [0,1.5,0]",
+    "sample_rate_hz": 24000,
+    "source_ray_count": 200
+  },
+  "clip_duration_sec": 5.0,
+  "code": {
+    "foa_contract_commit": "3e3c21ab0151a0b0d8e8d1e0946e9fa015c7bf92",
+    "integrated_generation_code_commit": "552c299fa14d355f877eca7ff068154dcc463c21",
+    "integration_evidence_commit": "825c391685ba5c56869f03b7eeda96604766d0d4",
+    "integration_evidence_hygiene_commit": "5adb70a59490da4db3bf13e3e31e4fb23974230b",
+    "production_renderer_origin_commit": "4dd94a4b06977acaecdb0ba9af7ab7a7ba2ca78d",
+    "scene_track_final_commit": "86d8b6f8c65220fa5801d81437009ed4382ab34d",
+    "source_pool_generation_commit": "d55153ffab31fd1f9841fc65bb5ae0909fa58a55",
+    "source_track_final_hardening_commit": "8f2e0888fde6fbc69d92293b0204066fcd54398d"
+  },
+  "dataset_schema_version": "clsdoa_v1.0",
+  "foa": {
+    "canonical": "AmbiX ACN [W,Y,Z,X] SN3D",
+    "contract_commit": "3e3c21ab0151a0b0d8e8d1e0946e9fa015c7bf92",
+    "native": "N3D [W,Y_RLR,Z_RLR,X_RLR]"
+  },
+  "foa_contract_version": "P0-B@3e3c21ab0151a0b0d8e8d1e0946e9fa015c7bf92",
+  "generated_from_commit": "0566ecda50abd58bf91cfcb278598c6d95e60612",
+  "habitat_sim_version": "0.2.2",
+  "hrtf": {
+    "enclosing_implementation": {
+      "path": "/home/leiyuxin/miniconda3/envs/ss/lib/python3.9/site-packages/habitat_sim/_ext/libRLRAudioPropagation.so",
+      "sha256": "31e948eef4908d8cbb403b5f445d9d0eab59fc81b05a658538f8795984f9bfb4",
+      "size_bytes": 7327344
+    },
+    "mode": "embedded_or_not_exposed",
+    "path": null,
+    "sha256": null,
+    "status": "NOT_EXPOSED_BY_INSTALLED_HABITAT_SIM"
+  },
+  "indirectRayCount": 5000,
+  "materials_mode": "OFF",
+  "ontology": {
+    "path": "registries/ontology.yaml",
+    "sha256": "51e48305099afc21c887e207ced250808d82e251649f7e2e72a794cc1beb87ce"
+  },
+  "ontology_sha256": "51e48305099afc21c887e207ced250808d82e251649f7e2e72a794cc1beb87ce",
+  "random_seed": 20260829,
+  "rlraudio_propagation": {
+    "path": "/home/leiyuxin/miniconda3/envs/ss/lib/python3.9/site-packages/habitat_sim/_ext/libRLRAudioPropagation.so",
+    "sha256": "31e948eef4908d8cbb403b5f445d9d0eab59fc81b05a658538f8795984f9bfb4",
+    "size_bytes": 7327344
+  },
+  "runtime": {
+    "habitat_sim_version": "0.2.2",
+    "hrtf": {
+      "enclosing_implementation": {
+        "path": "/home/leiyuxin/miniconda3/envs/ss/lib/python3.9/site-packages/habitat_sim/_ext/libRLRAudioPropagation.so",
+        "sha256": "31e948eef4908d8cbb403b5f445d9d0eab59fc81b05a658538f8795984f9bfb4",
+        "size_bytes": 7327344
+      },
+      "mode": "embedded_or_not_exposed",
+      "path": null,
+      "sha256": null,
+      "status": "NOT_EXPOSED_BY_INSTALLED_HABITAT_SIM"
+    },
+    "rlraudio_propagation": {
+      "path": "/home/leiyuxin/miniconda3/envs/ss/lib/python3.9/site-packages/habitat_sim/_ext/libRLRAudioPropagation.so",
+      "sha256": "31e948eef4908d8cbb403b5f445d9d0eab59fc81b05a658538f8795984f9bfb4",
+      "size_bytes": 7327344
+    }
+  },
+  "sample_rate_hz": 24000,
+  "scene": {
+    "family_status_counts": {
+      "MP3D": {
+        "FAIL": 5,
+        "PASS": 85
+      },
+      "Replica": {
+        "PASS": 18
+      }
+    },
+    "materials_mode": "OFF",
+    "registry_path": "registries/clsdoa_v1_scenes.yaml",
+    "registry_sha256": "06f90a902e78bb26d0e23fdb267bebde55f56d0abe794ecaf763a172784b9508",
+    "split_counts": {
+      "test": 16,
+      "train": 71,
+      "val": 16
+    },
+    "split_overlap": 0,
+    "split_version": "clsdoa_v1_scene_split_v2",
+    "status_counts": {
+      "FAIL": 5,
+      "PASS": 103
+    },
+    "total_records": 108,
+    "track_final_commit": "86d8b6f8c65220fa5801d81437009ed4382ab34d",
+    "unit_scale_status": [
+      "PASS"
+    ]
+  },
+  "scene_registry_sha256": "06f90a902e78bb26d0e23fdb267bebde55f56d0abe794ecaf763a172784b9508",
+  "scene_split_version": "clsdoa_v1_scene_split_v2",
+  "schema_version": "clsdoa_v1.resources_lock.1",
+  "soundspaces_commit": "0566ecda50abd58bf91cfcb278598c6d95e60612",
+  "source": {
+    "base_clip_id_unique": true,
+    "canonical_paths_existing": 422,
+    "classes": 12,
+    "external_pool_identity": {
+      "manifest": "docs/audits/clsdoa_v1/source_pool_pilot_001/pool_freeze_manifest.json",
+      "pool_id": "source_pool_pilot_001",
+      "root": "/home/leiyuxin/soundspaces/source_assets/clsdoa_v1/prepared/source_pool_pilot_001",
+      "snapshot_sha256": "f7a59a7e245a8ae0016e5fbd47a5599c64627951e344fe049fef3ff48bab5ad1"
+    },
+    "pool_generation_commit": "d55153ffab31fd1f9841fc65bb5ae0909fa58a55",
+    "registry_path": "registries/source_audio.csv",
+    "registry_sha256": "f7a59a7e245a8ae0016e5fbd47a5599c64627951e344fe049fef3ff48bab5ad1",
+    "rows": 422,
+    "split_counts": {
+      "test": 64,
+      "train": 294,
+      "val": 64
+    },
+    "split_overlap": {
+      "train_test": 0,
+      "train_val": 0,
+      "val_test": 0
+    },
+    "split_version": "clsdoa_source_split_v2_stratified",
+    "track_final_hardening_commit": "8f2e0888fde6fbc69d92293b0204066fcd54398d"
+  },
+  "sourceRayCount": 200,
+  "source_registry_sha256": "f7a59a7e245a8ae0016e5fbd47a5599c64627951e344fe049fef3ff48bab5ad1",
+  "source_split_version": "clsdoa_source_split_v2_stratified",
+  "step2b_evidence_authority": {
+    "authoritative_files": [
+      "docs/audits/clsdoa_v1/scene_admission/exact_production_acoustic_revalidation.json",
+      "docs/audits/clsdoa_v1/scene_admission/exact_production_acoustic_soft_outliers.json",
+      "docs/audits/clsdoa_v1/scene_admission/step2b_final_closure_report.md"
+    ],
+    "final_commit": "86d8b6f8c65220fa5801d81437009ed4382ab34d",
+    "pointer": "docs/audits/clsdoa_v1/integration/step2b_evidence_authority.json",
+    "superseded_evidence_in_lock": false
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "source": {"rows": 422, "classes": 12, "split": {"train": 294, "val": 64, "test": 64}, "identity_leakage": 0, "registry_sha256": "f7a59a7e245a8ae0016e5fbd47a5599c64627951e344fe049fef3ff48bab5ad1"},
+  "scene": {"total": 108, "pass": 103, "geometry_fail": 5, "split_v2": {"Replica": {"train": 12, "val": 3, "test": 3}, "MP3D": {"train": 59, "val": 13, "test": 13}, "overlap": 0}, "registry_sha256": "06f90a902e78bb26d0e23fdb267bebde55f56d0abe794ecaf763a172784b9508"},
+  "materials": "OFF",
+  "unit_scale_status": "PASS",
+  "admitted": "NOT_RUN in Step 1B metadata; frozen Step 2B admission is 103 PASS",
+  "split_unassigned_geometry_failures": 5
+}

@@ -1,0 +1,4 @@
+{
+  "source_registry": {"path": "registries/source_audio.csv", "sha256": "f7a59a7e245a8ae0016e5fbd47a5599c64627951e344fe049fef3ff48bab5ad1", "rows": 422, "split_version": "clsdoa_source_split_v2_stratified", "leakage": 0},
+  "scene_registry": {"path": "registries/clsdoa_v1_scenes.yaml", "sha256": "06f90a902e78bb26d0e23fdb267bebde55f56d0abe794ecaf763a172784b9508", "records": 108, "pass": 103, "geometry_fail": 5, "split_version": "clsdoa_v1_scene_split_v2", "leakage": 0, "unit_scale_status": "PASS"}
+}
