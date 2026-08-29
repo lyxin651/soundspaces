@@ -9,12 +9,12 @@ from pathlib import Path
 import yaml
 import numpy as np
 from scipy.io import wavfile
-from tools.clsdoa_v1.scheduler import distance_schedule, elevation_schedule, azimuth_schedule, gain_schedule
-from tools.clsdoa_v1.integrity import verify_plan_integrity
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+from tools.clsdoa_v1.scheduler import distance_schedule, elevation_schedule, azimuth_schedule, gain_schedule
+from tools.clsdoa_v1.integrity import verify_plan_integrity
 CLASSES = list(range(12))
 
 
@@ -115,6 +115,7 @@ def validate(root):
 def validate_render_payload(root):
     """Payload gate used by finalize; plan-only roots must fail explicitly."""
     root = Path(root)
+    _require(not (root / "_SUCCESS").exists(), "dataset already finalized")
     _require((root / "manifests/episodes.jsonl").is_file(), "episodes manifest missing")
     renders = root / "manifests/renders.jsonl"
     _require(renders.is_file(), "render manifest missing")
@@ -126,7 +127,6 @@ def validate_render_payload(root):
     _require(len(episodes) == 960 and len({row["episode_id"] for row in episodes}) == 960, "payload requires all 960 unique episodes")
     for row in rows:
         validate_render_record_payload(root, row)
-    _require(not (root / "_SUCCESS").exists(), "dataset already finalized")
     return True
 
 
