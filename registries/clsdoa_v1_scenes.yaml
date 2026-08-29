@@ -13,7 +13,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.1LXtFkjw3qL:
     dataset: mp3d
@@ -25,7 +25,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: val
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.1pXnuDYAj8r:
     dataset: mp3d
@@ -37,7 +37,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: test
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.29hnd4uzFmX:
     dataset: mp3d
@@ -49,7 +49,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: val
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.2azQ1b91cZZ:
     dataset: mp3d
@@ -61,7 +61,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.2n8kARJN3HM:
     dataset: mp3d
@@ -73,7 +73,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.2t7WUuJeko7:
     dataset: mp3d
@@ -85,7 +85,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: val
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.5LpN3gDmAk7:
     dataset: mp3d
@@ -97,7 +97,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.5ZKStnWn8Zo:
     dataset: mp3d
@@ -109,7 +109,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: val
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.5q7pvUzZiYa:
     dataset: mp3d
@@ -121,7 +121,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: test
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.759xd9YjKW5:
     dataset: mp3d
@@ -133,7 +133,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.7y3sRwLe3Va:
     dataset: mp3d
@@ -145,7 +145,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: test
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.8194nk5LbLH:
     dataset: mp3d
@@ -157,7 +157,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.82sE5b5pLXE:
     dataset: mp3d
@@ -169,7 +169,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.8WUmhLawc2A:
     dataset: mp3d
@@ -181,7 +181,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: test
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.ARNzJeq3xxb:
     dataset: mp3d
@@ -193,7 +193,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.B6ByNegPMKs:
     dataset: mp3d
@@ -205,7 +205,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.D7G3Y4RVNrH:
     dataset: mp3d
@@ -217,7 +217,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: val
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.D7N2EKCX4Sj:
     dataset: mp3d
@@ -229,7 +229,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.EDJbREhghzL:
     dataset: mp3d
@@ -241,7 +241,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.EU6Fwq7SyZv:
     dataset: mp3d
@@ -253,7 +253,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.GdvgFV5R1Z5:
     dataset: mp3d
@@ -265,7 +265,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: test
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.HxpKQynjfin:
     dataset: mp3d
@@ -277,7 +277,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: test
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.JF19kD82Mey:
     dataset: mp3d
@@ -289,7 +289,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.JeFG25nYj2p:
     dataset: mp3d
@@ -301,7 +301,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.JmbYfDe2QKZ:
     dataset: mp3d
@@ -313,7 +313,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.PX4nDJXEHrG:
     dataset: mp3d
@@ -325,7 +325,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.Pm6F8kyY3z2:
     dataset: mp3d
@@ -337,7 +337,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.PuKPg4mmafe:
     dataset: mp3d
@@ -349,7 +349,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: test
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.QUCTc6BB5sX:
     dataset: mp3d
@@ -361,7 +361,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.RPmz2sHmrrY:
     dataset: mp3d
@@ -373,7 +373,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.S9hNv5qa7GM:
     dataset: mp3d
@@ -385,7 +385,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.SN83YJsR3w2:
     dataset: mp3d
@@ -397,7 +397,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.TbHJrupSAjP:
     dataset: mp3d
@@ -409,7 +409,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.ULsKaCPVFJR:
     dataset: mp3d
@@ -421,7 +421,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: val
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.UwV83HsGsw3:
     dataset: mp3d
@@ -433,7 +433,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.Uxmj2M2itWa:
     dataset: mp3d
@@ -445,7 +445,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.V2XKFyX4ASd:
     dataset: mp3d
@@ -457,7 +457,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: val
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.VFuaQ6m2Qom:
     dataset: mp3d
@@ -469,7 +469,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: test
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.VLzqgDo317F:
     dataset: mp3d
@@ -481,7 +481,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.VVfe2KiqLaN:
     dataset: mp3d
@@ -493,7 +493,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.Vt2qJdWjCF2:
     dataset: mp3d
@@ -505,7 +505,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.Vvot9Ly1tCj:
     dataset: mp3d
@@ -517,7 +517,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.WYY7iVyf5p8:
     dataset: mp3d
@@ -529,7 +529,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.X7HyMhZNoso:
     dataset: mp3d
@@ -541,7 +541,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.XcA2TqTSSAj:
     dataset: mp3d
@@ -553,7 +553,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.YFuZgdQ5vWj:
     dataset: mp3d
@@ -565,7 +565,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: val
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.YVUC4YcDtcY:
     dataset: mp3d
@@ -577,7 +577,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.YmJkqBEsHnH:
     dataset: mp3d
@@ -589,7 +589,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.Z6MFQCViBuw:
     dataset: mp3d
@@ -601,7 +601,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.ZMojNkEp431:
     dataset: mp3d
@@ -613,7 +613,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.aayBHfsNo7d:
     dataset: mp3d
@@ -625,7 +625,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.ac26ZMwG7aT:
     dataset: mp3d
@@ -637,7 +637,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: val
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.b8cTxDM8gDG:
     dataset: mp3d
@@ -649,7 +649,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: val
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.cV4RVeZvu5T:
     dataset: mp3d
@@ -661,7 +661,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: val
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.e9zR4mvMWw7:
     dataset: mp3d
@@ -673,7 +673,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.gTV8FGcVJC9:
     dataset: mp3d
@@ -685,7 +685,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.gYvKGZ5eRqb:
     dataset: mp3d
@@ -697,7 +697,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.gZ6f7yhEvPG:
     dataset: mp3d
@@ -709,7 +709,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.gxdoqLR6rwA:
     dataset: mp3d
@@ -721,7 +721,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: test
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.i5noydFURQK:
     dataset: mp3d
@@ -733,7 +733,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.jh4fc5c5qoQ:
     dataset: mp3d
@@ -745,7 +745,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.jtcxE69GiFV:
     dataset: mp3d
@@ -757,7 +757,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.mJXqzFtmKg4:
     dataset: mp3d
@@ -769,7 +769,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.oLBMNvg9in8:
     dataset: mp3d
@@ -781,7 +781,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: test
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.p5wJjkQkbXX:
     dataset: mp3d
@@ -793,7 +793,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.pLe4wQe7qrG:
     dataset: mp3d
@@ -805,7 +805,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.pRbA3pwrgk9:
     dataset: mp3d
@@ -817,7 +817,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.pa4otMbVnkk:
     dataset: mp3d
@@ -829,7 +829,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.q9vSo1VnCiC:
     dataset: mp3d
@@ -841,7 +841,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: test
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.qoiz87JEwZ2:
     dataset: mp3d
@@ -853,7 +853,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.r1Q1Z4BcV1o:
     dataset: mp3d
@@ -865,7 +865,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: val
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.r47D5H71a5s:
     dataset: mp3d
@@ -877,7 +877,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.rPc6DW4iMge:
     dataset: mp3d
@@ -889,7 +889,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.rqfALeAoiTq:
     dataset: mp3d
@@ -901,7 +901,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.s8pcmisQ38h:
     dataset: mp3d
@@ -913,7 +913,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.sKLMLpTHeUy:
     dataset: mp3d
@@ -925,7 +925,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.sT4fr6TAbpF:
     dataset: mp3d
@@ -937,7 +937,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.uNb9QFRL6hY:
     dataset: mp3d
@@ -949,7 +949,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: test
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.ur6pFq6Qu1A:
     dataset: mp3d
@@ -961,7 +961,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: test
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.vyrNrziPKCB:
     dataset: mp3d
@@ -973,7 +973,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.wc2JMjhGNzB:
     dataset: mp3d
@@ -985,7 +985,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.x8F5xyUWy9e:
     dataset: mp3d
@@ -997,7 +997,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.yqstnuAEVhm:
     dataset: mp3d
@@ -1009,7 +1009,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   mp3d.zsNo4HB9uLZ:
     dataset: mp3d
@@ -1021,7 +1021,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: val
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   replica.apartment_0:
     dataset: replica
@@ -1033,7 +1033,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: val
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   replica.apartment_1:
     dataset: replica
@@ -1045,7 +1045,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   replica.apartment_2:
     dataset: replica
@@ -1057,7 +1057,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   replica.frl_apartment_0:
     dataset: replica
@@ -1069,7 +1069,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   replica.frl_apartment_1:
     dataset: replica
@@ -1081,7 +1081,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   replica.frl_apartment_2:
     dataset: replica
@@ -1093,7 +1093,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   replica.frl_apartment_3:
     dataset: replica
@@ -1105,7 +1105,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   replica.frl_apartment_4:
     dataset: replica
@@ -1117,7 +1117,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   replica.frl_apartment_5:
     dataset: replica
@@ -1129,7 +1129,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: val
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   replica.hotel_0:
     dataset: replica
@@ -1141,7 +1141,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   replica.office_0:
     dataset: replica
@@ -1153,7 +1153,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   replica.office_1:
     dataset: replica
@@ -1165,7 +1165,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: val
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   replica.office_2:
     dataset: replica
@@ -1177,7 +1177,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   replica.office_3:
     dataset: replica
@@ -1189,7 +1189,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: test
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   replica.office_4:
     dataset: replica
@@ -1201,7 +1201,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   replica.room_0:
     dataset: replica
@@ -1213,7 +1213,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: train
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   replica.room_1:
     dataset: replica
@@ -1225,7 +1225,7 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: test
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
   replica.room_2:
     dataset: replica
@@ -1237,5 +1237,5 @@ scenes:
     materials_mode: 'off'
     admitted: PASS
     split: test
-    unit_scale_status: PASS_WITH_REVIEW
+    unit_scale_status: PASS
     admission_commit: 53ecc6d
