@@ -1,0 +1,19 @@
+{
+  "authoritative": {
+    "final_commit": "86d8b6f8c65220fa5801d81437009ed4382ab34d",
+    "acoustic_evidence": [
+      "docs/audits/clsdoa_v1/scene_admission/exact_production_acoustic_revalidation.json",
+      "docs/audits/clsdoa_v1/scene_admission/exact_production_acoustic_soft_outliers.json",
+      "docs/audits/clsdoa_v1/scene_admission/step2b_final_closure_report.md"
+    ]
+  },
+  "superseded_or_historical": {
+    "evidence": [
+      "historical floor-receiver acoustic admission evidence",
+      "receiver audit and diagnosis evidence retained for provenance",
+      "intermediate correct-receiver revalidation at 954deee8d3ce5cab070c436deea91118a416977d",
+      "old four-soft-outlier evidence"
+    ],
+    "retention": "Old files are retained and must not be treated as authoritative acoustic results by Final Provenance Closure or resources.lock.json."
+  }
+}

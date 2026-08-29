@@ -1,4 +1,10 @@
-"""Run crash-isolated Step 2B scene admission probes."""
+"""Run historical Step 2B scene admission probes.
+
+LEGACY / HISTORICAL STEP 2B ADMISSION TOOL. NOT AUTHORIZED FOR CLASSDOA V1
+PRODUCTION DATASET GENERATION. Historical acoustic rendering used the
+listener-base receiver and is superseded by exact-production revalidation.
+Authoritative production rendering is SoundSpacesPairedRenderer.
+"""
 
 import argparse
 import hashlib

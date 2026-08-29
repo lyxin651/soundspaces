@@ -22,6 +22,7 @@
   "step2a_final_hardening_commit": "8f2e0888fde6fbc69d92293b0204066fcd54398d",
   "step2a_pool_generation_commit": "d55153ffab31fd1f9841fc65bb5ae0909fa58a55",
   "step2b_final_commit": "86d8b6f8c65220fa5801d81437009ed4382ab34d",
+  "step2b_authoritative_evidence_pointer": "docs/audits/clsdoa_v1/integration/step2b_evidence_authority.json",
   "step2c_preintegration_evidence_commit": "507fcdeeda90a262446597306e02f42d54584ff4",
   "step2c_production_code_commit": "4dd94a4b06977acaecdb0ba9af7ab7a7ba2ca78d"
 }

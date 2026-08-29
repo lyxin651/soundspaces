@@ -1,7 +1,7 @@
 {
-  "scene_identity_leakage": true,
+  "scene_identity_leakage_detected": false,
   "scene_split_overlap": 0,
-  "source_identity_leakage": true,
+  "source_identity_leakage_detected": false,
   "source_split_overlap": {
     "train:test": 0,
     "train:val": 0,

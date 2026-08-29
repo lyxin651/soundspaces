@@ -1,6 +1,6 @@
 # ClassDOA V1 Controlled Integration
 
-Controlled Integration was created from `507fcdeeda90a262446597306e02f42d54584ff4` in a separate worktree. No whole-branch merge was used. Approved Source and Scene surfaces were imported path-by-path from their final commits. The Step 2B historical admission renderer was excluded; the Step 2C production renderer remains authoritative at `4dd94a4`.
+Controlled Integration was created from `507fcdeeda90a262446597306e02f42d54584ff4` in a separate worktree. No whole-branch merge was used. Approved Source and Scene surfaces were imported path-by-path from their final commits. The historical Step 2B admission implementation remains in the repository for provenance only, but is excluded from the authoritative production generation path; the Step 2C production renderer remains authoritative at `4dd94a4`.
 
 The clean integration code commit is `552c299`. Source authority is `d55153ff` pool generation plus `8f2e088` final hardening and `registries/source_audio.csv`; Scene authority is `86d8b6f`, with 103 PASS and five historical `FAIL_GEOMETRY_CLEARANCE` records retained as `UNASSIGNED`. Validator hardening replaced naked assertions with explicit exceptions and added positive, negative, and Python-optimized failure tests without changing scientific results.
 
