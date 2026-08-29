@@ -42,8 +42,9 @@ The former `dishes` blocker was resolved by 11 human-authorized incremental
 The short/limited `speech` and `dishes` recordings and the acoustic similarity
 of `mechanical_fan`/`microwave_oven` are recorded as Pilot/Formal source
 expansion review issues.  They were not used to overturn the completed Pilot
-selection.  `dishes` nevertheless requires the 11-row incremental manual gate
-because its accepted identity count is below the hard minimum.
+selection.  The historical `dishes` blocker was resolved by the 11 human-
+authorized incremental `ACCEPT` rows; `dishes` is now at 30 and Step 2A is
+finalized.
 
 The old global-threshold split (`clsdoa_source_split_v1`) was superseded after
 it failed five small-class strata. The accepted membership now uses

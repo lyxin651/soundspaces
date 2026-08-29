@@ -68,10 +68,8 @@ def _dbfs(value):
     return -float("inf") if value <= 0 else 20.0 * math.log10(value)
 
 
-def load_source_prep_config(config_path):
-    """Load the source-prep YAML and reject drift from the frozen contract."""
-    with Path(config_path).open(encoding="utf-8") as handle:
-        config = yaml.safe_load(handle)
+def _validate_source_prep_config(config):
+    """Reject drift from the frozen source-preparation contract."""
     canonical = config.get("canonical", {})
     normalization = config.get("normalization", {})
     split = config.get("split", {})
@@ -80,6 +78,8 @@ def load_source_prep_config(config_path):
         "channels": 1,
         "dtype": "float32",
         "max_duration_sec": 5.0,
+        "overlong_crop_policy": "deterministic_center",
+        "short_source_offset_policy": "episode_deterministic_random",
         "normalization_method": "active_rms_v1",
         "target_active_rms_dbfs": -24.0,
         "peak_guard": 0.50,
@@ -90,6 +90,8 @@ def load_source_prep_config(config_path):
         "channels": canonical.get("channels"),
         "dtype": canonical.get("dtype"),
         "max_duration_sec": canonical.get("max_duration_sec"),
+        "overlong_crop_policy": canonical.get("overlong_crop_policy"),
+        "short_source_offset_policy": canonical.get("short_source_offset_policy"),
         "normalization_method": normalization.get("method"),
         "target_active_rms_dbfs": normalization.get("target_active_rms_dbfs"),
         "peak_guard": normalization.get("peak_guard"),
@@ -98,6 +100,13 @@ def load_source_prep_config(config_path):
     if actual != expected:
         raise ValueError("source-prep YAML disagrees with the frozen contract: {}".format(actual))
     return config
+
+
+def load_source_prep_config(config_path):
+    """Load the source-prep YAML and reject drift from the frozen contract."""
+    with Path(config_path).open(encoding="utf-8") as handle:
+        config = yaml.safe_load(handle)
+    return _validate_source_prep_config(config)
 
 
 def source_offset_contract(canonical_duration_sec, config):
@@ -249,6 +258,7 @@ def validate_final_records(records, config, ontology_path):
 
 
 def prepare_once(membership_path, split_path, output_root, config):
+    _validate_source_prep_config(config)
     canonical_config = config["canonical"]
     normalization_config = config["normalization"]
     sample_rate = int(canonical_config["sample_rate"])
@@ -284,6 +294,8 @@ def prepare_once(membership_path, split_path, output_root, config):
             crop_start = 0
             crop_policy = "preserve_full_short_source"
         else:
+            if canonical_config["overlong_crop_policy"] != "deterministic_center":
+                raise ValueError("unsupported overlong crop policy")
             crop_count = int(round(max_duration * source_rate))
             crop_start = (len(mono) - crop_count) // 2
             mono = mono[crop_start:crop_start + crop_count]
@@ -299,7 +311,7 @@ def prepare_once(membership_path, split_path, output_root, config):
         canonical_path.parent.mkdir(parents=True, exist_ok=True)
         wavfile.write(str(canonical_path), sample_rate, canonical.astype("<f4"))
         written, written_rate = sf.read(str(canonical_path), dtype="float32")
-        if written_rate != SAMPLE_RATE or written.ndim != 1 or not np.isfinite(written).all():
+        if written_rate != sample_rate or written.ndim != 1 or not np.isfinite(written).all():
             raise ValueError("written canonical WAV validation failed: {}".format(canonical_path))
         canonical_wav_sha = _sha256_file(canonical_path)
         canonical_pcm_sha = _sha256_pcm(written)
