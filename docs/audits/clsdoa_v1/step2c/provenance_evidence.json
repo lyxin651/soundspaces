@@ -1,7 +1,7 @@
 {
   "clip_duration_sec": 5.0,
   "foa_contract_version": "P0-B@3e3c21ab0151a0b0d8e8d1e0946e9fa015c7bf92",
-  "generation_code_commit": "e84c9d2eba912d6b7e0a0efa5d5d48d8c60d6065",
+  "generation_code_commit": "cac9f5b8f1cbfca941a6bf0750c63a34c15aa15d",
   "habitat_sim_version": "0.2.2",
   "hrtf": {
     "enclosing_implementation": {
@@ -32,7 +32,7 @@
   "scene_registry_sha256": "PENDING_STEP_2B",
   "scene_split_version": "PENDING_STEP_2B",
   "schema_version": "clsdoa_v1.0",
-  "soundspaces_commit": "e84c9d2eba912d6b7e0a0efa5d5d48d8c60d6065",
+  "soundspaces_commit": "cac9f5b8f1cbfca941a6bf0750c63a34c15aa15d",
   "sourceRayCount": 200,
   "source_registry_sha256": "PENDING_STEP_2A",
   "source_split_version": "PENDING_STEP_2A"

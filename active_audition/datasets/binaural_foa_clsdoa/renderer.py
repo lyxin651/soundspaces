@@ -11,10 +11,10 @@ from scipy.io import wavfile
 from scipy.signal import fftconvolve
 
 from active_audition.acoustics.renderer import convolve_binaural
-from active_audition.data.audio import load_dry_segment
 from active_audition.scene.pose import yaw_to_quaternion
 
 from .recipe import EpisodeRecipe
+from .source_registry import SourceRegistryError, build_observation_timeline
 from .schema import CLIP_DURATION_SEC, NUM_SAMPLES, REPRESENTATIONS, RenderPolicy, RenderRecord, SAMPLE_RATE_HZ
 
 
@@ -46,6 +46,7 @@ class SoundSpacesPairedRenderer(PairedRenderer):
         navmesh_path: Optional[str] = None,
         source_audio_path: Optional[str] = None,
         source_waveform: Optional[Any] = None,
+        source_sample_rate_hz: int = SAMPLE_RATE_HZ,
         output_dir: str,
         policy: Optional[RenderPolicy] = None,
         indirect_ray_count: int = 5000,
@@ -62,6 +63,7 @@ class SoundSpacesPairedRenderer(PairedRenderer):
         self.navmesh_path = str(navmesh_path) if navmesh_path else None
         self.source_audio_path = source_audio_path
         self.source_waveform = None if source_waveform is None else np.asarray(source_waveform, dtype=np.float32).copy()
+        self.source_sample_rate_hz = int(source_sample_rate_hz)
         self.output_dir = Path(output_dir)
         self.policy = policy or RenderPolicy()
         self.indirect_ray_count = int(indirect_ray_count)
@@ -125,24 +127,46 @@ class SoundSpacesPairedRenderer(PairedRenderer):
 
     def _dry(self, recipe: EpisodeRecipe) -> np.ndarray:
         if self.source_waveform is not None:
-            waveform = self.source_waveform
-            if recipe.source_offset_sec:
-                offset = int(round(recipe.source_offset_sec * SAMPLE_RATE_HZ))
-                waveform = waveform[offset:]
-            waveform = np.asarray(waveform[:NUM_SAMPLES], dtype=np.float32)
-            if waveform.size < NUM_SAMPLES:
-                waveform = np.pad(waveform, (0, NUM_SAMPLES - waveform.size))
-            waveform = waveform * np.float32(10.0 ** (recipe.source_gain_db / 20.0))
+            source = self.source_waveform
+            source_rate = self.source_sample_rate_hz
         else:
-            waveform = load_dry_segment(
-                self.source_audio_path, recipe.source_offset_sec, CLIP_DURATION_SEC,
-                SAMPLE_RATE_HZ, recipe.source_gain_db,
+            if not self.source_audio_path:
+                raise PairedRenderError("source_audio_path or source_waveform is required")
+            source_rate, source = wavfile.read(str(Path(self.source_audio_path)))
+        source = np.asarray(source)
+        if source.ndim != 1:
+            raise PairedRenderError("production source must be mono")
+        # A source longer than one episode may be deterministically cropped at
+        # the source stage.  This is intentionally separate from timeline
+        # placement: a short source is never cropped because of its offset.
+        max_source_samples = int(round(CLIP_DURATION_SEC * int(source_rate)))
+        if source.size > max_source_samples:
+            source = source[:max_source_samples]
+        try:
+            waveform = build_observation_timeline(
+                source, source_rate, recipe.source_offset_sec,
+                target_sample_rate_hz=SAMPLE_RATE_HZ,
+                clip_duration_sec=CLIP_DURATION_SEC,
             )
+        except SourceRegistryError as exc:
+            raise PairedRenderError(str(exc)) from exc
+        waveform = waveform * np.float32(10.0 ** (recipe.source_gain_db / 20.0))
         if waveform.shape != (NUM_SAMPLES,) or not np.isfinite(waveform).all():
             raise PairedRenderError("source waveform does not satisfy the V1 audio contract")
         return np.asarray(waveform, dtype=np.float32)
 
+    @staticmethod
+    def _validate_listener_pose(recipe: EpisodeRecipe) -> None:
+        base = np.asarray(recipe.listener_base_position_world, dtype=np.float64)
+        sensor = np.asarray(recipe.listener_sensor_position_world, dtype=np.float64)
+        expected = base + np.asarray([0.0, 1.5, 0.0], dtype=np.float64)
+        if not np.allclose(sensor, expected, rtol=0.0, atol=1.0e-5):
+            raise PairedRenderError(
+                "listener_sensor_position_world must equal listener_base_position_world + [0, 1.5, 0]"
+            )
+
     def _rir(self, recipe: EpisodeRecipe, representation: str, *, indirect: bool = True) -> np.ndarray:
+        self._validate_listener_pose(recipe)
         simulator = self._new_simulator(representation, indirect=indirect)
         try:
             agent = simulator.get_agent(0)
@@ -175,23 +199,29 @@ class SoundSpacesPairedRenderer(PairedRenderer):
             np.save(str(rir_path), np.asarray(rir, dtype=np.float32), allow_pickle=False)
         return str(audio_relative), None if rir_path is None else str(rir_relative)
 
-    def render_episode(self, recipe: EpisodeRecipe, representation: str) -> RenderRecord:
-        if representation not in recipe.representations:
-            raise PairedRenderError("recipe does not require {}".format(representation))
+    def _waveform_from_rir(self, recipe: EpisodeRecipe, representation: str, native_rir: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Convolve one recipe with a supplied RIR without any normalization."""
+
         dry = self._dry(recipe)
-        native = self._rir(recipe, representation)
         if representation == "binaural":
-            canonical_rir = native.T
-            full = convolve_binaural(dry, canonical_rir)
-            waveform = full[:NUM_SAMPLES, :]
+            canonical_rir = np.asarray(native_rir.T, dtype=np.float32)
+            waveform = convolve_binaural(dry, canonical_rir)[:NUM_SAMPLES, :]
         else:
             from examples.foa_adapter import native_foa_to_canonical
 
-            canonical_rir = native_foa_to_canonical(native, recipe.listener_yaw_deg)
+            canonical_rir = native_foa_to_canonical(native_rir, recipe.listener_yaw_deg)
             waveform = np.asarray(
                 [fftconvolve(dry, channel, mode="full")[:NUM_SAMPLES] for channel in canonical_rir],
                 dtype=np.float32,
             )
+        return waveform, canonical_rir
+
+    def render_episode(self, recipe: EpisodeRecipe, representation: str) -> RenderRecord:
+        if representation not in recipe.representations:
+            raise PairedRenderError("recipe does not require {}".format(representation))
+        self._validate_listener_pose(recipe)
+        native = self._rir(recipe, representation)
+        waveform, canonical_rir = self._waveform_from_rir(recipe, representation, native)
         if waveform.shape != ((NUM_SAMPLES, 2) if representation == "binaural" else (4, NUM_SAMPLES)):
             raise PairedRenderError("rendered waveform shape is not V1-compatible")
         audio_path, rir_path = self._write_payload(recipe, representation, waveform, canonical_rir)

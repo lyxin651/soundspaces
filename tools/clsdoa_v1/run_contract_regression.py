@@ -1,6 +1,7 @@
 """Run the Step 2C.1 production rendering and provenance regression."""
 
 import argparse
+from dataclasses import replace
 import hashlib
 import importlib.util
 import json
@@ -115,6 +116,35 @@ def _production_pair_regression(output_dir: Path, dry: np.ndarray) -> Mapping[st
     return {"episode_count": len(recipes), "rows": rows, "same_immutable_recipe": True, "same_source_fingerprint_gain_offset_pose_yaw_acoustic_config": True, "production_backend": True, "verdict": "PASS"}
 
 
+def _gain_ratio_regression(output_dir: Path, dry: np.ndarray) -> Mapping[str, Any]:
+    """Measure 0/-6 dB scaling against the exact same production RIR."""
+
+    renderer = SoundSpacesPairedRenderer(scene_path=str(SCENE), navmesh_path=str(NAVMESH), source_waveform=dry, output_dir=str(output_dir / "gain_ratio"), policy=RenderPolicy(save_rir=False, require_rir=False))
+    recipe = _recipe("step2c2_gain_ratio", CARDINAL_SOURCES["front"], 0.0)
+    attenuated = replace(recipe, source_gain_db=-6.0)
+    expected = 10.0 ** (-6.0 / 20.0)
+    rows = {}
+    for representation in ("binaural", "foa"):
+        native_rir = renderer._rir(recipe, representation)
+        first, _ = renderer._waveform_from_rir(recipe, representation, native_rir)
+        second, _ = renderer._waveform_from_rir(attenuated, representation, native_rir)
+        measured = float(np.sqrt(np.sum(second * second, dtype=np.float64) / np.sum(first * first, dtype=np.float64)))
+        rows[representation] = {"gain_db": -6.0, "expected_ratio": expected, "measured_ratio": measured, "absolute_error": abs(measured - expected), "tolerance": 1.0e-6, "same_rir": True, "pass": bool(abs(measured - expected) <= 1.0e-6)}
+    return {"definition": "L2 amplitude ratio of production-rendered waveforms, with one shared native RIR per representation and no normalization.", "rows": rows, "pass": bool(all(row["pass"] for row in rows.values()))}
+
+
+def _temporal_and_receiver_contract(renderer: SoundSpacesPairedRenderer) -> Mapping[str, Any]:
+    source = np.linspace(-1.0, 1.0, SAMPLE_RATE_HZ, dtype=np.float32)
+    short_renderer = SoundSpacesPairedRenderer(scene_path="unused", source_waveform=source, source_sample_rate_hz=SAMPLE_RATE_HZ, output_dir="/tmp/clsdoa-step2c2-temporal", policy=RenderPolicy(save_rir=False, require_rir=False))
+    placed_recipe = replace(_recipe("step2c2_short_source", CARDINAL_SOURCES["front"], 0.0), source_offset_sec=2.0)
+    placed = short_renderer._dry(placed_recipe)
+    start, end = 2 * SAMPLE_RATE_HZ, 3 * SAMPLE_RATE_HZ
+    temporal_pass = bool(np.all(placed[:start] == 0.0) and np.array_equal(placed[start:end], source) and np.all(placed[end:] == 0.0))
+    receiver_pass = True
+    renderer._validate_listener_pose(_recipe("step2c2_receiver", CARDINAL_SOURCES["front"], 0.0))
+    return {"short_source_duration_sec": 1.0, "offset_sec": 2.0, "timeline_shape": list(placed.shape), "timeline_dtype": str(placed.dtype), "pass": temporal_pass, "receiver_base_sensor_invariant": {"sensor_offset_m": [0.0, 1.5, 0.0], "tolerance_m": 1.0e-5, "pass": receiver_pass}}
+
+
 def _directional_sanity(renderer: SoundSpacesPairedRenderer) -> Mapping[str, Any]:
     rows = {}
     for name, direction in (("left", -1.0), ("right", 1.0)):
@@ -134,12 +164,16 @@ def run(output_dir: Path, random_seed: int = 20260824) -> Mapping[str, Any]:
         payload_root = Path(payload_dir)
         paired = _production_pair_regression(payload_root, dry)
         production_renderer = SoundSpacesPairedRenderer(scene_path=str(SCENE), navmesh_path=str(NAVMESH), source_waveform=dry, output_dir=str(payload_root / "directional"), policy=RenderPolicy(save_rir=True, require_rir=True))
+        temporal = _temporal_and_receiver_contract(production_renderer)
+        gain_ratio = _gain_ratio_regression(payload_root, dry)
         directional = _directional_sanity(production_renderer)
         current_golden = _current_p0b_golden(payload_root)
         provenance = build_provenance_template(str(ROOT), random_seed=random_seed)
         validate_core_provenance_template(provenance)
-        summary = {"status": "STEP 2C.1 COMPLETED — PENDING STEP 2C CLOSURE", "schema_version": SCHEMA_VERSION, "production_backend": True, "real_generation_path": {"renderer": "SoundSpacesPairedRenderer", "backend": "Habitat-Sim AudioSensor", "foa_converter": "examples/foa_adapter.py unchanged", "paired_mode": "sequential_sensor_lifecycle", "payload_location": "/tmp only"}, "binaural_24khz": {"pass": True}, "foa_live": {"pass": True}, "paired_regression": paired, "binaural_directional_sanity": directional, "p0b_golden": current_golden, "foa_converter": _converter_regression(), "normalization_regression": {"per_render": False, "per_viewpoint": False, "separate_branch": False, "pass": True}, "render_policy": {"save_rir": True, "require_rir": True, "formal_audio_only_supported": True, "schema_version_unchanged": True, "pass": True}, "provenance": provenance, "pending": {"source_registry_sha256": "PENDING_STEP_2A", "source_split_version": "PENDING_STEP_2A", "scene_registry_sha256": "PENDING_STEP_2B", "scene_split_version": "PENDING_STEP_2B"}, "temporary_payload_committed": False, "pilot_plan_executed": False, "source_qc_executed": False, "scene_admission_executed": False, "runtime_sec": round(time.perf_counter() - started, 3)}
+        summary = {"status": "STEP 2C.2 COMPLETED — PENDING STEP 2C CLOSURE", "schema_version": SCHEMA_VERSION, "production_backend": True, "real_generation_path": {"renderer": "SoundSpacesPairedRenderer", "backend": "Habitat-Sim AudioSensor", "foa_converter": "examples/foa_adapter.py unchanged", "paired_mode": "sequential_sensor_lifecycle", "payload_location": "/tmp only"}, "binaural_24khz": {"pass": True}, "foa_live": {"pass": True}, "temporal_placement": temporal, "receiver_position_invariant": temporal["receiver_base_sensor_invariant"], "production_gain_ratio": gain_ratio, "paired_regression": paired, "binaural_directional_sanity": directional, "p0b_golden": current_golden, "foa_converter": _converter_regression(), "normalization_regression": {"per_render": False, "per_viewpoint": False, "separate_branch": False, "pass": True}, "render_policy": {"save_rir": True, "require_rir": True, "formal_audio_only_supported": True, "schema_version_unchanged": True, "pass": True}, "provenance": provenance, "pending": {"source_registry_sha256": "PENDING_STEP_2A", "source_split_version": "PENDING_STEP_2A", "scene_registry_sha256": "PENDING_STEP_2B", "scene_split_version": "PENDING_STEP_2B"}, "temporary_payload_committed": False, "pilot_plan_executed": False, "source_qc_executed": False, "scene_admission_executed": False, "runtime_sec": round(time.perf_counter() - started, 3)}
     _write_json(output_dir / "paired_regression.json", summary["paired_regression"])
+    _write_json(output_dir / "temporal_placement.json", summary["temporal_placement"])
+    _write_json(output_dir / "production_gain_ratio.json", summary["production_gain_ratio"])
     _write_json(output_dir / "binaural_directional_sanity.json", summary["binaural_directional_sanity"])
     _write_json(output_dir / "foa_golden_regression.json", summary["p0b_golden"])
     _write_json(output_dir / "provenance_evidence.json", summary["provenance"])
@@ -157,6 +191,10 @@ def _markdown_summary(summary: Mapping[str, Any]) -> str:
 Status: `{status}`
 
 `SoundSpacesPairedRenderer` is the production generation path. It uses the real Habitat-Sim AudioSensor at 24 kHz with Materials OFF, indirectRayCount=5000 and sourceRayCount=200. Each representation is rendered from the same immutable EpisodeRecipe and source waveform under the frozen sequential sensor lifecycle; FOA conversion calls the unchanged P0-B adapter. Temporary WAV/RIR payloads were written only below `/tmp` and were not committed.
+
+The source timeline regression placed a one-second source at offset 2.0 seconds with exact zero padding before and after it. Both in-memory source waveforms and WAV source paths use `build_observation_timeline()`; source gain is applied once after placement. The receiver invariant checks sensor position against base plus `[0, 1.5, 0]` with an absolute tolerance of 1e-5 m.
+
+Production no-normalization gain regression reused one native RIR per representation: the measured 0 dB to -6 dB L2 amplitude ratio is compared with 10^(-6/20), using a strict 1e-6 tolerance.
 
 The production paired regression rendered {episodes} fixed recipes covering front, side/off-axis and non-zero yaw. Binaural and FOA records are complete and share source fingerprint, gain, offset, scene, poses, yaw and acoustic config. No per-render, viewpoint or branch normalization was applied.
 

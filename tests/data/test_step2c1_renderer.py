@@ -1,12 +1,14 @@
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
+from scipy.io import wavfile
 
 from active_audition.datasets.binaural_foa_clsdoa.recipe import make_episode_recipe
-from active_audition.datasets.binaural_foa_clsdoa.renderer import SoundSpacesPairedRenderer, render_pair
+from active_audition.datasets.binaural_foa_clsdoa.renderer import PairedRenderError, SoundSpacesPairedRenderer, render_pair
 from active_audition.datasets.binaural_foa_clsdoa.schema import NUM_SAMPLES, RenderPolicy
 
 
@@ -20,6 +22,78 @@ def _recipe():
 
 
 class ProductionRendererContractTests(unittest.TestCase):
+    def test_short_source_is_placed_on_episode_timeline(self):
+        source = np.linspace(-1.0, 1.0, 24000, dtype=np.float32)
+        with tempfile.TemporaryDirectory() as directory:
+            renderer = SoundSpacesPairedRenderer(scene_path="unused", source_waveform=source, output_dir=directory)
+            recipe = replace(_recipe(), source_gain_db=0.0, source_offset_sec=2.0)
+            timeline = renderer._dry(recipe)
+        self.assertTrue(np.all(timeline[:48000] == 0.0))
+        self.assertTrue(np.array_equal(timeline[48000:72000], source))
+        self.assertTrue(np.all(timeline[72000:] == 0.0))
+        self.assertEqual(timeline.shape, (NUM_SAMPLES,))
+        self.assertEqual(timeline.dtype, np.float32)
+
+    def test_offset_does_not_change_short_source_content_or_amplitude(self):
+        source = np.full(24000, 0.25, dtype=np.float32)
+        with tempfile.TemporaryDirectory() as directory:
+            renderer = SoundSpacesPairedRenderer(scene_path="unused", source_waveform=source, output_dir=directory)
+            zero = renderer._dry(replace(_recipe(), source_gain_db=0.0))
+            shifted = renderer._dry(replace(_recipe(), source_gain_db=0.0, source_offset_sec=1.0))
+        self.assertAlmostEqual(float(np.max(zero)), 0.25)
+        self.assertAlmostEqual(float(np.max(shifted)), 0.25)
+        self.assertEqual(float(np.sum(np.abs(zero))), float(np.sum(np.abs(shifted))))
+
+    def test_offset_outside_timeline_is_hard_failure(self):
+        source = np.ones(24000, dtype=np.float32)
+        with tempfile.TemporaryDirectory() as directory:
+            renderer = SoundSpacesPairedRenderer(scene_path="unused", source_waveform=source, output_dir=directory)
+            recipe = replace(_recipe(), source_offset_sec=4.1)
+            with self.assertRaises(PairedRenderError):
+                renderer._dry(recipe)
+
+    def test_five_second_source_at_zero_offset_remains_valid(self):
+        source = np.ones(NUM_SAMPLES, dtype=np.float32)
+        with tempfile.TemporaryDirectory() as directory:
+            renderer = SoundSpacesPairedRenderer(scene_path="unused", source_waveform=source, output_dir=directory)
+            timeline = renderer._dry(replace(_recipe(), source_gain_db=0.0))
+        self.assertTrue(np.array_equal(timeline, source))
+
+    def test_source_waveform_and_source_audio_path_share_timeline_semantics(self):
+        source = np.linspace(-0.5, 0.5, 16000, dtype=np.float32)
+        recipe = replace(_recipe(), source_gain_db=0.0, source_offset_sec=2.0)
+        with tempfile.TemporaryDirectory() as directory:
+            audio_path = Path(directory) / "source.wav"
+            wavfile.write(str(audio_path), 16000, source)
+            from_waveform = SoundSpacesPairedRenderer(scene_path="unused", source_waveform=source, source_sample_rate_hz=16000, output_dir=directory)._dry(recipe)
+            from_path = SoundSpacesPairedRenderer(scene_path="unused", source_audio_path=str(audio_path), output_dir=directory)._dry(recipe)
+        self.assertTrue(np.array_equal(from_waveform, from_path))
+
+    def test_listener_base_sensor_invariant_is_checked_before_habitat(self):
+        with tempfile.TemporaryDirectory() as directory:
+            renderer = SoundSpacesPairedRenderer(scene_path="unused", source_waveform=np.ones(NUM_SAMPLES, dtype=np.float32), output_dir=directory)
+            renderer._validate_listener_pose(_recipe())
+            close = _recipe().__class__(**dict(_recipe().__dict__, listener_sensor_position_world=(0.0, 1.500009, 0.0)))
+            renderer._validate_listener_pose(close)
+            bad = _recipe().__class__(**dict(_recipe().__dict__, listener_sensor_position_world=(0.0, 1.51, 0.0)))
+            with self.assertRaises(PairedRenderError):
+                renderer._validate_listener_pose(bad)
+
+    def test_production_waveform_gain_ratio_is_preserved_for_binaural_and_foa(self):
+        with tempfile.TemporaryDirectory() as directory:
+            renderer = SoundSpacesPairedRenderer(scene_path="unused", source_waveform=np.ones(NUM_SAMPLES, dtype=np.float32), output_dir=directory)
+            zero = replace(_recipe(), source_gain_db=0.0)
+            minus_six = replace(zero, source_gain_db=-6.0)
+            binaural_rir = np.zeros((2, 8), dtype=np.float32)
+            binaural_rir[:, 0] = 1.0
+            foa_rir = np.zeros((4, 8), dtype=np.float32)
+            foa_rir[0, 0] = 1.0
+            for representation, rir in (("binaural", binaural_rir), ("foa", foa_rir)):
+                first, _ = renderer._waveform_from_rir(zero, representation, rir)
+                second, _ = renderer._waveform_from_rir(minus_six, representation, rir)
+                ratio = np.sqrt(np.sum(second * second, dtype=np.float64) / np.sum(first * first, dtype=np.float64))
+                self.assertAlmostEqual(float(ratio), 10.0 ** (-6.0 / 20.0), places=6)
+
     def test_pair_uses_same_immutable_recipe_and_both_payloads(self):
         recipe = _recipe()
         dry = np.ones(NUM_SAMPLES, dtype=np.float32)

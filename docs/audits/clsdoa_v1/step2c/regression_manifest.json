@@ -1,10 +1,12 @@
 {
-  "code_commit": "e84c9d2eba912d6b7e0a0efa5d5d48d8c60d6065",
+  "code_commit": "cac9f5b8f1cbfca941a6bf0750c63a34c15aa15d",
   "files": {
     "binaural_directional_sanity.json": "2d555342110beecc399f2af1eb564aadc139cae97822a79406d7a57cc8e7b3f3",
-    "contract_regression_summary.json": "f1f472a9bc464e92cc6191dc97a3b06c8d2cf585c71773d74bb9272afcb9d795",
+    "contract_regression_summary.json": "8dcbb6a3a9bdc93f0eb24639e52b069c19c4148bede00b0719dd7a12bafc7b89",
     "foa_golden_regression.json": "e2ebaede906480ea500336b3b87bcfc4cb430caf9d71e0d8f6a1bcaf647c4a1c",
     "paired_regression.json": "3f332b0755a2631a567c8ac1dd0ec7a49e619a652c483c688dda4625f0601a44",
-    "provenance_evidence.json": "ca24d94f27b7ac91fe868517cd1e3000b810b559d57b3c9ba42358a5a4eb86ed"
+    "production_gain_ratio.json": "ba013fb05fee05e10c607fdcc72f7a20bcfc9235ecb244cc53d957c35c90ec4c",
+    "provenance_evidence.json": "25f96daebe1af7f208c6c0bfc44aecef87ba5b8c07d1a678e0eeb59920b3b996",
+    "temporal_placement.json": "bf923488a1e4117646630ba8624bb38386ccd43e52e5f104602ad4f009888c71"
   }
 }

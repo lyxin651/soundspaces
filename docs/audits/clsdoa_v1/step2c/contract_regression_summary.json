@@ -596,10 +596,34 @@
   },
   "pilot_plan_executed": false,
   "production_backend": true,
+  "production_gain_ratio": {
+    "definition": "L2 amplitude ratio of production-rendered waveforms, with one shared native RIR per representation and no normalization.",
+    "pass": true,
+    "rows": {
+      "binaural": {
+        "absolute_error": 2.896503148441809e-08,
+        "expected_ratio": 0.5011872336272722,
+        "gain_db": -6.0,
+        "measured_ratio": 0.5011872046622408,
+        "pass": true,
+        "same_rir": true,
+        "tolerance": 1e-06
+      },
+      "foa": {
+        "absolute_error": 2.8710667066000894e-08,
+        "expected_ratio": 0.5011872336272722,
+        "gain_db": -6.0,
+        "measured_ratio": 0.5011872049166052,
+        "pass": true,
+        "same_rir": true,
+        "tolerance": 1e-06
+      }
+    }
+  },
   "provenance": {
     "clip_duration_sec": 5.0,
     "foa_contract_version": "P0-B@3e3c21ab0151a0b0d8e8d1e0946e9fa015c7bf92",
-    "generation_code_commit": "e84c9d2eba912d6b7e0a0efa5d5d48d8c60d6065",
+    "generation_code_commit": "cac9f5b8f1cbfca941a6bf0750c63a34c15aa15d",
     "habitat_sim_version": "0.2.2",
     "hrtf": {
       "enclosing_implementation": {
@@ -630,7 +654,7 @@
     "scene_registry_sha256": "PENDING_STEP_2B",
     "scene_split_version": "PENDING_STEP_2B",
     "schema_version": "clsdoa_v1.0",
-    "soundspaces_commit": "e84c9d2eba912d6b7e0a0efa5d5d48d8c60d6065",
+    "soundspaces_commit": "cac9f5b8f1cbfca941a6bf0750c63a34c15aa15d",
     "sourceRayCount": 200,
     "source_registry_sha256": "PENDING_STEP_2A",
     "source_split_version": "PENDING_STEP_2A"
@@ -642,6 +666,15 @@
     "payload_location": "/tmp only",
     "renderer": "SoundSpacesPairedRenderer"
   },
+  "receiver_position_invariant": {
+    "pass": true,
+    "sensor_offset_m": [
+      0.0,
+      1.5,
+      0.0
+    ],
+    "tolerance_m": 1e-05
+  },
   "render_policy": {
     "formal_audio_only_supported": true,
     "pass": true,
@@ -649,10 +682,28 @@
     "save_rir": true,
     "schema_version_unchanged": true
   },
-  "runtime_sec": 89.744,
+  "runtime_sec": 115.007,
   "scene_admission_executed": false,
   "schema_version": "clsdoa_v1.0",
   "source_qc_executed": false,
-  "status": "STEP 2C.1 COMPLETED — PENDING STEP 2C CLOSURE",
+  "status": "STEP 2C.2 COMPLETED — PENDING STEP 2C CLOSURE",
+  "temporal_placement": {
+    "offset_sec": 2.0,
+    "pass": true,
+    "receiver_base_sensor_invariant": {
+      "pass": true,
+      "sensor_offset_m": [
+        0.0,
+        1.5,
+        0.0
+      ],
+      "tolerance_m": 1e-05
+    },
+    "short_source_duration_sec": 1.0,
+    "timeline_dtype": "float32",
+    "timeline_shape": [
+      120000
+    ]
+  },
   "temporary_payload_committed": false
 }

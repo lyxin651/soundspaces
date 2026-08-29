@@ -1,0 +1,24 @@
+{
+  "definition": "L2 amplitude ratio of production-rendered waveforms, with one shared native RIR per representation and no normalization.",
+  "pass": true,
+  "rows": {
+    "binaural": {
+      "absolute_error": 2.896503148441809e-08,
+      "expected_ratio": 0.5011872336272722,
+      "gain_db": -6.0,
+      "measured_ratio": 0.5011872046622408,
+      "pass": true,
+      "same_rir": true,
+      "tolerance": 1e-06
+    },
+    "foa": {
+      "absolute_error": 2.8710667066000894e-08,
+      "expected_ratio": 0.5011872336272722,
+      "gain_db": -6.0,
+      "measured_ratio": 0.5011872049166052,
+      "pass": true,
+      "same_rir": true,
+      "tolerance": 1e-06
+    }
+  }
+}
