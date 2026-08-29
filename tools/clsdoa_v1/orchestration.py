@@ -24,6 +24,12 @@ def _atomic_jsonl(path, rows):
     temporary.replace(path)
 
 
+def upsert_render_record(rows, record):
+    """Replace one key while retaining every other journal record."""
+    key = (record.get("episode_id"), record.get("representation"))
+    return [row for row in rows if (row.get("episode_id"), row.get("representation")) != key] + [record]
+
+
 def render_dataset(root, resume=False, renderer_factory=SoundSpacesPairedRenderer):
     root = Path(root)
     verify_plan_integrity(root, Path(__file__).resolve().parents[2])
@@ -43,7 +49,7 @@ def render_dataset(root, resume=False, renderer_factory=SoundSpacesPairedRendere
     existing = [json.loads(line) for line in journal.read_text().splitlines() if line] if journal.exists() else []
     complete = {(row["episode_id"], row["representation"]): row for row in existing if row.get("render_status") == "complete" and row.get("audio_path") and (root / row["audio_path"]).is_file() and (not policy.require_rir or row.get("rir_path") and (root / row["rir_path"]).is_file())}
     source_rows = {row["source_clip_id"]: row for row in read_source_registry(str(Path(__file__).resolve().parents[2] / "registries/source_audio.csv"))}
-    all_rows = [row for row in existing if (row.get("episode_id"), row.get("representation")) not in complete]
+    all_rows = list(existing)
     for recipe in recipes:
         scene = {"scene_id": recipe.scene_id}
         registry = yaml.safe_load((Path(__file__).resolve().parents[2] / "registries/clsdoa_v1_scenes.yaml").read_text())["scenes"][recipe.scene_id]
@@ -55,7 +61,6 @@ def render_dataset(root, resume=False, renderer_factory=SoundSpacesPairedRendere
                 continue
             renderer = renderer_factory(scene_path=scene["scene_asset"], navmesh_path=scene["navmesh"], source_audio_path=source["canonical_path"], output_dir=str(root), policy=policy, indirect_ray_count=5000, source_ray_count=200, materials_enabled=False)
             record = renderer.render_episode(recipe, representation).to_dict()
-            all_rows = [row for row in all_rows if (row.get("episode_id"), row.get("representation")) != (recipe.episode_id, representation)]
-            all_rows.append(record)
+            all_rows = upsert_render_record(all_rows, record)
             _atomic_jsonl(journal, all_rows)
     return all_rows

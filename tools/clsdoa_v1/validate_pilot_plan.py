@@ -27,6 +27,19 @@ def _require(condition, message):
         raise PilotPlanValidationError(message)
 
 
+def validate_episode_membership(episodes, source_registry, scene_registry):
+    sources = {row["base_clip_id"]: row for row in source_registry}
+    scenes = scene_registry.get("scenes", scene_registry)
+    for row in episodes:
+        source = sources.get(row["source"]["base_clip_id"])
+        scene = scenes.get(row["scene"]["scene_id"])
+        _require(source is not None, "episode source is absent from registry")
+        _require(scene is not None, "episode scene is absent from registry")
+        _require(source["split"] == row["split"], "source split mismatch")
+        _require(scene["split"] == row["split"], "scene split mismatch")
+        _require(scene["scene_family"] == row["scene"]["scene_family"], "scene family mismatch")
+
+
 def validate(root):
     root = Path(root)
     episodes = [json.loads(line) for line in (root / "manifests/episodes.jsonl").read_text().splitlines() if line]
@@ -39,6 +52,7 @@ def validate(root):
     registry = list(__import__("active_audition.datasets.binaural_foa_clsdoa.source_registry", fromlist=["read_source_registry"]).read_source_registry(str(ROOT / "registries/source_audio.csv")))
     _require({r["source"]["base_clip_id"] for r in episodes} == {r["base_clip_id"] for r in registry}, "source pool mismatch")
     scene_registry = yaml.safe_load((ROOT / "registries/clsdoa_v1_scenes.yaml").read_text())["scenes"]
+    validate_episode_membership(episodes, registry, scene_registry)
     pass_ids = {sid for sid, r in scene_registry.items() if r["admitted"] == "PASS"}
     fail_ids = {sid for sid, r in scene_registry.items() if r["admitted"] != "PASS"}
     used_scene_ids = {r["scene"]["scene_id"] for r in episodes}
@@ -91,19 +105,25 @@ def validate_render_payload(root):
     keys = {(row.get("episode_id"), row.get("representation")) for row in complete}
     _require(keys == expected and len(complete) == 1920, "payload must contain exactly one complete binaural and foa record per episode")
     for row in complete:
-        _require(row["sample_rate_hz"] == 24000 and row["num_samples"] == 120000 and row["dtype"] == "float32", "payload audio contract mismatch")
-        _require(row["num_channels"] == (2 if row["representation"] == "binaural" else 4), "payload channel contract mismatch")
-        _require(Path(root / row["audio_path"]).is_file(), "render WAV missing")
-        _require(row.get("rir_path") and Path(root / row["rir_path"]).is_file(), "render RIR missing")
-        sample_rate, audio = wavfile.read(str(root / row["audio_path"]))
-        audio = np.asarray(audio)
-        _require(int(sample_rate) == 24000 and audio.shape[0] == 120000, "WAV payload shape/rate mismatch")
-        _require(audio.ndim == 1 or audio.shape[1] == row["num_channels"], "WAV channel payload mismatch")
-        _require(np.isfinite(audio).all() and np.any(np.abs(audio)), "WAV must be finite and non-zero")
-        rir = np.asarray(np.load(str(root / row["rir_path"]), allow_pickle=False))
-        _require(rir.ndim == 2 and np.isfinite(rir).all() and np.any(np.abs(rir)), "RIR must be finite and non-zero")
+        validate_render_record_payload(root, row)
     _require(not (root / "_SUCCESS").exists(), "dataset already finalized")
     return True
+
+
+def validate_render_record_payload(root, row):
+    root = Path(root)
+    _require(row["sample_rate_hz"] == 24000 and row["num_samples"] == 120000 and row["dtype"] == "float32", "payload audio contract mismatch")
+    _require(row["num_channels"] == (2 if row["representation"] == "binaural" else 4), "payload channel contract mismatch")
+    _require(Path(root / row["audio_path"]).is_file(), "render WAV missing")
+    _require(row.get("rir_path") and Path(root / row["rir_path"]).is_file(), "render RIR missing")
+    sample_rate, audio = wavfile.read(str(root / row["audio_path"]))
+    audio = np.asarray(audio)
+    _require(int(sample_rate) == 24000 and audio.shape == (120000, row["num_channels"]), "WAV payload shape/rate mismatch")
+    _require(audio.dtype == np.dtype("float32"), "WAV dtype mismatch")
+    _require(np.isfinite(audio).all() and np.any(np.abs(audio)), "WAV must be finite and non-zero")
+    rir = np.asarray(np.load(str(root / row["rir_path"]), allow_pickle=False))
+    _require(rir.ndim == 2 and ((row["representation"] == "binaural" and rir.shape[1] == 2) or (row["representation"] == "foa" and rir.shape[0] == 4)), "RIR channel payload mismatch")
+    _require(np.isfinite(rir).all() and np.any(np.abs(rir)), "RIR must be finite and non-zero")
 
 
 def main():

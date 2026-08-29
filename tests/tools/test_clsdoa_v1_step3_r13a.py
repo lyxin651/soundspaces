@@ -3,6 +3,8 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+import numpy as np
+from scipy.io import wavfile
 
 from tools.clsdoa_v1.git_identity import GitIdentityError, current_clean_head
 from tools.clsdoa_v1.scheduler import (
@@ -65,6 +67,53 @@ class Pilot004CommandSurfaceTests(unittest.TestCase):
             result = subprocess.run(command, cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
 
+    def test_resume_upsert_preserves_completed_other_representation(self):
+        from tools.clsdoa_v1.orchestration import upsert_render_record
+        binaural = {"episode_id": "ep", "representation": "binaural", "render_status": "complete"}
+        foa = {"episode_id": "ep", "representation": "foa", "render_status": "complete"}
+        rows = upsert_render_record([binaural], foa)
+        self.assertEqual({(row["episode_id"], row["representation"]) for row in rows}, {("ep", "binaural"), ("ep", "foa")})
 
+    def test_membership_split_and_family_gates(self):
+        from tools.clsdoa_v1.validate_pilot_plan import PilotPlanValidationError, validate_episode_membership
+        episode = {"split": "train", "scene": {"scene_id": "s", "scene_family": "Replica"}, "source": {"base_clip_id": "b"}}
+        source = [{"base_clip_id": "b", "split": "train"}]
+        scenes = {"scenes": {"s": {"split": "train", "scene_family": "Replica"}}}
+        validate_episode_membership([episode], source, scenes)
+        for bad in ({"split": "val"}, {"scene_family": "MP3D"}):
+            broken = dict(episode)
+            if "split" in bad:
+                broken["split"] = bad["split"]
+            else:
+                broken["scene"] = dict(episode["scene"], scene_family=bad["scene_family"])
+            with self.assertRaises(PilotPlanValidationError):
+                validate_episode_membership([broken], source, scenes)
+
+    def test_payload_record_rejects_mono_wav_and_wrong_rir_axis(self):
+        from tools.clsdoa_v1.validate_pilot_plan import PilotPlanValidationError, validate_render_record_payload
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            wavfile.write(str(root / "audio.wav"), 24000, np.ones((120000, 1), dtype=np.float32))
+            np.save(str(root / "rir.npy"), np.ones((2, 12), dtype=np.float32))
+            row = {"representation": "binaural", "sample_rate_hz": 24000, "num_samples": 120000, "num_channels": 2, "dtype": "float32", "audio_path": "audio.wav", "rir_path": "rir.npy"}
+            with self.assertRaises(PilotPlanValidationError):
+                validate_render_record_payload(root, row)
+            wavfile.write(str(root / "audio.wav"), 24000, np.ones((120000, 2), dtype=np.float32))
+            with self.assertRaises(PilotPlanValidationError):
+                validate_render_record_payload(root, row)
+
+    def test_plan_rejects_dirty_repo_before_creating_root_and_nonempty_root(self):
+        import os
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "new-root"
+            command = [sys.executable, "tools/clsdoa_v1/pilot_dataset.py", "plan", "--config", "configs/active_audition/clsdoa_v1_pilot_004.yaml", "--root", str(root)]
+            result = subprocess.run(command, cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True, env=dict(os.environ))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertFalse(root.exists())
+            root.mkdir()
+            (root / "sentinel").write_text("keep\n")
+            result = subprocess.run(command, cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True, env=dict(os.environ))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual((root / "sentinel").read_text(), "keep\n")
 if __name__ == "__main__":
     unittest.main()
