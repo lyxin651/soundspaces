@@ -3,7 +3,6 @@
 
 import argparse
 import csv
-import hashlib
 import json
 import sys
 from collections import Counter, defaultdict
@@ -20,6 +19,12 @@ from tools.clsdoa_v1.ingest_manual_qc import (
     _sha256,
     _write_csv,
 )
+from tools.clsdoa_v1.stratified_source_split import (
+    DEFAULT_SALT,
+    SPLIT_VERSION,
+    audit_split,
+    build_split,
+)
 
 
 MEMBERSHIP_FIELDS = [
@@ -30,15 +35,6 @@ MEMBERSHIP_FIELDS = [
     "license_raw", "provenance_source", "pretrain_seen_status", "raw_sha256",
     "resource_status",
 ]
-
-
-def _split(base_clip_id, salt):
-    value = int(hashlib.sha256((salt + "|" + base_clip_id).encode()).hexdigest()[:8], 16) % 10000
-    if value < 7000:
-        return "train"
-    if value < 8500:
-        return "val"
-    return "test"
 
 
 def _copy_rows(path):
@@ -117,71 +113,41 @@ def ingest_incremental(queue_path, incremental_path, qc_paths, asset_root,
     by_class = defaultdict(list)
     for row in accepted_membership:
         by_class[row["canonical_class"]].append(row)
+    # The old global threshold buckets are retired.  The dedicated v2 splitter
+    # is run only after every class reaches the accepted identity minimum.
+    split_report = {
+        "schema_version": "clsdoa_v1_stratified_source_split_audit_v1",
+        "split_version": SPLIT_VERSION,
+        "split_salt": split_salt or DEFAULT_SALT,
+        "status": "DEFERRED_BELOW_ACCEPT_MINIMUM",
+        "reason": "run stratified_source_split.py after all classes reach 30 ACCEPT identities",
+    }
+    if all(len({row["identity_key"] for row in members}) >= 30 for members in by_class.values()):
+        split_rows, quotas = build_split(accepted_membership, salt=split_salt or DEFAULT_SALT)
+        split_report = audit_split(split_rows, quotas, salt=split_salt or DEFAULT_SALT)
     per_class = []
-    split_by_class = {}
     for canonical_class in sorted(by_class):
-        members = by_class[canonical_class]
-        identities = {row["identity_key"] for row in members}
-        split_counts = Counter(_split(row["base_clip_id"], split_salt) for row in members)
-        split_by_class[canonical_class] = dict(split_counts)
+        identities = {row["identity_key"] for row in by_class[canonical_class]}
+        item = split_report.get("per_class", {}).get(canonical_class, {})
         per_class.append({
             "canonical_class": canonical_class,
             "accepted_independent_identities": len(identities),
-            "train": split_counts["train"],
-            "val": split_counts["val"],
-            "test": split_counts["test"],
+            "train": item.get("train"), "val": item.get("val"), "test": item.get("test"),
             "identity_minimum_status": "PASS" if len(identities) >= 30 else "FAIL",
-            "split_minimum_status": "PASS" if (
-                split_counts["train"] >= 20 and split_counts["val"] >= 4 and split_counts["test"] >= 4
-            ) else "FAIL",
+            "split_minimum_status": item.get("minimum_status", "DEFERRED"),
         })
-
-    split_deficits = {}
-    for item in per_class:
-        missing = {
-            "train": max(0, 20 - item["train"]),
-            "val": max(0, 4 - item["val"]),
-            "test": max(0, 4 - item["test"]),
+    split_deficits = {
+        key: {
+            "train": max(0, 20 - value["train"]),
+            "val": max(0, 4 - value["val"]),
+            "test": max(0, 4 - value["test"]),
         }
-        if any(missing.values()):
-            split_deficits[item["canonical_class"]] = missing
-
-    unreviewed_matching_reserve = defaultdict(list)
-    accepted_ids = {row["identity_key"] for row in accepted_membership}
-    for row in queue_rows:
-        if row["pool_candidate_role"] != "RESERVE" or row.get("manual_decision"):
-            continue
-        if row["identity_key"] in accepted_ids:
-            continue
-        candidate = dict(row)
-        candidate["identity_key"] = candidate.get("identity_key") or _identity_key(candidate)
-        candidate.update(qc_by_audio.get(row["audio_path"], {}))
-        bucket = _split(row["base_clip_id"], split_salt)
-        if bucket in split_deficits.get(row["canonical_class"], {}):
-            if split_deficits[row["canonical_class"]][bucket] > 0:
-                unreviewed_matching_reserve[row["canonical_class"]].append(candidate)
-    for key in unreviewed_matching_reserve:
-        unreviewed_matching_reserve[key].sort(key=_selection_key)
-
-    split_report = {
-        "schema_version": "clsdoa_v1_split_gate_audit_v1",
-        "split_version": "clsdoa_source_split_v1",
-        "split_salt": split_salt,
-        "hash_rule": "SHA256(split_salt + '|' + base_clip_id) first 8 hex modulo 10000",
-        "per_class": per_class,
-        "deficits": split_deficits,
-        "unreviewed_reserve_matching_deficit": {
-            key: {
-                split: len([
-                    row for row in value if _split(row["base_clip_id"], split_salt) == split
-                ])
-                for split in deficits
-            }
-            for key, deficits in split_deficits.items()
-            for value in [unreviewed_matching_reserve.get(key, [])]
-        },
-        "status": "BLOCKED_UNREVIEWED_SOURCE_REQUIRED" if split_deficits else "PASS",
+        for key, value in split_report.get("per_class", {}).items()
+        if value.get("minimum_status") != "PASS"
     }
+
+    split_report["per_class"] = per_class
+    split_report["deficits"] = split_deficits
     split_report_path.parent.mkdir(parents=True, exist_ok=True)
     split_report_path.write_text(json.dumps(split_report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 

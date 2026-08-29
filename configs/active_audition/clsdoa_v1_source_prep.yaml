@@ -17,7 +17,12 @@ normalization:
   target_active_rms_dbfs: -24.0
   peak_guard: 0.50
 split:
-  version: clsdoa_source_split_v1
+  version: clsdoa_source_split_v2_stratified
   salt: clsdoa_v1_source_split_20260828
-  train_upper_exclusive: 7000
-  val_upper_exclusive: 8500
+  method: deterministic_stratified_sha256_sort
+  train_fraction: 0.70
+  val_fraction: 0.15
+  test_fraction: 0.15
+  train_minimum: 20
+  val_minimum: 4
+  test_minimum: 4

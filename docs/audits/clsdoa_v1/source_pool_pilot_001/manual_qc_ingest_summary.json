@@ -1,16 +1,17 @@
 {
-  "schema_version": "clsdoa_v1_manual_qc_ingest_summary_v1",
+  "schema_version": "clsdoa_v1_manual_qc_ingest_summary_v2",
   "parent_step2a_commit": "4bfe508f990cdcf9b17c553a4de2948a0ab631a8",
-  "status": "STEP 2A INCREMENTAL MANUAL QC REQUIRED",
-  "manual_accept": 411,
-  "manual_reject": 69,
+  "status": "FINALIZED_SOURCE_POOL",
+  "manual_accept": 422,
+  "manual_reject": 103,
   "target_total": 480,
   "reserve_total": 144,
   "reserve_auto_accepted": false,
+  "incremental_dishes_rows": 11,
   "per_class_accept_independent_identities": {
     "clock_alarm": 34,
     "coughing": 38,
-    "dishes": 19,
+    "dishes": 30,
     "frying": 37,
     "keyboard_typing": 39,
     "laughing": 33,
@@ -22,14 +23,10 @@
     "vacuum_cleaner": 36
   },
   "hard_minimum_per_class": 30,
-  "classes_below_minimum": {
-    "dishes": {
-      "accepted": 19,
-      "additional_manual_review_required": 11
-    }
-  },
+  "classes_below_minimum": {},
   "accepted_identity_audit": {
-    "accepted_rows": 411,
+    "accepted_rows": 422,
+    "identity_count": 422,
     "identity_duplicate_groups": 0,
     "base_clip_duplicate_groups": 0,
     "raw_sha_duplicate_groups": 0,
@@ -41,27 +38,27 @@
     "known_provenance_rows": 411,
     "license_status": {
       "DATASET_LEVEL_VERIFIED": 302,
-      "PER_RECORDING_METADATA": 109
+      "PER_RECORDING_METADATA": 120
     },
     "pretrain_seen_status": {
       "likely_yes": 135,
-      "unknown": 276
+      "unknown": 287
     },
     "unknown_pretrain_rewritten_to_no": false
   },
-  "incremental_manual_review": {
-    "rows": 11,
-    "class": "dishes",
-    "queue_path": "/home/leiyuxin/soundspaces/source_assets/clsdoa_v1/review/source_pool_pilot_001/incremental_manual_review_queue.csv",
-    "reserve_auto_accepted": false
-  },
   "split": {
-    "status": "NOT_RUN",
-    "version": "clsdoa_source_split_v1",
-    "reason": "dishes below hard minimum"
+    "status": "PASS",
+    "version": "clsdoa_source_split_v2_stratified",
+    "audit": "docs/audits/clsdoa_v1/source_pool_pilot_001/split_v2_stratified_audit.json",
+    "base_clip_overlap": {
+      "train_vs_val": [],
+      "train_vs_test": [],
+      "val_vs_test": []
+    }
   },
-  "canonical_preparation": "NOT_EXECUTED",
-  "normalization": "NOT_EXECUTED",
-  "registry": "NOT_EXECUTED",
-  "success_marker": "NOT_WRITTEN"
+  "canonical_preparation": "PASS",
+  "normalization": "PASS_ACTIVE_RMS_V1",
+  "registry": "PASS",
+  "success_marker": "WRITTEN",
+  "pool_identity": "source_pool_pilot_001"
 }

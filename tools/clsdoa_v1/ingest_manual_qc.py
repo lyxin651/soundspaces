@@ -277,7 +277,8 @@ def ingest(queue_path, qc_paths, asset_root, snapshot_path, stats_path,
         },
         "split": {
             "status": "NOT_RUN_BELOW_ACCEPT_MINIMUM" if deficient else "PENDING",
-            "version": "clsdoa_source_split_v1",
+            "version": "clsdoa_source_split_v2_stratified",
+            "method": "deferred to stratified_source_split.py",
         },
         "canonical_preparation": {
             "status": "NOT_EXECUTED",

@@ -6,6 +6,7 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONTRACT_PATH = REPO_ROOT / "configs/active_audition/clsdoa_v1_contract.yaml"
+SOURCE_PREP_PATH = REPO_ROOT / "configs/active_audition/clsdoa_v1_source_prep.yaml"
 ONTOLOGY_PATH = REPO_ROOT / "registries/ontology.yaml"
 
 
@@ -14,6 +15,8 @@ class ClassDOAV1ContractTests(unittest.TestCase):
     def setUpClass(cls):
         with CONTRACT_PATH.open(encoding="utf-8") as handle:
             cls.contract = yaml.safe_load(handle)
+        with SOURCE_PREP_PATH.open(encoding="utf-8") as handle:
+            cls.source_prep = yaml.safe_load(handle)
         with ONTOLOGY_PATH.open(encoding="utf-8") as handle:
             cls.ontology = yaml.safe_load(handle)["ontology"]
 
@@ -77,6 +80,18 @@ class ClassDOAV1ContractTests(unittest.TestCase):
         self.assertFalse(self.contract["acoustics"]["materials_enabled"])
         self.assertFalse(self.contract["normalization"]["per_render"])
         self.assertFalse(self.contract["normalization"]["per_viewpoint"])
+
+    def test_pilot_split_uses_stratified_v2_policy(self):
+        split = self.source_prep["split"]
+        self.assertEqual(split["version"], "clsdoa_source_split_v2_stratified")
+        self.assertEqual(split["method"], "deterministic_stratified_sha256_sort")
+        self.assertEqual(split["salt"], "clsdoa_v1_source_split_20260828")
+        self.assertEqual((split["train_fraction"], split["val_fraction"], split["test_fraction"]),
+                         (0.70, 0.15, 0.15))
+        self.assertEqual((split["train_minimum"], split["val_minimum"], split["test_minimum"]),
+                         (20, 4, 4))
+        self.assertNotIn("train_upper_exclusive", split)
+        self.assertNotIn("val_upper_exclusive", split)
 
     def test_contract_has_no_concrete_pilot_identity_or_quota(self):
         forbidden_keys = {

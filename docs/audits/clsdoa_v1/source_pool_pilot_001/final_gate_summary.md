@@ -1,4 +1,8 @@
-# ClassDOA V1 Step 2A final pre-split gate
+# ClassDOA V1 Step 2A final pre-split gate (superseded)
+
+This document records the historical global-threshold v1 result. It is
+superseded by `split_v2_stratified_audit.md` and `final_pool_audit.md`; the v1
+failure was a split-policy failure, not a source-count failure.
 
 The final 11-row `dishes` incremental manual batch was human-authorized and
 ingested as `ACCEPT`.  The main pilot queue now contains 422 ACCEPT rows: the
@@ -23,7 +27,7 @@ preserved.  No other RESERVE or formal-unreviewed candidate was accepted.
 | speech | 39 | 26 | 8 | 5 | PASS | PASS |
 | vacuum_cleaner | 36 | 23 | 4 | 9 | PASS | PASS |
 
-The frozen rule was applied as
+The historical rule was applied as
 `SHA256(clsdoa_v1_source_split_20260828 + "|" + base_clip_id)` with the
 first eight hexadecimal digits modulo 10,000.  No Python `hash()`, manual
 movement, or reshuffling was used.  Accepted identity, base-clip, exact audio
@@ -32,15 +36,16 @@ conflicts.  All 422 accepted rows have usable license/provenance.  Pretraining
 exposure remains conservative: `likely_yes=135`, `unknown=287`, and no value
 was rewritten to `no`.
 
-The split gate is blocked in five classes: `coughing` needs 2 more stable-test
+The historical split gate was blocked in five classes: `coughing` needs 2 more stable-test
 identities, `dishes` needs 2 stable-val identities, `laughing` needs 1
 stable-val identity, `printer` needs 1 stable-val identity, and
 `running_water` needs 2 stable-train identities.  The existing unreviewed
 RESERVE contains only 1 matching coughing-test identity, 3 laughing-val, 2
 printer-val, and 10 running-water-train identities; it contains zero
 dishes-val identities.  Therefore no split can pass using only the current
-accepted membership and existing RESERVE.  No new source was auto-accepted,
-and canonical preparation was not started.
+accepted membership and existing RESERVE. No new source was auto-accepted.
+The controlled v2 stratified split now passes using the same 422 accepted
+identities.
 
 The known short/limited DESED `speech` and `dishes` recordings and the natural
 acoustic similarity between `mechanical_fan` and `microwave_oven` remain
@@ -48,10 +53,10 @@ Pilot/Formal source expansion issues.  This Pilot composition is not the
 Formal V1 composition; Formal expansion and re-selection belong to the 5k
 Training Pilot.
 
-Canonical WAV preparation, source-level normalization, canonical duplicate
-audit, final `registries/source_audio.csv`, pool identity, resources lock,
-determinism rerun, hard validation, and `_SUCCESS` were not executed.  Current
-state: `STEP 2A SPLIT GATE REQUIRED`.
+The v2 canonical WAV preparation, source-level normalization, canonical
+duplicate audit, final `registries/source_audio.csv`, pool identity, resources
+lock, determinism rerun, hard validation, and `_SUCCESS` all pass. Current
+state: `source_pool_pilot_001 FINALIZED`.
 
 Machine-readable details are in the external
 `/home/leiyuxin/soundspaces/source_assets/clsdoa_v1/review/source_pool_pilot_001/manual_qc_final_gate_stats.json` and

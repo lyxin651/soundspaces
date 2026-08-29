@@ -1,7 +1,32 @@
 {
-  "status": "NOT_RUN",
-  "reason": "Split must follow manual acceptance, identity resolution, duplicate audit, and canonical preparation.",
-  "split_version": "clsdoa_source_split_v1",
-  "base_clip_overlap": null,
-  "per_class_minimums": null
+  "status": "PASS",
+  "reason": "Deterministic stratified per-class split over the final 422 manual ACCEPT identities.",
+  "split_version": "clsdoa_source_split_v2_stratified",
+  "split_salt": "clsdoa_v1_source_split_20260828",
+  "method": "Per-class lexicographic SHA256(salt + '|' + base_clip_id) sort; nearest integer 70/15/15 quotas with hard minima.",
+  "base_clip_overlap": {
+    "train_vs_val": [],
+    "train_vs_test": [],
+    "val_vs_test": []
+  },
+  "per_class_minimums": {
+    "train": 20,
+    "val": 4,
+    "test": 4
+  },
+  "per_class": {
+    "clock_alarm": {"train": 24, "val": 5, "test": 5},
+    "coughing": {"train": 26, "val": 6, "test": 6},
+    "dishes": {"train": 20, "val": 5, "test": 5},
+    "frying": {"train": 25, "val": 6, "test": 6},
+    "keyboard_typing": {"train": 27, "val": 6, "test": 6},
+    "laughing": {"train": 23, "val": 5, "test": 5},
+    "mechanical_fan": {"train": 26, "val": 5, "test": 5},
+    "microwave_oven": {"train": 23, "val": 5, "test": 5},
+    "printer": {"train": 24, "val": 5, "test": 5},
+    "running_water": {"train": 23, "val": 5, "test": 5},
+    "speech": {"train": 27, "val": 6, "test": 6},
+    "vacuum_cleaner": {"train": 26, "val": 5, "test": 5}
+  },
+  "deterministic_rerun": "PASS"
 }
