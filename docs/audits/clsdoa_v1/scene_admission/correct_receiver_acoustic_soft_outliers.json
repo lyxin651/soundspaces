@@ -1,0 +1,35 @@
+{
+  "schema_version": "clsdoa_v1.correct_receiver_acoustic_soft_outliers.v1",
+  "method": "3xIQR on correct-receiver PASS Binaural probe energy",
+  "lower": 0.0,
+  "upper": 7.465399737798651,
+  "outlier_count": 2,
+  "hard_exclusion_applied": false,
+  "historical_outliers_status": "SUPERSEDED_BY_CORRECT_RECEIVER_REVALIDATION",
+  "outliers": [
+    {
+      "scene_id": "mp3d.Vt2qJdWjCF2",
+      "scene_family": "MP3D",
+      "probe_id": "probe_1",
+      "probe_index": 1,
+      "metric": "binaural_energy",
+      "value": 9.375275124478641,
+      "lower": 0.0,
+      "upper": 7.465399737798651,
+      "status": "ACCEPTED_SOFT_OUTLIER",
+      "hard_acoustic_failure": false
+    },
+    {
+      "scene_id": "replica.office_1",
+      "scene_family": "Replica",
+      "probe_id": "probe_0",
+      "probe_index": 0,
+      "metric": "binaural_energy",
+      "value": 7.871392944503601,
+      "lower": 0.0,
+      "upper": 7.465399737798651,
+      "status": "ACCEPTED_SOFT_OUTLIER",
+      "hard_acoustic_failure": false
+    }
+  ]
+}
