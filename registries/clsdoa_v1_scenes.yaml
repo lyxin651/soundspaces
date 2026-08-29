@@ -1,6 +1,6 @@
 dataset: clsdoa_v1
 admission_version: clsdoa_v1_scene_admission_v1
-split_version: clsdoa_v1_scene_split_v1
+split_version: clsdoa_v1_scene_split_v2
 materials_mode: 'off'
 scenes:
   mp3d.17DRP5sb8fy:
@@ -12,7 +12,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: val
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.1LXtFkjw3qL:
@@ -24,7 +24,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: val
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.1pXnuDYAj8r:
@@ -36,7 +36,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: test
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.29hnd4uzFmX:
@@ -48,7 +48,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: test
+    split: val
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.2azQ1b91cZZ:
@@ -60,7 +60,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: test
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.2n8kARJN3HM:
@@ -72,7 +72,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: val
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.2t7WUuJeko7:
@@ -84,7 +84,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: val
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.5LpN3gDmAk7:
@@ -96,7 +96,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: val
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.5ZKStnWn8Zo:
@@ -108,7 +108,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: test
+    split: val
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.5q7pvUzZiYa:
@@ -120,7 +120,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: test
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.759xd9YjKW5:
@@ -132,7 +132,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: test
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.7y3sRwLe3Va:
@@ -144,7 +144,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: val
+    split: test
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.8194nk5LbLH:
@@ -180,7 +180,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: test
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.ARNzJeq3xxb:
@@ -192,7 +192,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: test
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.B6ByNegPMKs:
@@ -264,7 +264,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: test
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.HxpKQynjfin:
@@ -276,7 +276,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: test
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.JF19kD82Mey:
@@ -288,7 +288,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: val
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.JeFG25nYj2p:
@@ -336,7 +336,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: val
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.PuKPg4mmafe:
@@ -360,7 +360,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: val
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.RPmz2sHmrrY:
@@ -372,7 +372,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: test
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.S9hNv5qa7GM:
@@ -408,7 +408,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: val
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.ULsKaCPVFJR:
@@ -420,7 +420,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: test
+    split: val
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.UwV83HsGsw3:
@@ -456,7 +456,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: val
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.VFuaQ6m2Qom:
@@ -468,7 +468,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: test
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.VLzqgDo317F:
@@ -504,7 +504,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: val
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.Vvot9Ly1tCj:
@@ -516,7 +516,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: test
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.WYY7iVyf5p8:
@@ -528,7 +528,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: test
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.X7HyMhZNoso:
@@ -540,7 +540,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: val
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.XcA2TqTSSAj:
@@ -564,7 +564,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: val
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.YVUC4YcDtcY:
@@ -588,7 +588,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: test
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.Z6MFQCViBuw:
@@ -636,7 +636,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: val
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.b8cTxDM8gDG:
@@ -648,7 +648,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: val
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.cV4RVeZvu5T:
@@ -672,7 +672,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: test
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.gTV8FGcVJC9:
@@ -684,7 +684,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: val
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.gYvKGZ5eRqb:
@@ -696,7 +696,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: test
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.gZ6f7yhEvPG:
@@ -708,7 +708,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: test
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.gxdoqLR6rwA:
@@ -720,7 +720,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: test
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.i5noydFURQK:
@@ -780,7 +780,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: test
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.p5wJjkQkbXX:
@@ -840,7 +840,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: test
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.qoiz87JEwZ2:
@@ -852,7 +852,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: val
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.r1Q1Z4BcV1o:
@@ -864,7 +864,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: val
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.r47D5H71a5s:
@@ -912,7 +912,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: val
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.sKLMLpTHeUy:
@@ -948,7 +948,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: test
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.ur6pFq6Qu1A:
@@ -1008,7 +1008,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: val
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   mp3d.zsNo4HB9uLZ:
@@ -1020,7 +1020,7 @@ scenes:
     stage_config: null
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: val
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   replica.apartment_0:
@@ -1032,7 +1032,7 @@ scenes:
     stage_config: data/scene_datasets/replica/apartment_0/habitat/replica_stage.stage_config.json
     materials_mode: 'off'
     admitted: PASS
-    split: test
+    split: val
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   replica.apartment_1:
@@ -1044,7 +1044,7 @@ scenes:
     stage_config: data/scene_datasets/replica/apartment_1/habitat/replica_stage.stage_config.json
     materials_mode: 'off'
     admitted: PASS
-    split: val
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   replica.apartment_2:
@@ -1128,7 +1128,7 @@ scenes:
     stage_config: data/scene_datasets/replica/frl_apartment_5/habitat/replica_stage.stage_config.json
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: val
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   replica.hotel_0:
@@ -1164,7 +1164,7 @@ scenes:
     stage_config: data/scene_datasets/replica/office_1/habitat/replica_stage.stage_config.json
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: val
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   replica.office_2:
@@ -1176,7 +1176,7 @@ scenes:
     stage_config: data/scene_datasets/replica/office_2/habitat/replica_stage.stage_config.json
     materials_mode: 'off'
     admitted: PASS
-    split: val
+    split: train
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   replica.office_3:
@@ -1188,7 +1188,7 @@ scenes:
     stage_config: data/scene_datasets/replica/office_3/habitat/replica_stage.stage_config.json
     materials_mode: 'off'
     admitted: PASS
-    split: val
+    split: test
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   replica.office_4:
@@ -1224,7 +1224,7 @@ scenes:
     stage_config: data/scene_datasets/replica/room_1/habitat/replica_stage.stage_config.json
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: test
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d
   replica.room_2:
@@ -1236,6 +1236,6 @@ scenes:
     stage_config: data/scene_datasets/replica/room_2/habitat/replica_stage.stage_config.json
     materials_mode: 'off'
     admitted: PASS
-    split: train
+    split: test
     unit_scale_status: PASS_WITH_REVIEW
     admission_commit: 53ecc6d

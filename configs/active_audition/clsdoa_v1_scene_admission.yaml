@@ -21,6 +21,6 @@ audio:
   paired_mode: sequential_sensor_lifecycle
   materials_enabled: false
 split:
-  version: clsdoa_v1_scene_split_v1
+  version: clsdoa_v1_scene_split_v2
   train_threshold: 0.70
   val_threshold: 0.85

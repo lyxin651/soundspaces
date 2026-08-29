@@ -7,7 +7,7 @@ from tools.clsdoa_v1.admit_scenes import (
     stable_split,
     validate_rir,
 )
-from tools.clsdoa_v1.split_admitted_scenes import split_results
+from tools.clsdoa_v1.split_admitted_scenes import split_results, split_results_count_aware
 
 
 class SceneAdmissionLogicTests(unittest.TestCase):
@@ -41,6 +41,17 @@ class SceneAdmissionLogicTests(unittest.TestCase):
         result = split_results(rows, "v1")
         self.assertEqual(len(result["scenes"]), 1)
         self.assertEqual(result["excluded"][0].get("split"), None)
+
+    def test_count_aware_split_is_hash_ordered_and_deterministic(self):
+        rows = [
+            {"scene_id": "replica.%s" % i, "scene_family": "Replica", "admitted_status": "PASS"}
+            for i in range(6)
+        ]
+        quotas = {"Replica": (3, 2, 1)}
+        first = split_results_count_aware(rows, "split_v2", quotas)
+        second = split_results_count_aware(rows, "split_v2", quotas)
+        self.assertEqual(first, second)
+        self.assertEqual({name: sum(item["split"] == name for item in first["scenes"]) for name in ("train", "val", "test")}, {"train": 3, "val": 2, "test": 1})
 
 
 if __name__ == "__main__":
