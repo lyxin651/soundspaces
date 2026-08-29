@@ -1,0 +1,33 @@
+dataset_id: clsdoa_v1_pilot_003
+plan_version: clsdoa_v1_pilot_plan_v3
+global_seed: 20260829
+storage:
+  save_audio: true
+  save_rir: true
+  require_rir: true
+planning:
+  quota_scheduler_version: clsdoa_v1_family_conditioned_v1
+  geometry_sampler_version: clsdoa_v1_progressive_geometry_v1
+  geometry_cache_schema_version: clsdoa_v1_geometry_cache_v1
+  progressive_attempt_budgets: [64, 128, 256, 512, 1024]
+source:
+  registry_path: registries/source_audio.csv
+  split_version: clsdoa_source_split_v2_stratified
+  gain_db_min: -6.0
+  gain_db_max: 6.0
+scene:
+  registry_path: registries/clsdoa_v1_scenes.yaml
+  split_version: clsdoa_v1_scene_split_v2
+  sensor_height_m: 1.5
+  listener_clearance_radius_m: 0.10
+  source_height_min_m: 0.5
+  source_height_max_m: 2.2
+  source_clearance_radius_m: 0.15
+geometry:
+  max_attempts_per_scene: 1024
+  planning_workers: 1
+  distance_bins:
+    near: [1.0, 2.0]
+    mid: [2.0, 4.0]
+    far: [4.0, 6.0]
+  elevation_nonzero_threshold_deg: 5.0
