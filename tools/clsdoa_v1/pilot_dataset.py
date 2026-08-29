@@ -160,6 +160,10 @@ def build_plan():
         rows.sort(key=lambda row: hashlib.sha256(("source|" + row["base_clip_id"]).encode()).hexdigest())
     seed_bank = _load_step2b_seed_bank(scenes)
     scene_pools = {entry["scene_id"]: list(seed_bank.get(entry["scene_id"], ())) for entry in scenes}
+    progressive_config = dict(config, geometry=dict(config["geometry"], max_attempts_per_scene=64))
+    for entry in scenes:
+        if not any(c["distance"] < 4.0 and abs(c["elevation"]) < 5.0 for c in scene_pools[entry["scene_id"]]):
+            scene_pools[entry["scene_id"]].extend(_collect_candidates(entry, progressive_config))
     needed = {(d, e) for d in ("near", "mid", "far") for e in ("small", "nonzero")}
     for family in ("Replica", "MP3D"):
         for split in ("train", "val", "test"):
@@ -171,7 +175,7 @@ def build_plan():
                 if not candidates:
                     raise RuntimeError("no scene for lazy target {} / {}".format(family, split))
                 # Lazy fill is restricted to the first compatible family/split scene.
-                scene_pools[candidates[0]["scene_id"]].extend(_collect_candidates(candidates[0], config))
+                scene_pools[candidates[0]["scene_id"]].extend(_collect_candidates(candidates[0], progressive_config))
     scene_entries = {(family, split): [entry for entry in scenes if entry["scene_family"] == family and entry["split"] == split] for family in ("Replica", "MP3D") for split in ("train", "val", "test")}
     scene_use = Counter()
     recipes = []
