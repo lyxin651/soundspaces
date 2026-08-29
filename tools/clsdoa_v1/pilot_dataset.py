@@ -77,19 +77,20 @@ def _collect_candidates(entry, config):
             sensor = listener + np.array([0.0, config["scene"]["sensor_height_m"], 0.0])
             if not _clear(sim, sensor, config["scene"]["listener_clearance_radius_m"]):
                 continue
-            source_height = float(rng.uniform(config["scene"]["source_height_min_m"], config["scene"]["source_height_max_m"]))
-            source = source_base + np.array([0.0, source_height, 0.0])
-            if not _clear(sim, source, config["scene"]["source_clearance_radius_m"]):
-                continue
             path = habitat_sim.ShortestPath()
             path.requested_start = listener.astype(np.float32)
             path.requested_end = source_base.astype(np.float32)
             if not sim.pathfinder.find_path(path) or not np.isfinite(path.geodesic_distance):
                 continue
-            distance = float(np.linalg.norm(source - sensor))
-            if 1.0 <= distance <= 6.0:
-                elevation = math.degrees(math.atan2(float(source[1] - sensor[1]), float(np.linalg.norm(source[[0, 2]] - sensor[[0, 2]]))))
-                candidates.append({"listener": listener.tolist(), "sensor": sensor.tolist(), "source": source.tolist(), "distance": distance, "elevation": elevation, "geodesic": float(path.geodesic_distance), "attempt": attempt})
+            heights = (0.5, 1.0, 1.5, 2.0, 2.2)
+            for source_height in heights:
+                source = source_base + np.array([0.0, source_height, 0.0])
+                if not _clear(sim, source, config["scene"]["source_clearance_radius_m"]):
+                    continue
+                distance = float(np.linalg.norm(source - sensor))
+                if 1.0 <= distance <= 6.0:
+                    elevation = math.degrees(math.atan2(float(source[1] - sensor[1]), float(np.linalg.norm(source[[0, 2]] - sensor[[0, 2]]))))
+                    candidates.append({"listener": listener.tolist(), "sensor": sensor.tolist(), "source": source.tolist(), "distance": distance, "elevation": elevation, "geodesic": float(path.geodesic_distance), "attempt": attempt})
         return candidates
     finally:
         sim.close()
