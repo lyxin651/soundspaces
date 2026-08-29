@@ -1,0 +1,67 @@
+{
+  "schema_version": "clsdoa_v1_manual_qc_ingest_summary_v1",
+  "parent_step2a_commit": "4bfe508f990cdcf9b17c553a4de2948a0ab631a8",
+  "status": "STEP 2A INCREMENTAL MANUAL QC REQUIRED",
+  "manual_accept": 411,
+  "manual_reject": 69,
+  "target_total": 480,
+  "reserve_total": 144,
+  "reserve_auto_accepted": false,
+  "per_class_accept_independent_identities": {
+    "clock_alarm": 34,
+    "coughing": 38,
+    "dishes": 19,
+    "frying": 37,
+    "keyboard_typing": 39,
+    "laughing": 33,
+    "mechanical_fan": 36,
+    "microwave_oven": 33,
+    "printer": 34,
+    "running_water": 33,
+    "speech": 39,
+    "vacuum_cleaner": 36
+  },
+  "hard_minimum_per_class": 30,
+  "classes_below_minimum": {
+    "dishes": {
+      "accepted": 19,
+      "additional_manual_review_required": 11
+    }
+  },
+  "accepted_identity_audit": {
+    "accepted_rows": 411,
+    "identity_duplicate_groups": 0,
+    "base_clip_duplicate_groups": 0,
+    "raw_sha_duplicate_groups": 0,
+    "raw_sha_conflict_groups": 0,
+    "exact_audio_path_duplicate_groups": 0
+  },
+  "license_provenance": {
+    "usable_license_rows": 411,
+    "known_provenance_rows": 411,
+    "license_status": {
+      "DATASET_LEVEL_VERIFIED": 302,
+      "PER_RECORDING_METADATA": 109
+    },
+    "pretrain_seen_status": {
+      "likely_yes": 135,
+      "unknown": 276
+    },
+    "unknown_pretrain_rewritten_to_no": false
+  },
+  "incremental_manual_review": {
+    "rows": 11,
+    "class": "dishes",
+    "queue_path": "/home/leiyuxin/soundspaces/source_assets/clsdoa_v1/review/source_pool_pilot_001/incremental_manual_review_queue.csv",
+    "reserve_auto_accepted": false
+  },
+  "split": {
+    "status": "NOT_RUN",
+    "version": "clsdoa_source_split_v1",
+    "reason": "dishes below hard minimum"
+  },
+  "canonical_preparation": "NOT_EXECUTED",
+  "normalization": "NOT_EXECUTED",
+  "registry": "NOT_EXECUTED",
+  "success_marker": "NOT_WRITTEN"
+}
