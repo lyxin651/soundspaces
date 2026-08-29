@@ -1,0 +1,26 @@
+{
+  "channel_order": [
+    "LEFT",
+    "RIGHT"
+  ],
+  "definition": "Using the production renderer's direct-only AudioSensor mode, the source one metre on each world side must have greater early-window RIR energy in the corresponding channel.",
+  "pass": true,
+  "rows": {
+    "left": {
+      "energy_left": 1.3593981743831172,
+      "energy_right": 0.12459121979416254,
+      "expected_dominant_channel": 0,
+      "metric": "direct_only_early_2000_sample_RIR_energy",
+      "pass": true,
+      "ratio": 10.91086656530839
+    },
+    "right": {
+      "energy_left": 3.457070151114104e-13,
+      "energy_right": 3.786916709399669e-12,
+      "expected_dominant_channel": 1,
+      "metric": "direct_only_early_2000_sample_RIR_energy",
+      "pass": true,
+      "ratio": 10.954121680693305
+    }
+  }
+}

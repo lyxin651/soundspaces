@@ -1,11 +1,10 @@
 {
-  "code_commit": "2f0faee278e33158e3bfe62a415883d0933f4e41",
+  "code_commit": "e84c9d2eba912d6b7e0a0efa5d5d48d8c60d6065",
   "files": {
-    "binaural_regression.json": "6b8c16c3beb602c6bb611cd646e51a10ed296658ae7f6f6df20d426aa33b4f0a",
-    "foa_golden_regression.json": "a6d8cc8c8f70c1bace55a46cda7d13ba70b919c5077ffe883ed647879e5ea02e",
-    "normalization_regression.json": "2a5dd04df5d0e1c347f6b6a9d46c983384131fa1fc961a95cad1ac663014c34b",
-    "off_axis_yawed_regression.json": "248457ae9cfa5f1b0ba83ae8072c2deec7e90b7dba06a84314a384bab7a13123",
-    "paired_regression.json": "c0e1a80e80c0c5922c678f4ac1275838bcec3fe264fb8a4637d4c4592be0e48e",
-    "provenance_evidence.json": "ce82b23c1d0bd69764ad249168c2dc600f18e412ac157799b85e60cf95d38bf0"
+    "binaural_directional_sanity.json": "2d555342110beecc399f2af1eb564aadc139cae97822a79406d7a57cc8e7b3f3",
+    "contract_regression_summary.json": "f1f472a9bc464e92cc6191dc97a3b06c8d2cf585c71773d74bb9272afcb9d795",
+    "foa_golden_regression.json": "e2ebaede906480ea500336b3b87bcfc4cb430caf9d71e0d8f6a1bcaf647c4a1c",
+    "paired_regression.json": "3f332b0755a2631a567c8ac1dd0ec7a49e619a652c483c688dda4625f0601a44",
+    "provenance_evidence.json": "ca24d94f27b7ac91fe868517cd1e3000b810b559d57b3c9ba42358a5a4eb86ed"
   }
 }

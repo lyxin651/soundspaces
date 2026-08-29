@@ -59,23 +59,36 @@ def _rlr_resource() -> Mapping[str, Any]:
     return {"path": None, "size_bytes": None, "sha256": None, "status": "NOT_FOUND"}
 
 
-def _hrtf_resource(hrtf_path: Optional[str] = None) -> Mapping[str, Any]:
+def _hrtf_resource(hrtf_path: Optional[str] = None, enclosing: Optional[Mapping[str, Any]] = None) -> Mapping[str, Any]:
     if hrtf_path:
         path = Path(hrtf_path).resolve()
         if not path.is_file():
             raise ProvenanceError("HRTF path does not exist: {}".format(path))
-        return {"path": str(path), "size_bytes": path.stat().st_size, "sha256": sha256_file(path)}
+        return {
+            "mode": "external_file", "path": str(path),
+            "size_bytes": path.stat().st_size, "sha256": sha256_file(path),
+        }
+    enclosing = dict(enclosing or {})
     return {
+        "mode": "embedded_or_not_exposed",
         "path": None,
         "size_bytes": None,
         "sha256": None,
         "status": "NOT_EXPOSED_BY_INSTALLED_HABITAT_SIM",
+        "enclosing_implementation": enclosing,
     }
 
 
-def build_provenance_template(repo_root: str, hrtf_path: Optional[str] = None) -> Mapping[str, Any]:
+def build_provenance_template(
+    repo_root: str,
+    hrtf_path: Optional[str] = None,
+    *,
+    random_seed: Optional[int] = None,
+) -> Mapping[str, Any]:
     """Collect Core provenance without pretending Step 2A/2B are complete."""
 
+    if random_seed is None:
+        raise ProvenanceError("random_seed must be injected by the resolved build/regression config")
     root = Path(repo_root).resolve()
     ontology = root / "registries/ontology.yaml"
     if not ontology.is_file():
@@ -87,7 +100,7 @@ def build_provenance_template(repo_root: str, hrtf_path: Optional[str] = None) -
         "soundspaces_commit": commit,
         "habitat_sim_version": _package_version("habitat-sim", "habitat_sim"),
         "rlraudio_propagation": _rlr_resource(),
-        "hrtf": _hrtf_resource(hrtf_path),
+        "hrtf": _hrtf_resource(hrtf_path, _rlr_resource()),
         "foa_contract_version": "P0-B@3e3c21ab0151a0b0d8e8d1e0946e9fa015c7bf92",
         "ontology_sha256": sha256_file(ontology),
         "ray_config": {"indirectRayCount": 5000, "sourceRayCount": 200},
@@ -96,7 +109,7 @@ def build_provenance_template(repo_root: str, hrtf_path: Optional[str] = None) -
         "materials_mode": "OFF",
         "sample_rate_hz": SAMPLE_RATE_HZ,
         "clip_duration_sec": CLIP_DURATION_SEC,
-        "random_seed": 20260824,
+        "random_seed": int(random_seed),
         "source_registry_sha256": "PENDING_STEP_2A",
         "source_split_version": "PENDING_STEP_2A",
         "scene_registry_sha256": "PENDING_STEP_2B",
@@ -137,4 +150,25 @@ def validate_final_resources_lock(value: Mapping[str, Any]) -> None:
     hrtf = value.get("hrtf")
     if not isinstance(hrtf, Mapping):
         raise ProvenanceError("hrtf must be an object")
-    _require_sha(hrtf.get("sha256"), "hrtf.sha256")
+    mode = hrtf.get("mode")
+    if mode == "external_file":
+        path_value = hrtf.get("path")
+        if not isinstance(path_value, str) or not Path(path_value).is_file():
+            raise ProvenanceError("external HRTF path must exist")
+        _require_sha(hrtf.get("sha256"), "hrtf.sha256")
+        if sha256_file(Path(path_value)) != hrtf.get("sha256"):
+            raise ProvenanceError("hrtf.sha256 does not match the external HRTF file")
+    elif mode == "embedded_or_not_exposed":
+        if hrtf.get("path") is not None or hrtf.get("sha256") is not None:
+            raise ProvenanceError("embedded/not-exposed HRTF must not claim a file hash")
+        enclosing = hrtf.get("enclosing_implementation")
+        if not isinstance(enclosing, Mapping):
+            raise ProvenanceError("embedded/not-exposed HRTF requires enclosing implementation provenance")
+        binary_path = enclosing.get("path")
+        if not isinstance(binary_path, str) or not Path(binary_path).is_file():
+            raise ProvenanceError("HRTF enclosing implementation path must exist")
+        _require_sha(enclosing.get("sha256"), "hrtf.enclosing_implementation.sha256")
+        if sha256_file(Path(binary_path)) != enclosing.get("sha256"):
+            raise ProvenanceError("HRTF enclosing implementation SHA does not match its binary")
+    else:
+        raise ProvenanceError("hrtf.mode must be external_file or embedded_or_not_exposed")

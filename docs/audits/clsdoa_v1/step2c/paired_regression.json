@@ -1,7 +1,483 @@
 {
   "episode_count": 3,
-  "production_backend": false,
-  "same_recipe": true,
-  "same_source_gain_offset_pose_yaw_config": true,
-  "verdict": "PARTIAL — V1 PairedRenderer has no real backend"
+  "production_backend": true,
+  "rows": [
+    {
+      "binaural": {
+        "audio": {
+          "dtype": "float32",
+          "finite": true,
+          "non_zero": true,
+          "peak": [
+            0.0061132763512432575,
+            0.006527470424771309
+          ],
+          "rms": [
+            0.0013186492752072076,
+            0.001475057232879312
+          ],
+          "shape": [
+            2,
+            120000
+          ]
+        }
+      },
+      "episode_id": "step2c1_front",
+      "foa": {
+        "audio": {
+          "dtype": "float32",
+          "finite": true,
+          "non_zero": true,
+          "peak": [
+            0.003869926556944847,
+            0.0010120385559275746,
+            0.003173498436808586,
+            0.0012010735226795077
+          ],
+          "rms": [
+            0.0008431703629840628,
+            0.0002326491900617971,
+            0.0007665472830627365,
+            0.00025217327590748903
+          ],
+          "shape": [
+            4,
+            120000
+          ]
+        }
+      },
+      "pass": true,
+      "recipe": {
+        "episode_id": "step2c1_front",
+        "label": {
+          "azimuth_project_deg": -8.551523933419958e-10,
+          "class_id": 0,
+          "distance_m": 1.5000000000261478,
+          "doa_unit_project": [
+            -1.4925098194117348e-11,
+            -1.0566711431589297e-08,
+            -0.9999999999999999
+          ],
+          "elevation_project_deg": -6.054279683627069e-07
+        },
+        "listener": {
+          "base_position_world": [
+            1.6240532398223877,
+            -0.9688699841499329,
+            -0.5125486850738525
+          ],
+          "sensor_position_world": [
+            1.6240532398223877,
+            0.5311300158500671,
+            -0.5125486850738525
+          ],
+          "yaw_deg": 0.0
+        },
+        "representations": {
+          "binaural": {
+            "required": true
+          },
+          "foa": {
+            "required": true
+          }
+        },
+        "scene": {
+          "scene_family": "Replica",
+          "scene_id": "replica.office_0"
+        },
+        "schema_version": "clsdoa_v1.0",
+        "source": {
+          "base_clip_id": "golden_probe_v0",
+          "class_id": 0,
+          "source_clip_id": "golden_probe_v0",
+          "source_dataset": "fixture",
+          "source_gain_db": 0.0,
+          "source_offset_sec": 0.0,
+          "source_position_world": [
+            1.6240532398,
+            0.53113,
+            -2.0125486851
+          ]
+        },
+        "split": "UNASSIGNED"
+      },
+      "records": {
+        "binaural": {
+          "audio_path": "audio/binaural/step2c1_front.wav",
+          "dtype": "float32",
+          "episode_id": "step2c1_front",
+          "failure_reason": null,
+          "format": "WAV",
+          "num_channels": 2,
+          "num_samples": 120000,
+          "render_status": "complete",
+          "representation": "binaural",
+          "rir_path": "cache/rir/binaural/step2c1_front.npy",
+          "sample_rate_hz": 24000
+        },
+        "foa": {
+          "audio_path": "audio/foa/step2c1_front.wav",
+          "dtype": "float32",
+          "episode_id": "step2c1_front",
+          "failure_reason": null,
+          "format": "AmbiX ACN/SN3D",
+          "num_channels": 4,
+          "num_samples": 120000,
+          "render_status": "complete",
+          "representation": "foa",
+          "rir_path": "cache/rir/foa/step2c1_front.npy",
+          "sample_rate_hz": 24000
+        }
+      },
+      "shared_recipe_consistency": {
+        "acoustic_config": {
+          "clip_duration_sec": 5.0,
+          "indirectRayCount": 5000,
+          "materials_enabled": false,
+          "normalization": false,
+          "sample_rate_hz": 24000,
+          "sourceRayCount": 200
+        },
+        "listener_base_position_world": [
+          1.6240532398223877,
+          -0.9688699841499329,
+          -0.5125486850738525
+        ],
+        "listener_sensor_position_world": [
+          1.6240532398223877,
+          0.5311300158500671,
+          -0.5125486850738525
+        ],
+        "listener_yaw_deg": 0.0,
+        "scene_id": "replica.office_0",
+        "source_fingerprint": "38dcdfbdbffa793ad886221ae0d34da56d172f8f04b2c23eb1e79c47128780dd",
+        "source_gain_db": 0.0,
+        "source_offset_sec": 0.0,
+        "source_position_world": [
+          1.6240532398,
+          0.53113,
+          -2.0125486851
+        ]
+      }
+    },
+    {
+      "binaural": {
+        "audio": {
+          "dtype": "float32",
+          "finite": true,
+          "non_zero": true,
+          "peak": [
+            0.0015509199583902955,
+            0.001102181850001216
+          ],
+          "rms": [
+            0.00034139988670411914,
+            0.00024466977237524784
+          ],
+          "shape": [
+            2,
+            120000
+          ]
+        }
+      },
+      "episode_id": "step2c1_side",
+      "foa": {
+        "audio": {
+          "dtype": "float32",
+          "finite": true,
+          "non_zero": true,
+          "peak": [
+            0.0006955616408959031,
+            0.0003258396463934332,
+            0.00040758788236416876,
+            0.0005183834582567215
+          ],
+          "rms": [
+            0.00016467361697630677,
+            6.669320304988082e-05,
+            9.125131300105128e-05,
+            0.00012005984853320439
+          ],
+          "shape": [
+            4,
+            120000
+          ]
+        }
+      },
+      "pass": true,
+      "recipe": {
+        "episode_id": "step2c1_side",
+        "label": {
+          "azimuth_project_deg": 89.99999999900126,
+          "class_id": 0,
+          "distance_m": 1.4999999999776124,
+          "doa_unit_project": [
+            0.9999999999999999,
+            -1.0566711431931203e-08,
+            -1.743161170989975e-11
+          ],
+          "elevation_project_deg": -6.054279683822967e-07
+        },
+        "listener": {
+          "base_position_world": [
+            1.6240532398223877,
+            -0.9688699841499329,
+            -0.5125486850738525
+          ],
+          "sensor_position_world": [
+            1.6240532398223877,
+            0.5311300158500671,
+            -0.5125486850738525
+          ],
+          "yaw_deg": 0.0
+        },
+        "representations": {
+          "binaural": {
+            "required": true
+          },
+          "foa": {
+            "required": true
+          }
+        },
+        "scene": {
+          "scene_family": "Replica",
+          "scene_id": "replica.office_0"
+        },
+        "schema_version": "clsdoa_v1.0",
+        "source": {
+          "base_clip_id": "golden_probe_v0",
+          "class_id": 0,
+          "source_clip_id": "golden_probe_v0",
+          "source_dataset": "fixture",
+          "source_gain_db": 0.0,
+          "source_offset_sec": 0.0,
+          "source_position_world": [
+            3.1240532398,
+            0.53113,
+            -0.5125486851
+          ]
+        },
+        "split": "UNASSIGNED"
+      },
+      "records": {
+        "binaural": {
+          "audio_path": "audio/binaural/step2c1_side.wav",
+          "dtype": "float32",
+          "episode_id": "step2c1_side",
+          "failure_reason": null,
+          "format": "WAV",
+          "num_channels": 2,
+          "num_samples": 120000,
+          "render_status": "complete",
+          "representation": "binaural",
+          "rir_path": "cache/rir/binaural/step2c1_side.npy",
+          "sample_rate_hz": 24000
+        },
+        "foa": {
+          "audio_path": "audio/foa/step2c1_side.wav",
+          "dtype": "float32",
+          "episode_id": "step2c1_side",
+          "failure_reason": null,
+          "format": "AmbiX ACN/SN3D",
+          "num_channels": 4,
+          "num_samples": 120000,
+          "render_status": "complete",
+          "representation": "foa",
+          "rir_path": "cache/rir/foa/step2c1_side.npy",
+          "sample_rate_hz": 24000
+        }
+      },
+      "shared_recipe_consistency": {
+        "acoustic_config": {
+          "clip_duration_sec": 5.0,
+          "indirectRayCount": 5000,
+          "materials_enabled": false,
+          "normalization": false,
+          "sample_rate_hz": 24000,
+          "sourceRayCount": 200
+        },
+        "listener_base_position_world": [
+          1.6240532398223877,
+          -0.9688699841499329,
+          -0.5125486850738525
+        ],
+        "listener_sensor_position_world": [
+          1.6240532398223877,
+          0.5311300158500671,
+          -0.5125486850738525
+        ],
+        "listener_yaw_deg": 0.0,
+        "scene_id": "replica.office_0",
+        "source_fingerprint": "38dcdfbdbffa793ad886221ae0d34da56d172f8f04b2c23eb1e79c47128780dd",
+        "source_gain_db": 0.0,
+        "source_offset_sec": 0.0,
+        "source_position_world": [
+          3.1240532398,
+          0.53113,
+          -0.5125486851
+        ]
+      }
+    },
+    {
+      "binaural": {
+        "audio": {
+          "dtype": "float32",
+          "finite": true,
+          "non_zero": true,
+          "peak": [
+            0.0016800221055746078,
+            0.0006853286176919937
+          ],
+          "rms": [
+            0.000374162748177941,
+            0.00014837327436980816
+          ],
+          "shape": [
+            2,
+            120000
+          ]
+        }
+      },
+      "episode_id": "step2c1_off_axis_yawed",
+      "foa": {
+        "audio": {
+          "dtype": "float32",
+          "finite": true,
+          "non_zero": true,
+          "peak": [
+            0.0006523037445731461,
+            0.0003281371609773487,
+            0.0003633543092291802,
+            0.0004001473425887525
+          ],
+          "rms": [
+            0.0001490688626537349,
+            7.462507756605527e-05,
+            8.945057215002298e-05,
+            9.306362119830365e-05
+          ],
+          "shape": [
+            4,
+            120000
+          ]
+        }
+      },
+      "pass": true,
+      "recipe": {
+        "episode_id": "step2c1_off_axis_yawed",
+        "label": {
+          "azimuth_project_deg": -1.0223837830232014,
+          "class_id": 0,
+          "distance_m": 1.3736816623389554,
+          "doa_unit_project": [
+            -0.016050992029105492,
+            0.4367824078894074,
+            -0.8994239788960559
+          ],
+          "elevation_project_deg": 25.898765600354892
+        },
+        "listener": {
+          "base_position_world": [
+            1.6240532398223877,
+            -0.9688699841499329,
+            -0.5125486850738525
+          ],
+          "sensor_position_world": [
+            1.6240532398223877,
+            0.5311300158500671,
+            -0.5125486850738525
+          ],
+          "yaw_deg": 37.0
+        },
+        "representations": {
+          "binaural": {
+            "required": true
+          },
+          "foa": {
+            "required": true
+          }
+        },
+        "scene": {
+          "scene_family": "Replica",
+          "scene_id": "replica.office_0"
+        },
+        "schema_version": "clsdoa_v1.0",
+        "source": {
+          "base_clip_id": "golden_probe_v0",
+          "class_id": 0,
+          "source_clip_id": "golden_probe_v0",
+          "source_dataset": "fixture",
+          "source_gain_db": 0.0,
+          "source_offset_sec": 0.0,
+          "source_position_world": [
+            2.35,
+            1.13113,
+            -1.51255
+          ]
+        },
+        "split": "UNASSIGNED"
+      },
+      "records": {
+        "binaural": {
+          "audio_path": "audio/binaural/step2c1_off_axis_yawed.wav",
+          "dtype": "float32",
+          "episode_id": "step2c1_off_axis_yawed",
+          "failure_reason": null,
+          "format": "WAV",
+          "num_channels": 2,
+          "num_samples": 120000,
+          "render_status": "complete",
+          "representation": "binaural",
+          "rir_path": "cache/rir/binaural/step2c1_off_axis_yawed.npy",
+          "sample_rate_hz": 24000
+        },
+        "foa": {
+          "audio_path": "audio/foa/step2c1_off_axis_yawed.wav",
+          "dtype": "float32",
+          "episode_id": "step2c1_off_axis_yawed",
+          "failure_reason": null,
+          "format": "AmbiX ACN/SN3D",
+          "num_channels": 4,
+          "num_samples": 120000,
+          "render_status": "complete",
+          "representation": "foa",
+          "rir_path": "cache/rir/foa/step2c1_off_axis_yawed.npy",
+          "sample_rate_hz": 24000
+        }
+      },
+      "shared_recipe_consistency": {
+        "acoustic_config": {
+          "clip_duration_sec": 5.0,
+          "indirectRayCount": 5000,
+          "materials_enabled": false,
+          "normalization": false,
+          "sample_rate_hz": 24000,
+          "sourceRayCount": 200
+        },
+        "listener_base_position_world": [
+          1.6240532398223877,
+          -0.9688699841499329,
+          -0.5125486850738525
+        ],
+        "listener_sensor_position_world": [
+          1.6240532398223877,
+          0.5311300158500671,
+          -0.5125486850738525
+        ],
+        "listener_yaw_deg": 37.0,
+        "scene_id": "replica.office_0",
+        "source_fingerprint": "38dcdfbdbffa793ad886221ae0d34da56d172f8f04b2c23eb1e79c47128780dd",
+        "source_gain_db": 0.0,
+        "source_offset_sec": 0.0,
+        "source_position_world": [
+          2.35,
+          1.13113,
+          -1.51255
+        ]
+      }
+    }
+  ],
+  "same_immutable_recipe": true,
+  "same_source_fingerprint_gain_offset_pose_yaw_acoustic_config": true,
+  "verdict": "PASS"
 }

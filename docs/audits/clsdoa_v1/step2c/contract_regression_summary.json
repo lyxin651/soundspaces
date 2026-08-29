@@ -1,176 +1,32 @@
 {
   "binaural_24khz": {
+    "pass": true
+  },
+  "binaural_directional_sanity": {
+    "channel_order": [
+      "LEFT",
+      "RIGHT"
+    ],
+    "definition": "Using the production renderer's direct-only AudioSensor mode, the source one metre on each world side must have greater early-window RIR energy in the corresponding channel.",
     "pass": true,
     "rows": {
-      "front": {
-        "channel_order": [
-          "LEFT",
-          "RIGHT"
-        ],
-        "num_samples": 120000,
+      "left": {
+        "energy_left": 1.3593981743831172,
+        "energy_right": 0.12459121979416254,
+        "expected_dominant_channel": 0,
+        "metric": "direct_only_early_2000_sample_RIR_energy",
         "pass": true,
-        "rir": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.007641289383172989,
-            0.008026184514164925
-          ],
-          "rms": [
-            0.00014550289475006523,
-            0.0001609177627389961
-          ],
-          "shape": [
-            2,
-            30040
-          ]
-        },
-        "sample_rate_hz": 24000,
-        "source_position_world": [
-          1.6240532398,
-          0.53113,
-          -2.0125486851
-        ],
-        "waveform": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.0061132763512432575,
-            0.006527470424771309
-          ],
-          "rms": [
-            0.0013186492752072076,
-            0.001475057232879312
-          ],
-          "shape": [
-            2,
-            120000
-          ]
-        },
-        "yaw_deg": 0.0
-      },
-      "off_axis_yawed": {
-        "channel_order": [
-          "LEFT",
-          "RIGHT"
-        ],
-        "num_samples": 120000,
-        "pass": true,
-        "rir": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.0033994929399341345,
-            0.0011251113610342145
-          ],
-          "rms": [
-            4.216769027014839e-05,
-            1.5920070459291454e-05
-          ],
-          "shape": [
-            2,
-            27216
-          ]
-        },
-        "sample_rate_hz": 24000,
-        "source_position_world": [
-          2.35,
-          1.13113,
-          -1.51255
-        ],
-        "waveform": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.0016800221055746078,
-            0.0006853286176919937
-          ],
-          "rms": [
-            0.000374162748177941,
-            0.00014837327436980816
-          ],
-          "shape": [
-            2,
-            120000
-          ]
-        },
-        "yaw_deg": 37.0
+        "ratio": 10.91086656530839
       },
       "right": {
-        "channel_order": [
-          "LEFT",
-          "RIGHT"
-        ],
-        "num_samples": 120000,
+        "energy_left": 3.457070151114104e-13,
+        "energy_right": 3.786916709399669e-12,
+        "expected_dominant_channel": 1,
+        "metric": "direct_only_early_2000_sample_RIR_energy",
         "pass": true,
-        "rir": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.0024579931050539017,
-            0.0010474618757143617
-          ],
-          "rms": [
-            3.7726586717440254e-05,
-            2.7129825409327033e-05
-          ],
-          "shape": [
-            2,
-            28028
-          ]
-        },
-        "sample_rate_hz": 24000,
-        "source_position_world": [
-          3.1240532398,
-          0.53113,
-          -0.5125486851
-        ],
-        "waveform": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.0015509199583902955,
-            0.001102181850001216
-          ],
-          "rms": [
-            0.00034139988670411914,
-            0.00024466977237524784
-          ],
-          "shape": [
-            2,
-            120000
-          ]
-        },
-        "yaw_deg": 0.0
+        "ratio": 10.954121680693305
       }
     }
-  },
-  "coordinate_regression": {
-    "mapping": "dcase_azimuth_deg = -project_azimuth_deg",
-    "pass": true,
-    "project_to_dcase": "PASS"
-  },
-  "foa_cardinal_golden": {
-    "canonical_verdict": "PASS",
-    "cardinal_rows": {
-      "back": true,
-      "down": true,
-      "front": true,
-      "left": true,
-      "right": true,
-      "up": true
-    },
-    "evidence": "existing P0-B frozen logs; Golden assets were not regenerated",
-    "max_angular_error_deg": 3.078324659199975e-06,
-    "model_facing_verdict": "PASS",
-    "off_axis_yawed": true,
-    "pass": true
   },
   "foa_converter": {
     "canonical_order": [
@@ -217,475 +73,520 @@
     "pass": true,
     "project_to_dcase_pass": true
   },
-  "foa_live_smoke": {
-    "pass": true,
-    "rows": {
-      "back": {
-        "canonical_rir": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.19891802966594696,
-            0.07816528528928757,
-            0.07184776663780212,
-            0.19891805946826935
-          ],
-          "rms": [
-            0.004628278816361578,
-            0.0019305379282894693,
-            0.0020965336608118495,
-            0.0024697511770484203
-          ],
-          "shape": [
-            4,
-            32173
-          ]
-        },
-        "native_rir": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.19891802966594696,
-            0.12444398552179337,
-            0.3445361852645874,
-            0.13538624346256256
-          ],
-          "rms": [
-            0.004628278816361578,
-            0.003631302880019395,
-            0.00427773459840165,
-            0.0033437898319432645
-          ],
-          "shape": [
-            4,
-            32173
-          ]
-        },
-        "num_samples": 120000,
-        "pass": true,
-        "sample_rate_hz": 24000,
-        "source_position_world": [
-          1.6240532398,
-          0.53113,
-          0.9874513149
-        ],
-        "waveform": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.1981383115053177,
-            0.07964423298835754,
-            0.09261642396450043,
-            0.09685993194580078
-          ],
-          "rms": [
-            0.04313637685228554,
-            0.01746616018911425,
-            0.01901493071748696,
-            0.022448851500816342
-          ],
-          "shape": [
-            4,
-            120000
-          ]
-        }
-      },
-      "down": {
-        "canonical_rir": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.006672789808362722,
-            0.002466007601469755,
-            0.0056482539512217045,
-            0.00384285650216043
-          ],
-          "rms": [
-            0.0001569688075535336,
-            6.639495796354382e-05,
-            0.00011710422001421389,
-            8.069534915574034e-05
-          ],
-          "shape": [
-            4,
-            29592
-          ]
-        },
-        "native_rir": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.006672789808362722,
-            0.0097830630838871,
-            0.006656022742390633,
-            0.004271250683814287
-          ],
-          "rms": [
-            0.0001569688075535336,
-            0.0002028304625043073,
-            0.00013976844700875759,
-            0.0001149994426331623
-          ],
-          "shape": [
-            4,
-            29592
-          ]
-        },
-        "num_samples": 120000,
-        "pass": true,
-        "sample_rate_hz": 24000,
-        "source_position_world": [
-          1.6240532398,
-          -0.26887,
-          -2.0125486851
-        ],
-        "waveform": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.006777508184313774,
-            0.002474522218108177,
-            0.004807351157069206,
-            0.0028467827942222357
-          ],
-          "rms": [
-            0.0013233791880049779,
-            0.000561319453669738,
-            0.0010013102457614824,
-            0.0006963033572308627
-          ],
-          "shape": [
-            4,
-            120000
-          ]
-        }
-      },
-      "front": {
-        "canonical_rir": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.007006973028182983,
-            0.0011069533647969365,
-            0.006669795606285334,
-            0.0012723210966214538
-          ],
-          "rms": [
-            9.68976524385489e-05,
-            2.714817376020352e-05,
-            8.761886342734843e-05,
-            2.940128206568598e-05
-          ],
-          "shape": [
-            4,
-            30040
-          ]
-        },
-        "native_rir": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.007006973028182983,
-            0.011552425101399422,
-            0.0022037248127162457,
-            0.0019172995816916227
-          ],
-          "rms": [
-            9.68976524385489e-05,
-            0.00015176032722153255,
-            5.092451509534793e-05,
-            4.7022016973821354e-05
-          ],
-          "shape": [
-            4,
-            30040
-          ]
-        },
-        "num_samples": 120000,
-        "pass": true,
-        "sample_rate_hz": 24000,
-        "source_position_world": [
-          1.6240532398,
-          0.53113,
-          -2.0125486851
-        ],
-        "waveform": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.003869926556944847,
-            0.0010120385559275746,
-            0.003173498436808586,
-            0.0012010735226795077
-          ],
-          "rms": [
-            0.0008431703629840628,
-            0.0002326491900617971,
-            0.0007665472830627365,
-            0.00025217327590748903
-          ],
-          "shape": [
-            4,
-            120000
-          ]
-        }
-      },
-      "left": {
-        "canonical_rir": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.20636631548404694,
-            0.19891805946826935,
-            0.06740785390138626,
-            0.08017606288194656
-          ],
-          "rms": [
-            0.00491828816016292,
-            0.0026776360455195306,
-            0.0020904293422693235,
-            0.0019878730456395553
-          ],
-          "shape": [
-            4,
-            32375
-          ]
-        },
-        "native_rir": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.20636631548404694,
-            0.11675382405519485,
-            0.1388690173625946,
-            0.3445361852645874
-          ],
-          "rms": [
-            0.00491828816016292,
-            0.003620729880431925,
-            0.0034430971799328317,
-            0.004637801751483948
-          ],
-          "shape": [
-            4,
-            32375
-          ]
-        },
-        "num_samples": 120000,
-        "pass": true,
-        "sample_rate_hz": 24000,
-        "source_position_world": [
-          0.1240532398,
-          0.53113,
-          -0.5125486851
-        ],
-        "waveform": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.20468062162399292,
-            0.11012474447488785,
-            0.09150104224681854,
-            0.09177423268556595
-          ],
-          "rms": [
-            0.04530794356815446,
-            0.024076416582368504,
-            0.01852173990279562,
-            0.018553418926665725
-          ],
-          "shape": [
-            4,
-            120000
-          ]
-        }
-      },
-      "right": {
-        "canonical_rir": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.001305492827668786,
-            0.00038447213592007756,
-            0.0006491098902188241,
-            0.0011334721930325031
-          ],
-          "rms": [
-            1.9785042363421257e-05,
-            7.903437178641245e-06,
-            1.0931937784452636e-05,
-            1.4472608571474814e-05
-          ],
-          "shape": [
-            4,
-            28028
-          ]
-        },
-        "native_rir": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.001305492827668786,
-            0.0011242913315072656,
-            0.0019632314797490835,
-            0.0006659252685494721
-          ],
-          "rms": [
-            1.9785042363421257e-05,
-            1.8934671898941946e-05,
-            2.5067293941935847e-05,
-            1.3689154746869372e-05
-          ],
-          "shape": [
-            4,
-            28028
-          ]
-        },
-        "num_samples": 120000,
-        "pass": true,
-        "sample_rate_hz": 24000,
-        "source_position_world": [
-          3.1240532398,
-          0.53113,
-          -0.5125486851
-        ],
-        "waveform": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.0006955616408959031,
-            0.0003258396463934332,
-            0.00040758788236416876,
-            0.0005183834582567215
-          ],
-          "rms": [
-            0.00016467361697630677,
-            6.669320304988082e-05,
-            9.125131300105128e-05,
-            0.00012005984853320439
-          ],
-          "shape": [
-            4,
-            120000
-          ]
-        }
-      },
-      "up": {
-        "canonical_rir": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.007242974825203419,
-            0.0025470228865742683,
-            0.005210139323025942,
-            0.00663257809355855
-          ],
-          "rms": [
-            0.00013369718278676698,
-            4.946896276237257e-05,
-            7.972374694522047e-05,
-            9.511949095135944e-05
-          ],
-          "shape": [
-            4,
-            28236
-          ]
-        },
-        "native_rir": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.007242974825203419,
-            0.009024226106703281,
-            0.011487962678074837,
-            0.004411573056131601
-          ],
-          "rms": [
-            0.00013369718278676698,
-            0.0001380855823144889,
-            0.00016475179455498914,
-            8.568275866493792e-05
-          ],
-          "shape": [
-            4,
-            28236
-          ]
-        },
-        "num_samples": 120000,
-        "pass": true,
-        "sample_rate_hz": 24000,
-        "source_position_world": [
-          1.6240532398,
-          1.33113,
-          -2.0125486851
-        ],
-        "waveform": {
-          "dtype": "float32",
-          "finite": true,
-          "non_zero": true,
-          "peak": [
-            0.004914962686598301,
-            0.001871698652394116,
-            0.0032329142559319735,
-            0.003583635203540325
-          ],
-          "rms": [
-            0.0011388254954519106,
-            0.00041896298357914976,
-            0.0006833546746712685,
-            0.0008046425532194258
-          ],
-          "shape": [
-            4,
-            120000
-          ]
-        }
-      }
-    }
+  "foa_live": {
+    "pass": true
   },
   "normalization_regression": {
-    "binaural": {
-      "absolute_error": 2.8959984299525843e-08,
-      "expected_amplitude_ratio": 0.5011872336272722,
-      "gain_db": -6.0,
-      "measured_amplitude_ratio": 0.5011872046672879,
-      "pass": true
-    },
-    "foa": {
-      "absolute_error": 2.8720921974034752e-08,
-      "expected_amplitude_ratio": 0.5011872336272722,
-      "gain_db": -6.0,
-      "measured_amplitude_ratio": 0.5011872049063503,
-      "pass": true
-    },
     "pass": true,
     "per_render": false,
     "per_viewpoint": false,
     "separate_branch": false
   },
+  "p0b_golden": {
+    "current_environment_rerun": {
+      "canonical_verdict": "PASS",
+      "cardinal": {
+        "back": true,
+        "down": true,
+        "front": true,
+        "left": true,
+        "right": true,
+        "up": true
+      },
+      "checker": "examples/check_foa_direct_only_repair.py + examples/check_foa_model_facing_golden.py",
+      "max_angular_error_deg": 3.078324659199975e-06,
+      "model_facing_verdict": "PASS",
+      "off_axis_yawed": true
+    },
+    "historical": {
+      "canonical_verdict": "PASS",
+      "evidence": "frozen P0-B logs; expected values and tolerances unchanged",
+      "model_facing_verdict": "PASS"
+    },
+    "pass": true
+  },
   "paired_regression": {
     "episode_count": 3,
-    "production_backend": false,
-    "same_recipe": true,
-    "same_source_gain_offset_pose_yaw_config": true,
-    "verdict": "PARTIAL — V1 PairedRenderer has no real backend"
+    "production_backend": true,
+    "rows": [
+      {
+        "binaural": {
+          "audio": {
+            "dtype": "float32",
+            "finite": true,
+            "non_zero": true,
+            "peak": [
+              0.0061132763512432575,
+              0.006527470424771309
+            ],
+            "rms": [
+              0.0013186492752072076,
+              0.001475057232879312
+            ],
+            "shape": [
+              2,
+              120000
+            ]
+          }
+        },
+        "episode_id": "step2c1_front",
+        "foa": {
+          "audio": {
+            "dtype": "float32",
+            "finite": true,
+            "non_zero": true,
+            "peak": [
+              0.003869926556944847,
+              0.0010120385559275746,
+              0.003173498436808586,
+              0.0012010735226795077
+            ],
+            "rms": [
+              0.0008431703629840628,
+              0.0002326491900617971,
+              0.0007665472830627365,
+              0.00025217327590748903
+            ],
+            "shape": [
+              4,
+              120000
+            ]
+          }
+        },
+        "pass": true,
+        "recipe": {
+          "episode_id": "step2c1_front",
+          "label": {
+            "azimuth_project_deg": -8.551523933419958e-10,
+            "class_id": 0,
+            "distance_m": 1.5000000000261478,
+            "doa_unit_project": [
+              -1.4925098194117348e-11,
+              -1.0566711431589297e-08,
+              -0.9999999999999999
+            ],
+            "elevation_project_deg": -6.054279683627069e-07
+          },
+          "listener": {
+            "base_position_world": [
+              1.6240532398223877,
+              -0.9688699841499329,
+              -0.5125486850738525
+            ],
+            "sensor_position_world": [
+              1.6240532398223877,
+              0.5311300158500671,
+              -0.5125486850738525
+            ],
+            "yaw_deg": 0.0
+          },
+          "representations": {
+            "binaural": {
+              "required": true
+            },
+            "foa": {
+              "required": true
+            }
+          },
+          "scene": {
+            "scene_family": "Replica",
+            "scene_id": "replica.office_0"
+          },
+          "schema_version": "clsdoa_v1.0",
+          "source": {
+            "base_clip_id": "golden_probe_v0",
+            "class_id": 0,
+            "source_clip_id": "golden_probe_v0",
+            "source_dataset": "fixture",
+            "source_gain_db": 0.0,
+            "source_offset_sec": 0.0,
+            "source_position_world": [
+              1.6240532398,
+              0.53113,
+              -2.0125486851
+            ]
+          },
+          "split": "UNASSIGNED"
+        },
+        "records": {
+          "binaural": {
+            "audio_path": "audio/binaural/step2c1_front.wav",
+            "dtype": "float32",
+            "episode_id": "step2c1_front",
+            "failure_reason": null,
+            "format": "WAV",
+            "num_channels": 2,
+            "num_samples": 120000,
+            "render_status": "complete",
+            "representation": "binaural",
+            "rir_path": "cache/rir/binaural/step2c1_front.npy",
+            "sample_rate_hz": 24000
+          },
+          "foa": {
+            "audio_path": "audio/foa/step2c1_front.wav",
+            "dtype": "float32",
+            "episode_id": "step2c1_front",
+            "failure_reason": null,
+            "format": "AmbiX ACN/SN3D",
+            "num_channels": 4,
+            "num_samples": 120000,
+            "render_status": "complete",
+            "representation": "foa",
+            "rir_path": "cache/rir/foa/step2c1_front.npy",
+            "sample_rate_hz": 24000
+          }
+        },
+        "shared_recipe_consistency": {
+          "acoustic_config": {
+            "clip_duration_sec": 5.0,
+            "indirectRayCount": 5000,
+            "materials_enabled": false,
+            "normalization": false,
+            "sample_rate_hz": 24000,
+            "sourceRayCount": 200
+          },
+          "listener_base_position_world": [
+            1.6240532398223877,
+            -0.9688699841499329,
+            -0.5125486850738525
+          ],
+          "listener_sensor_position_world": [
+            1.6240532398223877,
+            0.5311300158500671,
+            -0.5125486850738525
+          ],
+          "listener_yaw_deg": 0.0,
+          "scene_id": "replica.office_0",
+          "source_fingerprint": "38dcdfbdbffa793ad886221ae0d34da56d172f8f04b2c23eb1e79c47128780dd",
+          "source_gain_db": 0.0,
+          "source_offset_sec": 0.0,
+          "source_position_world": [
+            1.6240532398,
+            0.53113,
+            -2.0125486851
+          ]
+        }
+      },
+      {
+        "binaural": {
+          "audio": {
+            "dtype": "float32",
+            "finite": true,
+            "non_zero": true,
+            "peak": [
+              0.0015509199583902955,
+              0.001102181850001216
+            ],
+            "rms": [
+              0.00034139988670411914,
+              0.00024466977237524784
+            ],
+            "shape": [
+              2,
+              120000
+            ]
+          }
+        },
+        "episode_id": "step2c1_side",
+        "foa": {
+          "audio": {
+            "dtype": "float32",
+            "finite": true,
+            "non_zero": true,
+            "peak": [
+              0.0006955616408959031,
+              0.0003258396463934332,
+              0.00040758788236416876,
+              0.0005183834582567215
+            ],
+            "rms": [
+              0.00016467361697630677,
+              6.669320304988082e-05,
+              9.125131300105128e-05,
+              0.00012005984853320439
+            ],
+            "shape": [
+              4,
+              120000
+            ]
+          }
+        },
+        "pass": true,
+        "recipe": {
+          "episode_id": "step2c1_side",
+          "label": {
+            "azimuth_project_deg": 89.99999999900126,
+            "class_id": 0,
+            "distance_m": 1.4999999999776124,
+            "doa_unit_project": [
+              0.9999999999999999,
+              -1.0566711431931203e-08,
+              -1.743161170989975e-11
+            ],
+            "elevation_project_deg": -6.054279683822967e-07
+          },
+          "listener": {
+            "base_position_world": [
+              1.6240532398223877,
+              -0.9688699841499329,
+              -0.5125486850738525
+            ],
+            "sensor_position_world": [
+              1.6240532398223877,
+              0.5311300158500671,
+              -0.5125486850738525
+            ],
+            "yaw_deg": 0.0
+          },
+          "representations": {
+            "binaural": {
+              "required": true
+            },
+            "foa": {
+              "required": true
+            }
+          },
+          "scene": {
+            "scene_family": "Replica",
+            "scene_id": "replica.office_0"
+          },
+          "schema_version": "clsdoa_v1.0",
+          "source": {
+            "base_clip_id": "golden_probe_v0",
+            "class_id": 0,
+            "source_clip_id": "golden_probe_v0",
+            "source_dataset": "fixture",
+            "source_gain_db": 0.0,
+            "source_offset_sec": 0.0,
+            "source_position_world": [
+              3.1240532398,
+              0.53113,
+              -0.5125486851
+            ]
+          },
+          "split": "UNASSIGNED"
+        },
+        "records": {
+          "binaural": {
+            "audio_path": "audio/binaural/step2c1_side.wav",
+            "dtype": "float32",
+            "episode_id": "step2c1_side",
+            "failure_reason": null,
+            "format": "WAV",
+            "num_channels": 2,
+            "num_samples": 120000,
+            "render_status": "complete",
+            "representation": "binaural",
+            "rir_path": "cache/rir/binaural/step2c1_side.npy",
+            "sample_rate_hz": 24000
+          },
+          "foa": {
+            "audio_path": "audio/foa/step2c1_side.wav",
+            "dtype": "float32",
+            "episode_id": "step2c1_side",
+            "failure_reason": null,
+            "format": "AmbiX ACN/SN3D",
+            "num_channels": 4,
+            "num_samples": 120000,
+            "render_status": "complete",
+            "representation": "foa",
+            "rir_path": "cache/rir/foa/step2c1_side.npy",
+            "sample_rate_hz": 24000
+          }
+        },
+        "shared_recipe_consistency": {
+          "acoustic_config": {
+            "clip_duration_sec": 5.0,
+            "indirectRayCount": 5000,
+            "materials_enabled": false,
+            "normalization": false,
+            "sample_rate_hz": 24000,
+            "sourceRayCount": 200
+          },
+          "listener_base_position_world": [
+            1.6240532398223877,
+            -0.9688699841499329,
+            -0.5125486850738525
+          ],
+          "listener_sensor_position_world": [
+            1.6240532398223877,
+            0.5311300158500671,
+            -0.5125486850738525
+          ],
+          "listener_yaw_deg": 0.0,
+          "scene_id": "replica.office_0",
+          "source_fingerprint": "38dcdfbdbffa793ad886221ae0d34da56d172f8f04b2c23eb1e79c47128780dd",
+          "source_gain_db": 0.0,
+          "source_offset_sec": 0.0,
+          "source_position_world": [
+            3.1240532398,
+            0.53113,
+            -0.5125486851
+          ]
+        }
+      },
+      {
+        "binaural": {
+          "audio": {
+            "dtype": "float32",
+            "finite": true,
+            "non_zero": true,
+            "peak": [
+              0.0016800221055746078,
+              0.0006853286176919937
+            ],
+            "rms": [
+              0.000374162748177941,
+              0.00014837327436980816
+            ],
+            "shape": [
+              2,
+              120000
+            ]
+          }
+        },
+        "episode_id": "step2c1_off_axis_yawed",
+        "foa": {
+          "audio": {
+            "dtype": "float32",
+            "finite": true,
+            "non_zero": true,
+            "peak": [
+              0.0006523037445731461,
+              0.0003281371609773487,
+              0.0003633543092291802,
+              0.0004001473425887525
+            ],
+            "rms": [
+              0.0001490688626537349,
+              7.462507756605527e-05,
+              8.945057215002298e-05,
+              9.306362119830365e-05
+            ],
+            "shape": [
+              4,
+              120000
+            ]
+          }
+        },
+        "pass": true,
+        "recipe": {
+          "episode_id": "step2c1_off_axis_yawed",
+          "label": {
+            "azimuth_project_deg": -1.0223837830232014,
+            "class_id": 0,
+            "distance_m": 1.3736816623389554,
+            "doa_unit_project": [
+              -0.016050992029105492,
+              0.4367824078894074,
+              -0.8994239788960559
+            ],
+            "elevation_project_deg": 25.898765600354892
+          },
+          "listener": {
+            "base_position_world": [
+              1.6240532398223877,
+              -0.9688699841499329,
+              -0.5125486850738525
+            ],
+            "sensor_position_world": [
+              1.6240532398223877,
+              0.5311300158500671,
+              -0.5125486850738525
+            ],
+            "yaw_deg": 37.0
+          },
+          "representations": {
+            "binaural": {
+              "required": true
+            },
+            "foa": {
+              "required": true
+            }
+          },
+          "scene": {
+            "scene_family": "Replica",
+            "scene_id": "replica.office_0"
+          },
+          "schema_version": "clsdoa_v1.0",
+          "source": {
+            "base_clip_id": "golden_probe_v0",
+            "class_id": 0,
+            "source_clip_id": "golden_probe_v0",
+            "source_dataset": "fixture",
+            "source_gain_db": 0.0,
+            "source_offset_sec": 0.0,
+            "source_position_world": [
+              2.35,
+              1.13113,
+              -1.51255
+            ]
+          },
+          "split": "UNASSIGNED"
+        },
+        "records": {
+          "binaural": {
+            "audio_path": "audio/binaural/step2c1_off_axis_yawed.wav",
+            "dtype": "float32",
+            "episode_id": "step2c1_off_axis_yawed",
+            "failure_reason": null,
+            "format": "WAV",
+            "num_channels": 2,
+            "num_samples": 120000,
+            "render_status": "complete",
+            "representation": "binaural",
+            "rir_path": "cache/rir/binaural/step2c1_off_axis_yawed.npy",
+            "sample_rate_hz": 24000
+          },
+          "foa": {
+            "audio_path": "audio/foa/step2c1_off_axis_yawed.wav",
+            "dtype": "float32",
+            "episode_id": "step2c1_off_axis_yawed",
+            "failure_reason": null,
+            "format": "AmbiX ACN/SN3D",
+            "num_channels": 4,
+            "num_samples": 120000,
+            "render_status": "complete",
+            "representation": "foa",
+            "rir_path": "cache/rir/foa/step2c1_off_axis_yawed.npy",
+            "sample_rate_hz": 24000
+          }
+        },
+        "shared_recipe_consistency": {
+          "acoustic_config": {
+            "clip_duration_sec": 5.0,
+            "indirectRayCount": 5000,
+            "materials_enabled": false,
+            "normalization": false,
+            "sample_rate_hz": 24000,
+            "sourceRayCount": 200
+          },
+          "listener_base_position_world": [
+            1.6240532398223877,
+            -0.9688699841499329,
+            -0.5125486850738525
+          ],
+          "listener_sensor_position_world": [
+            1.6240532398223877,
+            0.5311300158500671,
+            -0.5125486850738525
+          ],
+          "listener_yaw_deg": 37.0,
+          "scene_id": "replica.office_0",
+          "source_fingerprint": "38dcdfbdbffa793ad886221ae0d34da56d172f8f04b2c23eb1e79c47128780dd",
+          "source_gain_db": 0.0,
+          "source_offset_sec": 0.0,
+          "source_position_world": [
+            2.35,
+            1.13113,
+            -1.51255
+          ]
+        }
+      }
+    ],
+    "same_immutable_recipe": true,
+    "same_source_fingerprint_gain_offset_pose_yaw_acoustic_config": true,
+    "verdict": "PASS"
   },
   "pending": {
     "scene_registry_sha256": "PENDING_STEP_2B",
@@ -694,12 +595,19 @@
     "source_split_version": "PENDING_STEP_2A"
   },
   "pilot_plan_executed": false,
+  "production_backend": true,
   "provenance": {
     "clip_duration_sec": 5.0,
     "foa_contract_version": "P0-B@3e3c21ab0151a0b0d8e8d1e0946e9fa015c7bf92",
-    "generation_code_commit": "2f0faee278e33158e3bfe62a415883d0933f4e41",
+    "generation_code_commit": "e84c9d2eba912d6b7e0a0efa5d5d48d8c60d6065",
     "habitat_sim_version": "0.2.2",
     "hrtf": {
+      "enclosing_implementation": {
+        "path": "/home/leiyuxin/miniconda3/envs/ss/lib/python3.9/site-packages/habitat_sim/_ext/libRLRAudioPropagation.so",
+        "sha256": "31e948eef4908d8cbb403b5f445d9d0eab59fc81b05a658538f8795984f9bfb4",
+        "size_bytes": 7327344
+      },
+      "mode": "embedded_or_not_exposed",
       "path": null,
       "sha256": null,
       "size_bytes": null,
@@ -708,7 +616,7 @@
     "indirectRayCount": 5000,
     "materials_mode": "OFF",
     "ontology_sha256": "51e48305099afc21c887e207ced250808d82e251649f7e2e72a794cc1beb87ce",
-    "random_seed": 20260824,
+    "random_seed": 20260829,
     "ray_config": {
       "indirectRayCount": 5000,
       "sourceRayCount": 200
@@ -722,20 +630,18 @@
     "scene_registry_sha256": "PENDING_STEP_2B",
     "scene_split_version": "PENDING_STEP_2B",
     "schema_version": "clsdoa_v1.0",
-    "soundspaces_commit": "2f0faee278e33158e3bfe62a415883d0933f4e41",
+    "soundspaces_commit": "e84c9d2eba912d6b7e0a0efa5d5d48d8c60d6065",
     "sourceRayCount": 200,
     "source_registry_sha256": "PENDING_STEP_2A",
     "source_split_version": "PENDING_STEP_2A"
   },
   "real_generation_path": {
-    "binaural_backend": "active_audition live Habitat-Sim AudioSensor probe",
-    "convolution": "in-memory scipy full convolution",
-    "crop": "first 120000 samples",
-    "foa_backend": "live Habitat-Sim AudioSensor probe + existing P0-B converter",
-    "materials_mode": "OFF",
-    "v1_paired_renderer": "interface-only; no production paired backend exists yet"
+    "backend": "Habitat-Sim AudioSensor",
+    "foa_converter": "examples/foa_adapter.py unchanged",
+    "paired_mode": "sequential_sensor_lifecycle",
+    "payload_location": "/tmp only",
+    "renderer": "SoundSpacesPairedRenderer"
   },
-  "real_generation_path_used": "PARTIAL",
   "render_policy": {
     "formal_audio_only_supported": true,
     "pass": true,
@@ -743,10 +649,10 @@
     "save_rir": true,
     "schema_version_unchanged": true
   },
-  "runtime_sec": 35.881,
+  "runtime_sec": 89.744,
   "scene_admission_executed": false,
   "schema_version": "clsdoa_v1.0",
   "source_qc_executed": false,
-  "status": "STEP 2C CORE COMPLETED — PENDING PROVENANCE CLOSURE",
+  "status": "STEP 2C.1 COMPLETED — PENDING STEP 2C CLOSURE",
   "temporary_payload_committed": false
 }

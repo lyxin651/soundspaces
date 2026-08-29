@@ -1,16 +1,23 @@
 {
-  "canonical_verdict": "PASS",
-  "cardinal_rows": {
-    "back": true,
-    "down": true,
-    "front": true,
-    "left": true,
-    "right": true,
-    "up": true
+  "current_environment_rerun": {
+    "canonical_verdict": "PASS",
+    "cardinal": {
+      "back": true,
+      "down": true,
+      "front": true,
+      "left": true,
+      "right": true,
+      "up": true
+    },
+    "checker": "examples/check_foa_direct_only_repair.py + examples/check_foa_model_facing_golden.py",
+    "max_angular_error_deg": 3.078324659199975e-06,
+    "model_facing_verdict": "PASS",
+    "off_axis_yawed": true
   },
-  "evidence": "existing P0-B frozen logs; Golden assets were not regenerated",
-  "max_angular_error_deg": 3.078324659199975e-06,
-  "model_facing_verdict": "PASS",
-  "off_axis_yawed": true,
+  "historical": {
+    "canonical_verdict": "PASS",
+    "evidence": "frozen P0-B logs; expected values and tolerances unchanged",
+    "model_facing_verdict": "PASS"
+  },
   "pass": true
 }

@@ -1,11 +1,13 @@
-# ClassDOA V1 Step 2C Core Regression
+# ClassDOA V1 Step 2C.1 Production Renderer Regression
 
-Status: `STEP 2C CORE COMPLETED — PENDING PROVENANCE CLOSURE`
+Status: `STEP 2C.1 COMPLETED — PENDING STEP 2C CLOSURE`
 
-The live regression used the Replica `office_0` scene with Materials OFF and a 24 kHz AudioSensor. Binaural and FOA payloads were finite, non-zero, converted in memory, full-convolved with the frozen `golden_probe_v0` source, and cropped to 120000 samples. No WAV/RIR payload was written. The live backend therefore proves the low-level Habitat-Sim acquisition path, but the V1 `PairedRenderer` remains interface-only, so `REAL_GENERATION_PATH_USED` is `PARTIAL` and paired production coverage is not a Final PASS.
+`SoundSpacesPairedRenderer` is the production generation path. It uses the real Habitat-Sim AudioSensor at 24 kHz with Materials OFF, indirectRayCount=5000 and sourceRayCount=200. Each representation is rendered from the same immutable EpisodeRecipe and source waveform under the frozen sequential sensor lifecycle; FOA conversion calls the unchanged P0-B adapter. Temporary WAV/RIR payloads were written only below `/tmp` and were not committed.
 
-The existing P0-B cardinal and `off_axis_yawed` Golden evidence remains PASS; `examples/foa_adapter.py` was called without modification. The fixed-RIR -6 dB proportional test passed for both Binaural and FOA, preserving the expected amplitude ratio of approximately 0.501187 without post-render normalization. Pilot `RenderPolicy(save_rir=true, require_rir=true)` passed and the Formal audio-only policy remains schema-compatible.
+The production paired regression rendered 3 fixed recipes covering front, side/off-axis and non-zero yaw. Binaural and FOA records are complete and share source fingerprint, gain, offset, scene, poses, yaw and acoustic config. No per-render, viewpoint or branch normalization was applied.
 
-Runtime provenance records the current generation commit, Habitat-Sim package version, RLRAudioPropagation binary fingerprint, ontology SHA and frozen acoustic settings. HRTF is explicitly recorded as not exposed by the installed Habitat-Sim build rather than assigned a fake path or hash. Source/scene registry hashes and split versions remain `PENDING_STEP_2A` / `PENDING_STEP_2B`; this is a Core evidence template, not an authoritative final resource lock.
+P0-B Golden evidence is separated into historical evidence and a current-environment rerun. The existing checker was invoked again for front/right/left/back/up/down and `off_axis_yawed`; current canonical=PASS, model-facing=PASS, max error=3.078324659199975e-06 degrees.
 
-The run did not execute source QC, scene admission, 960 PLAN, Pilot render, model training, or any Step 3 work.
+The binaural directional hard sanity uses early 2000-sample RIR energy and checks both left and right source positions against the frozen `[LEFT, RIGHT]` semantics. HRTF is recorded as embedded/not independently exposed with the enclosing RLRAudioPropagation binary fingerprint. The regression seed is explicitly injected as 20260829; source/scene registry closure remains pending Step 2A/2B.
+
+No Step 2A/2B, 960 Pilot, source QC, scene admission, training, C2, noise, active evaluation or Step 3 work was executed.

@@ -1,9 +1,15 @@
 {
   "clip_duration_sec": 5.0,
   "foa_contract_version": "P0-B@3e3c21ab0151a0b0d8e8d1e0946e9fa015c7bf92",
-  "generation_code_commit": "2f0faee278e33158e3bfe62a415883d0933f4e41",
+  "generation_code_commit": "e84c9d2eba912d6b7e0a0efa5d5d48d8c60d6065",
   "habitat_sim_version": "0.2.2",
   "hrtf": {
+    "enclosing_implementation": {
+      "path": "/home/leiyuxin/miniconda3/envs/ss/lib/python3.9/site-packages/habitat_sim/_ext/libRLRAudioPropagation.so",
+      "sha256": "31e948eef4908d8cbb403b5f445d9d0eab59fc81b05a658538f8795984f9bfb4",
+      "size_bytes": 7327344
+    },
+    "mode": "embedded_or_not_exposed",
     "path": null,
     "sha256": null,
     "size_bytes": null,
@@ -12,7 +18,7 @@
   "indirectRayCount": 5000,
   "materials_mode": "OFF",
   "ontology_sha256": "51e48305099afc21c887e207ced250808d82e251649f7e2e72a794cc1beb87ce",
-  "random_seed": 20260824,
+  "random_seed": 20260829,
   "ray_config": {
     "indirectRayCount": 5000,
     "sourceRayCount": 200
@@ -26,7 +32,7 @@
   "scene_registry_sha256": "PENDING_STEP_2B",
   "scene_split_version": "PENDING_STEP_2B",
   "schema_version": "clsdoa_v1.0",
-  "soundspaces_commit": "2f0faee278e33158e3bfe62a415883d0933f4e41",
+  "soundspaces_commit": "e84c9d2eba912d6b7e0a0efa5d5d48d8c60d6065",
   "sourceRayCount": 200,
   "source_registry_sha256": "PENDING_STEP_2A",
   "source_split_version": "PENDING_STEP_2A"
