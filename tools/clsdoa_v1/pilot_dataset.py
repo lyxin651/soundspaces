@@ -118,6 +118,18 @@ def _pick_candidate(pool, distance_bin, elevation_bin, slot):
     return options[slot % len(options)]
 
 
+def _schedule(split, count, namespace, class_id):
+    if namespace == "distance":
+        n = {"train": (22, 22, 12), "val": (5, 5, 2), "test": (5, 5, 2)}[split]
+        return (["near"] * n[0]) + (["mid"] * n[1]) + (["far"] * n[2])
+    if namespace == "elevation":
+        n = {"train": (42, 14), "val": (9, 3), "test": (9, 3)}[split]
+        return (["small"] * n[0]) + (["nonzero"] * n[1])
+    offset = 0 if split == "val" else 4
+    values = [item for item in range(8) for _ in range(7)] if split == "train" else [item for item in range(8) for _ in range(2 if item in {(class_id + offset + i) % 8 for i in range(4)} else 1)]
+    return values
+
+
 def build_plan():
     config = _load_config()
     sources = _source_rows()
@@ -131,37 +143,45 @@ def build_plan():
     scene_pools = {}
     for entry in scenes:
         scene_pools[entry["scene_id"]] = _collect_candidates(entry, config)
-    all_candidates = {(family, split): [candidate for entry in scenes if entry["scene_family"] == family and entry["split"] == split for candidate in scene_pools[entry["scene_id"]]] for family in ("Replica", "MP3D") for split in ("train", "val", "test")}
+    scene_entries = {(family, split): [entry for entry in scenes if entry["scene_family"] == family and entry["split"] == split] for family in ("Replica", "MP3D") for split in ("train", "val", "test")}
+    scene_use = Counter()
     recipes = []
     review = []
     slots = 0
     for class_id, class_name in enumerate(CLASSES):
         for split, split_count in (("train", 56), ("val", 12), ("test", 12)):
-            split_start = {"train": 0, "val": 56, "test": 68}[split]
             for family in ("Replica", "MP3D"):
                 count = split_count // 2
                 for local in range(count):
                     family_offset = 0 if family == "Replica" else count
-                    slot = split_start + family_offset + local
-                    distance_bin = "near" if slot < 32 else "mid" if slot < 64 else "far"
-                    elevation_bin = "small" if slot < 60 else "nonzero"
+                    slot = family_offset + local
+                    distance_bin = _schedule(split, split_count, "distance", class_id)[slot]
+                    elevation_bin = _schedule(split, split_count, "elevation", class_id)[slot]
                     key = (family, split)
-                    candidate = _pick_candidate(all_candidates[key], distance_bin, elevation_bin, stable_int(config["global_seed"], class_id, split, family, local))
-                    scene_id = next(entry["scene_id"] for entry in scenes if entry["scene_family"] == family and entry["split"] == split and candidate in scene_pools[entry["scene_id"]])
+                    eligible = [entry for entry in scene_entries[key] if any((distance_bin == ("near" if c["distance"] < 2 else "mid" if c["distance"] < 4 else "far") and elevation_bin == ("small" if abs(c["elevation"]) < 5 else "nonzero")) for c in scene_pools[entry["scene_id"]])]
+                    unused = [entry for entry in eligible if scene_use[entry["scene_id"]] == 0]
+                    if not (unused or eligible):
+                        raise RuntimeError("no scene supports {} / {} for {}".format(distance_bin, elevation_bin, key))
+                    entry = sorted(unused or eligible, key=lambda item: (scene_use[item["scene_id"]], item["scene_id"]))[0]
+                    candidate = _pick_candidate(scene_pools[entry["scene_id"]], distance_bin, elevation_bin, stable_int(config["global_seed"], class_id, split, family, local, "geometry"))
+                    scene_id = entry["scene_id"]
+                    scene_use[scene_id] += 1
                     source = by_class_split[(class_name, split)][(family_offset + local) % len(by_class_split[(class_name, split)])]
                     duration = float(source["canonical_duration_sec"])
                     offset = 0.0 if duration >= 5.0 else float(np.random.default_rng(stable_int(config["global_seed"], source["source_clip_id"], slots, "offset")).uniform(0.0, 5.0 - duration))
-                    gain = -6.0 + 12.0 * ((local % 10) + 0.5) / 10.0
+                    gain_bin = _schedule(split, split_count, "gain", class_id)[slot]
+                    gain = -6.0 + 1.5 * gain_bin + 0.75
                     # 用世界方位反解 yaw，精确覆盖每类每个方位 bin。
                     delta = np.asarray(candidate["source"], dtype=np.float64) - np.asarray(candidate["sensor"], dtype=np.float64)
                     world_bearing = math.degrees(math.atan2(float(delta[0]), -float(delta[2])))
-                    target_azimuth = -157.5 + 45.0 * (slot // 10)
+                    azimuth_bin = _schedule(split, split_count, "azimuth", class_id)[slot]
+                    target_azimuth = -157.5 + 45.0 * azimuth_bin
                     yaw = world_bearing - target_azimuth
                     episode_id = "{}_ep_{:06d}".format(config["dataset_id"], slots + 1)
                     recipe = make_episode_recipe(episode_id=episode_id, split=split, scene_id=scene_id, scene_family=family, source_clip_id=source["source_clip_id"], base_clip_id=source["base_clip_id"], source_dataset=source["source_dataset"], class_id=class_id, source_position_world=candidate["source"], source_gain_db=gain, source_offset_sec=offset, listener_base_position_world=candidate["listener"], listener_sensor_position_world=candidate["sensor"], listener_yaw_deg=yaw)
                     validate_geometry_independently(recipe.source_position_world, recipe.listener_sensor_position_world, recipe.listener_yaw_deg, {"distance_m": recipe.distance_m, "azimuth_project_deg": recipe.azimuth_project_deg, "elevation_project_deg": recipe.elevation_project_deg, "doa_unit_project": recipe.doa_unit_project})
                     recipes.append(recipe.to_dict())
-                    review.append(dict(recipe.to_dict(), diagnostics={"distance_bin": distance_bin, "elevation_bin": elevation_bin, "source_height_offset_m": candidate["source_height_offset"], "geodesic_distance_m": candidate["geodesic"], "sampling_attempt": candidate["attempt"], "clearance": "PASS", "reachable": "PASS"}, source_duration_sec=duration, pretrain_seen_status=source["pretrain_seen_status"]))
+                    review.append(dict(recipe.to_dict(), diagnostics={"distance_bin": distance_bin, "elevation_bin": elevation_bin, "azimuth_bin": azimuth_bin, "gain_bin": gain_bin, "source_height_offset_m": candidate["source_height_offset"], "geodesic_distance_m": candidate["geodesic"], "sampling_attempt": candidate["attempt"], "clearance": "PASS", "reachable": "PASS"}, source_duration_sec=duration, pretrain_seen_status=source["pretrain_seen_status"]))
                     slots += 1
     return recipes, review, scenes, sources
 

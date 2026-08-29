@@ -48,6 +48,9 @@ def validate(root):
         for split in ("train", "val", "test"):
             counts = Counter(r["source"]["base_clip_id"] for r in episodes if r["label"]["class_id"] == class_id and r["split"] == split)
             _require(max(counts.values()) - min(counts.values()) <= 1, "source reuse imbalance")
+            split_rows = [r for r in review if r["label"]["class_id"] == class_id and r["split"] == split]
+            _require(set(r["diagnostics"]["azimuth_bin"] for r in split_rows) == set(range(8)), "split azimuth coverage mismatch")
+            _require(set(r["diagnostics"]["gain_bin"] for r in split_rows) == set(range(8)), "split gain coverage mismatch")
     for r in episodes:
         _require(set(r["representations"]) == {"binaural", "foa"}, "representation mismatch")
         _require(r["listener"]["sensor_position_world"] == [r["listener"]["base_position_world"][0], r["listener"]["base_position_world"][1] + 1.5, r["listener"]["base_position_world"][2]], "receiver invariant mismatch")
