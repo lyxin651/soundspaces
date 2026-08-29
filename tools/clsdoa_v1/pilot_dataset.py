@@ -52,7 +52,7 @@ def _scene_rows():
 def _clear(sim, point, radius):
     directions = (np.array([1, 0, 0]), np.array([-1, 0, 0]), np.array([0, 1, 0]), np.array([0, -1, 0]), np.array([0, 0, 1]), np.array([0, 0, -1]))
     for direction in directions:
-        ray = habitat_sim.geo.Ray(mn.Vector3(np.asarray(point, dtype=np.float32)), mn.Vector3(direction))
+        ray = habitat_sim.geo.Ray(mn.Vector3(*(float(value) for value in point)), mn.Vector3(*(float(value) for value in direction)))
         hits = sim.cast_ray(ray)
         if hits.has_hits() and float(hits.hits[0].ray_distance) < radius:
             return False
