@@ -1,0 +1,7 @@
+rank,frame,native_order_permutation,signs_YZX,yaw_sign,median_error_deg,p95_error_deg,max_error_deg,note
+1,world_fixed,"(0,1,2)","(1,1,1)",1,0.0,1.45392412910642e-05,1.45392412910642e-05,best; horizontal probes leave Y sign/yaw sign unidentifiable
+2,world_fixed,"(0,1,2)","(-1,1,1)",1,0.0,1.45392412910642e-05,1.45392412910642e-05,equivalent on zero-elevation probes
+3,world_fixed,"(0,1,2)","(1,1,1)",-1,0.0,1.45392412910642e-05,1.45392412910642e-05,equivalent on world-fixed probes
+4,world_fixed,"(0,1,2)","(-1,1,1)",-1,0.0,1.45392412910642e-05,1.45392412910642e-05,equivalent on this probe set
+5,world_fixed,"(2,1,0)","(1,1,1)",1,90.0,90.0,90.0,wrong channel permutation
+6,listener_local,"(0,1,2)","(1,1,1)",1,90.0,180.0,180.0,noncompetitive frame hypothesis
