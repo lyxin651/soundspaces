@@ -35,7 +35,7 @@ validate_plan_payload_absence(Pilot005): PASS
 python -O integrity/metadata/absence checks: PASS
 ```
 
-The plan contains 960 episodes, split train/val/test `672/144/144`, family Replica/MP3D `480/480`, and 12 classes with exactly 80 episodes each. It references 422 source identities, 103 PASS scenes, and excludes 5 FAIL scenes. Episode IDs and source identities are unique. The frozen geometry contract is `STEP2B_FIXED_PROBE_SEED_PLUS_LAZY64`, lazy budget 64, with geometry cache and progressive sampling disabled; materials are OFF and `render_started` is false.
+The plan contains 960 episodes, split train/val/test `672/144/144`, family Replica/MP3D `480/480`, and 12 classes with exactly 80 episodes each. It references 422 source identities, 103 PASS scenes, and excludes 5 FAIL scenes. Episode IDs are unique; the source registry/pool contains 422 unique source identities, with source reuse satisfying the frozen validator/scheduler contract. The frozen geometry contract is `STEP2B_FIXED_PROBE_SEED_PLUS_LAZY64`, lazy budget 64, with geometry cache and progressive sampling disabled; materials are OFF and `render_started` is false.
 
 Identity and plan lock both contain `732d960844ebe70d0bf15ad0dc8da2ea3deeef02`, and identity contains `dataset_id = clsdoa_v1_pilot_005`.
 
