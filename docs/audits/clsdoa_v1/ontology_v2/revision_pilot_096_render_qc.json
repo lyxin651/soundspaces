@@ -1,0 +1,198 @@
+{
+  "binaural_rir": 96,
+  "binaural_wav": 96,
+  "episodes": 96,
+  "foa_rir": 96,
+  "foa_wav": 96,
+  "hard_contract": {
+    "binaural_channels": [
+      2
+    ],
+    "dtypes": [
+      "float32"
+    ],
+    "finite": true,
+    "foa_channels": [
+      4
+    ],
+    "nonzero": true,
+    "sample_rate": [
+      24000
+    ],
+    "samples": [
+      120000
+    ]
+  },
+  "per_class": {
+    "clock_alarm_binaural": {
+      "count": 8,
+      "peak_max": 0.3947468400001526,
+      "rms_max": 0.07429153513658954,
+      "rms_median": 0.051893992939014505,
+      "rms_min": 0.013904743827616485
+    },
+    "clock_alarm_foa": {
+      "count": 8,
+      "peak_max": 0.19998140633106232,
+      "rms_max": 0.025521300169356744,
+      "rms_median": 0.014098841287096195,
+      "rms_min": 0.009997652468636539
+    },
+    "coughing_binaural": {
+      "count": 8,
+      "peak_max": 0.9174554347991943,
+      "rms_max": 0.12176319609777746,
+      "rms_median": 0.010509463749949953,
+      "rms_min": 0.001959391256044463
+    },
+    "coughing_foa": {
+      "count": 8,
+      "peak_max": 0.5221318006515503,
+      "rms_max": 0.035244539739955845,
+      "rms_median": 0.003539539386859699,
+      "rms_min": 0.0007530631546664657
+    },
+    "dog_binaural": {
+      "count": 8,
+      "peak_max": 2.026202917098999,
+      "rms_max": 0.2000362338161961,
+      "rms_median": 0.07692729326615977,
+      "rms_min": 0.02876144137384698
+    },
+    "dog_foa": {
+      "count": 8,
+      "peak_max": 1.08986496925354,
+      "rms_max": 0.056133053190667886,
+      "rms_median": 0.026675264825219862,
+      "rms_min": 0.009978025190287223
+    },
+    "frying_binaural": {
+      "count": 8,
+      "peak_max": 0.9062156081199646,
+      "rms_max": 0.1858666272914888,
+      "rms_median": 0.020157249489299964,
+      "rms_min": 0.008460742348752633
+    },
+    "frying_foa": {
+      "count": 8,
+      "peak_max": 0.5109298825263977,
+      "rms_max": 0.059302478751982926,
+      "rms_median": 0.007640570170610441,
+      "rms_min": 0.002927358191518733
+    },
+    "instrumental_music_binaural": {
+      "count": 8,
+      "peak_max": 3.0372722148895264,
+      "rms_max": 0.46448076611577394,
+      "rms_median": 0.08405830364973343,
+      "rms_min": 0.006621937108496538
+    },
+    "instrumental_music_foa": {
+      "count": 8,
+      "peak_max": 1.0501577854156494,
+      "rms_max": 0.12393810143710243,
+      "rms_median": 0.026260342901736164,
+      "rms_min": 0.0029238097103924192
+    },
+    "keyboard_typing_binaural": {
+      "count": 8,
+      "peak_max": 1.583066701889038,
+      "rms_max": 0.23583312695171033,
+      "rms_median": 0.044153214671556085,
+      "rms_min": 0.0017971634639005845
+    },
+    "keyboard_typing_foa": {
+      "count": 8,
+      "peak_max": 0.8831428289413452,
+      "rms_max": 0.07431200084494523,
+      "rms_median": 0.014015768858079333,
+      "rms_min": 0.000535120686494655
+    },
+    "laughing_binaural": {
+      "count": 8,
+      "peak_max": 0.5382041335105896,
+      "rms_max": 0.046980798172691,
+      "rms_median": 0.01907985514873202,
+      "rms_min": 6.0927183426939986e-05
+    },
+    "laughing_foa": {
+      "count": 8,
+      "peak_max": 0.21665509045124054,
+      "rms_max": 0.014070789972270141,
+      "rms_median": 0.005317805712748081,
+      "rms_min": 2.2342842221345078e-05
+    },
+    "printer_binaural": {
+      "count": 8,
+      "peak_max": 0.5506622791290283,
+      "rms_max": 0.08262642703035836,
+      "rms_median": 0.026136670051888446,
+      "rms_min": 0.015207087482557682
+    },
+    "printer_foa": {
+      "count": 8,
+      "peak_max": 0.29986801743507385,
+      "rms_max": 0.02532476041931451,
+      "rms_median": 0.008828720387299593,
+      "rms_min": 0.005178110429771077
+    },
+    "running_water_binaural": {
+      "count": 8,
+      "peak_max": 0.4262843728065491,
+      "rms_max": 0.057232899024975296,
+      "rms_median": 0.024138166344644975,
+      "rms_min": 0.008537190291358509
+    },
+    "running_water_foa": {
+      "count": 8,
+      "peak_max": 0.14186406135559082,
+      "rms_max": 0.017482644536212365,
+      "rms_median": 0.008059714402753253,
+      "rms_min": 0.002774190438512789
+    },
+    "snoring_binaural": {
+      "count": 8,
+      "peak_max": 1.310364007949829,
+      "rms_max": 0.28588588601426906,
+      "rms_median": 0.06464308249637127,
+      "rms_min": 0.027951779929054323
+    },
+    "snoring_foa": {
+      "count": 8,
+      "peak_max": 0.742207944393158,
+      "rms_max": 0.09915793840917249,
+      "rms_median": 0.023141041154085887,
+      "rms_min": 0.009481258571700376
+    },
+    "speech_binaural": {
+      "count": 8,
+      "peak_max": 1.9911549091339111,
+      "rms_max": 0.1736205336514599,
+      "rms_median": 0.03400004711197415,
+      "rms_min": 0.006876398659007637
+    },
+    "speech_foa": {
+      "count": 8,
+      "peak_max": 0.7977034449577332,
+      "rms_max": 0.05468382065258633,
+      "rms_median": 0.01199259826310864,
+      "rms_min": 0.002241314519473833
+    },
+    "vacuum_cleaner_binaural": {
+      "count": 8,
+      "peak_max": 1.556991696357727,
+      "rms_max": 0.2054708549652416,
+      "rms_median": 0.04580059435961505,
+      "rms_min": 0.018437032879552152
+    },
+    "vacuum_cleaner_foa": {
+      "count": 8,
+      "peak_max": 0.7851438522338867,
+      "rms_max": 0.07441257350863953,
+      "rms_median": 0.016364210589495484,
+      "rms_min": 0.005736295753118181
+    }
+  },
+  "render_records": 192,
+  "status": "PASS"
+}

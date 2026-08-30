@@ -49,14 +49,14 @@ def render_dataset(root, resume=False, renderer_factory=SoundSpacesPairedRendere
     existing = [json.loads(line) for line in journal.read_text().splitlines() if line] if journal.exists() else []
     complete = {(row["episode_id"], row["representation"]): row for row in existing if row.get("render_status") == "complete" and row.get("audio_path") and (root / row["audio_path"]).is_file() and (not policy.require_rir or row.get("rir_path") and (root / row["rir_path"]).is_file())}
     repo_root = Path(__file__).resolve().parents[2]
-    source_registry_path = Path(config["source"]["registry_path"])
+    source_registry_path = Path(config.get("source", {}).get("registry_path", "registries/source_audio.csv"))
     if not source_registry_path.is_absolute():
         source_registry_path = repo_root / source_registry_path
     source_rows = {row["source_clip_id"]: row for row in read_source_registry(str(source_registry_path))}
     all_rows = list(existing)
     for recipe in recipes:
         scene = {"scene_id": recipe.scene_id}
-        scene_registry_path = Path(config["scene"]["registry_path"])
+        scene_registry_path = Path(config.get("scene", {}).get("registry_path", "registries/clsdoa_v1_scenes.yaml"))
         if not scene_registry_path.is_absolute():
             scene_registry_path = repo_root / scene_registry_path
         registry = yaml.safe_load(scene_registry_path.read_text())["scenes"][recipe.scene_id]

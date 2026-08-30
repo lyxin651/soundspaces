@@ -170,7 +170,10 @@ def _payload_expected_keys(root):
 
 
 def _expected_episode_count(root):
-    config = yaml.safe_load((Path(root) / "config_resolved.yaml").read_text())
+    config_path = Path(root) / "config_resolved.yaml"
+    if not config_path.is_file():
+        return 960
+    config = yaml.safe_load(config_path.read_text())
     return 96 if str(config.get("dataset_id", "")).startswith("clsdoa_v1_ontology_v2_revision_pilot_") else 960
 
 
