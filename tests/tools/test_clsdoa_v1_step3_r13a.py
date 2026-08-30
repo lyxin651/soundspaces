@@ -147,14 +147,20 @@ class Pilot004CommandSurfaceTests(unittest.TestCase):
         import os
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "new-root"
+            repo_root = Path(__file__).resolve().parents[2]
+            dirty_marker = repo_root / ".clsdoa_test_dirty_marker"
             command = [sys.executable, "tools/clsdoa_v1/pilot_dataset.py", "plan", "--config", "configs/active_audition/clsdoa_v1_pilot_004.yaml", "--root", str(root)]
-            result = subprocess.run(command, cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True, env=dict(os.environ))
-            self.assertNotEqual(result.returncode, 0)
-            self.assertFalse(root.exists())
-            root.mkdir()
-            (root / "sentinel").write_text("keep\n")
-            result = subprocess.run(command, cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True, env=dict(os.environ))
-            self.assertNotEqual(result.returncode, 0)
-            self.assertEqual((root / "sentinel").read_text(), "keep\n")
+            try:
+                dirty_marker.write_text("temporary test marker\n")
+                result = subprocess.run(command, cwd=repo_root, capture_output=True, text=True, env=dict(os.environ), timeout=30)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(root.exists())
+                root.mkdir()
+                (root / "sentinel").write_text("keep\n")
+                result = subprocess.run(command, cwd=repo_root, capture_output=True, text=True, env=dict(os.environ), timeout=30)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual((root / "sentinel").read_text(), "keep\n")
+            finally:
+                dirty_marker.unlink(missing_ok=True)
 if __name__ == "__main__":
     unittest.main()
