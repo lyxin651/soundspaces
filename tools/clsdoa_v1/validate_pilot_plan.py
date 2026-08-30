@@ -66,37 +66,63 @@ def validate_family_block(block, class_id, split, family):
 
 def validate(root):
     root = Path(root)
+    resolved_config = yaml.safe_load((root / "config_resolved.yaml").read_text())
+    revision_profile = str(resolved_config.get("dataset_id", "")).startswith("clsdoa_v1_ontology_v2_revision_pilot_")
+    expected_episodes = 96 if revision_profile else 960
     episodes = [json.loads(line) for line in (root / "manifests/episodes.jsonl").read_text().splitlines() if line]
     review = [json.loads(line) for line in (root / "reports/plan_review_index.jsonl").read_text().splitlines() if line]
-    _require(len(episodes) == len(review) == 960, "episode/review count must be 960")
+    _require(len(episodes) == len(review) == expected_episodes, "episode/review count mismatch: expected {}".format(expected_episodes))
     validate_episode_ids(episodes)
-    _require(Counter(r["split"] for r in episodes) == Counter(train=672, val=144, test=144), "split quota mismatch")
-    _require(Counter(r["scene"]["scene_family"] for r in episodes) == Counter(Replica=480, MP3D=480), "family quota mismatch")
-    _require(Counter(r["label"]["class_id"] for r in episodes) == Counter({i: 80 for i in CLASSES}), "class quota mismatch")
-    registry = list(__import__("active_audition.datasets.binaural_foa_clsdoa.source_registry", fromlist=["read_source_registry"]).read_source_registry(str(ROOT / "registries/source_audio.csv")))
-    _require({r["source"]["base_clip_id"] for r in episodes} == {r["base_clip_id"] for r in registry}, "source pool mismatch")
-    scene_registry = yaml.safe_load((ROOT / "registries/clsdoa_v1_scenes.yaml").read_text())["scenes"]
+    expected_split = Counter(train=48, val=24, test=24) if revision_profile else Counter(train=672, val=144, test=144)
+    expected_family = Counter(Replica=48, MP3D=48) if revision_profile else Counter(Replica=480, MP3D=480)
+    expected_class = Counter({i: 8 for i in CLASSES}) if revision_profile else Counter({i: 80 for i in CLASSES})
+    _require(Counter(r["split"] for r in episodes) == expected_split, "split quota mismatch")
+    _require(Counter(r["scene"]["scene_family"] for r in episodes) == expected_family, "family quota mismatch")
+    _require(Counter(r["label"]["class_id"] for r in episodes) == expected_class, "class quota mismatch")
+    source_path = Path(resolved_config["source"]["registry_path"])
+    if not source_path.is_absolute():
+        source_path = ROOT / source_path
+    registry = list(__import__("active_audition.datasets.binaural_foa_clsdoa.source_registry", fromlist=["read_source_registry"]).read_source_registry(str(source_path)))
+    episode_sources = {r["source"]["base_clip_id"] for r in episodes}
+    registry_sources = {r["base_clip_id"] for r in registry}
+    _require(episode_sources == registry_sources if not revision_profile else episode_sources <= registry_sources, "source pool mismatch")
+    scene_path = Path(resolved_config["scene"]["registry_path"])
+    if not scene_path.is_absolute():
+        scene_path = ROOT / scene_path
+    scene_registry = yaml.safe_load(scene_path.read_text())["scenes"]
     validate_episode_membership(episodes, registry, scene_registry)
     pass_ids = {sid for sid, r in scene_registry.items() if r["admitted"] == "PASS"}
     fail_ids = {sid for sid, r in scene_registry.items() if r["admitted"] != "PASS"}
     used_scene_ids = {r["scene"]["scene_id"] for r in episodes}
-    validate_scene_set(used_scene_ids, scene_registry)
+    if revision_profile:
+        _require(used_scene_ids <= pass_ids, "revision plan contains non-PASS scene")
+    else:
+        validate_scene_set(used_scene_ids, scene_registry)
     _require(not (used_scene_ids & fail_ids), "scene pool contains non-PASS scene")
     for class_id in CLASSES:
         rows = [r for r in episodes if r["label"]["class_id"] == class_id]
         _require(len({r["label"]["azimuth_project_deg"] for r in rows}) > 0, "empty azimuth schedule")
-        _require(Counter(r["diagnostics"]["distance_bin"] for r in review if r["label"]["class_id"] == class_id) == Counter(near=32, mid=32, far=16), "distance quota mismatch")
-        _require(Counter(r["diagnostics"]["elevation_bin"] for r in review if r["label"]["class_id"] == class_id) == Counter(small=60, nonzero=20), "elevation quota mismatch")
+        if not revision_profile:
+            _require(Counter(r["diagnostics"]["distance_bin"] for r in review if r["label"]["class_id"] == class_id) == Counter(near=32, mid=32, far=16), "distance quota mismatch")
+            _require(Counter(r["diagnostics"]["elevation_bin"] for r in review if r["label"]["class_id"] == class_id) == Counter(small=60, nonzero=20), "elevation quota mismatch")
         for split in ("train", "val", "test"):
             counts = Counter(r["source"]["base_clip_id"] for r in episodes if r["label"]["class_id"] == class_id and r["split"] == split)
             validate_source_reuse(episodes, class_id, split)
             split_rows = [r for r in review if r["label"]["class_id"] == class_id and r["split"] == split]
-            _require(set(r["diagnostics"]["azimuth_bin"] for r in split_rows) == set(range(8)), "split azimuth coverage mismatch")
-            _require(set(r["diagnostics"]["gain_bin"] for r in split_rows) == set(range(8)), "split gain coverage mismatch")
+            if not revision_profile:
+                _require(set(r["diagnostics"]["azimuth_bin"] for r in split_rows) == set(range(8)), "split azimuth coverage mismatch")
+                _require(set(r["diagnostics"]["gain_bin"] for r in split_rows) == set(range(8)), "split gain coverage mismatch")
             for family in ("Replica", "MP3D"):
                 block = [r for r in split_rows if r["scene"]["scene_family"] == family]
                 _require(block, "empty family micro-pattern")
-                validate_family_block(block, class_id, split, family)
+                if revision_profile:
+                    expected_size = {"train": 2, "val": 1, "test": 1}[split]
+                    _require(len(block) == expected_size, "revision family block size mismatch")
+                    for key, schedule in (("distance_bin", distance_schedule), ("elevation_bin", elevation_schedule), ("azimuth_bin", azimuth_schedule), ("gain_bin", gain_schedule)):
+                        expected = schedule(split, class_id, family)[:expected_size]
+                        _require(Counter(r["diagnostics"][key] for r in block) == Counter(expected), "revision {} schedule mismatch".format(key))
+                else:
+                    validate_family_block(block, class_id, split, family)
     for r in episodes:
         _require(set(r["representations"]) == {"binaural", "foa"}, "representation mismatch")
         _require(r["listener"]["sensor_position_world"] == [r["listener"]["base_position_world"][0], r["listener"]["base_position_world"][1] + 1.5, r["listener"]["base_position_world"][2]], "receiver invariant mismatch")
@@ -109,7 +135,7 @@ def validate(root):
     validate_plan_payload_absence(root)
     _require((root / "manifests/plan.lock.json").is_file(), "plan lock missing")
     verify_plan_integrity(root, ROOT)
-    return {"status": "PASS", "episodes": 960, "classes": 12, "unique_sources": 422, "pass_scene_pool": 103, "excluded_fail_scenes": 5, "audio_files": 0, "rir_files": 0}
+    return {"status": "PASS", "episodes": expected_episodes, "classes": 12, "unique_sources": len(episode_sources), "pass_scene_pool": len(pass_ids), "excluded_fail_scenes": len(fail_ids), "audio_files": 0, "rir_files": 0}
 
 
 def validate_plan_payload_absence(root):
