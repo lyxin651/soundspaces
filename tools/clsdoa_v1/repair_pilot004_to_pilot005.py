@@ -23,6 +23,8 @@ PILOT004_ID = "clsdoa_v1_pilot_004"
 PILOT005_ID = "clsdoa_v1_pilot_005"
 REPRESENTATIONS = ("binaural", "foa")
 FROZEN_PILOT004_GENERATION_COMMIT = "5388d17ef18919a7aa7cd911b6b239f1d91813f1"
+FROZEN_PILOT004_EPISODES_SHA256 = "af55fc2bd763db06ca19d1b188be6d10b4a8f618389b9c974cc893d4d8d7a484"
+FROZEN_PILOT004_RENDERS_SHA256 = "262a71e947ecaf0b049d31f84b3bd393faa3dbe951767fecb79e2a1ba6d7f7e2"
 FROZEN_R3A_CODE_COMMIT = "114b23608854622a9bc07949028d310260de71d9"
 FROZEN_R3B_EVIDENCE_COMMIT = "9804c6a3b302980698887581f42873fd607588c9"
 
@@ -133,6 +135,8 @@ def build_derivation_lock(source_root, repair_code_commit):
         raise ValueError("source is not the frozen Pilot004 generation")
     episodes_sha = _sha(source_root / "manifests/episodes.jsonl")
     renders_sha = _sha(source_root / "manifests/renders.jsonl")
+    if episodes_sha != FROZEN_PILOT004_EPISODES_SHA256 or renders_sha != FROZEN_PILOT004_RENDERS_SHA256:
+        raise ValueError("source is not the frozen Pilot004 evidence")
     return {
         "derivation_type": "foa_coordinate_repair_v1",
         "source_dataset_id": identity["dataset_id"],
@@ -159,6 +163,8 @@ def validate_derivation_lock(lock, source_root, expected_repair_code_commit=None
         raise ValueError("repair provenance commit mismatch")
     if lock["source_episodes_sha256"] != _sha(source_root / "manifests/episodes.jsonl") or lock["source_renders_sha256"] != _sha(source_root / "manifests/renders.jsonl"):
         raise ValueError("source provenance SHA mismatch")
+    if lock["source_episodes_sha256"] != FROZEN_PILOT004_EPISODES_SHA256 or lock["source_renders_sha256"] != FROZEN_PILOT004_RENDERS_SHA256:
+        raise ValueError("source is not the frozen Pilot004 evidence")
     if expected_repair_code_commit is not None and lock["repair_code_commit"] != expected_repair_code_commit:
         raise ValueError("repair code commit mismatch")
     if lock["binaural_policy"] != "byte_identical_copy" or lock["foa_rir_policy"] != "deterministic_linear_coordinate_repair" or lock["foa_wav_policy"] != "deterministic_linear_coordinate_repair":

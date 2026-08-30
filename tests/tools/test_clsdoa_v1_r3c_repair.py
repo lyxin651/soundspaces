@@ -23,6 +23,7 @@ from tools.clsdoa_v1.repair_pilot004_to_pilot005 import (
     FROZEN_R3B_EVIDENCE_COMMIT,
     _sha,
 )
+import tools.clsdoa_v1.repair_pilot004_to_pilot005 as repair_module
 
 
 def _episode(index=1, gain=0.0, yaw=45.0, scene="replica.office_0", source="ESC-50:1"):
@@ -72,10 +73,11 @@ class R3CRepairTests(unittest.TestCase):
             (root / "manifests/episodes.jsonl").write_text("{}\n")
             (root / "manifests/renders.jsonl").write_text("{}\n")
             (root / "identity.json").write_text(json.dumps({"dataset_id": "clsdoa_v1_pilot_004", "generation_code_commit": FROZEN_PILOT004_GENERATION_COMMIT}))
-            lock = build_derivation_lock(root, "repair")
+            with mock.patch.object(repair_module, "FROZEN_PILOT004_EPISODES_SHA256", _sha(root / "manifests/episodes.jsonl")), mock.patch.object(repair_module, "FROZEN_PILOT004_RENDERS_SHA256", _sha(root / "manifests/renders.jsonl")):
+                lock = build_derivation_lock(root, "repair")
+                self.assertTrue(validate_derivation_lock(lock, root, "repair"))
             self.assertEqual(lock["r3a_code_commit"], FROZEN_R3A_CODE_COMMIT)
             self.assertEqual(lock["r3b_evidence_commit"], FROZEN_R3B_EVIDENCE_COMMIT)
-            self.assertTrue(validate_derivation_lock(lock, root, "repair"))
             with self.assertRaises(ValueError): validate_derivation_lock(lock, root, "wrong")
 
     def _source_fixture(self, directory):
@@ -93,6 +95,10 @@ class R3CRepairTests(unittest.TestCase):
                 np.save(str(rir), np.ones((channels, 9), dtype=np.float32), allow_pickle=False)
                 rows.append({"episode_id": eid, "representation": rep, "audio_path": str(audio.relative_to(source)), "rir_path": str(rir.relative_to(source)), "render_status": "complete", "sample_rate_hz": 24000, "num_channels": channels, "num_samples": 120000, "dtype": "float32", "format": "WAV" if rep == "binaural" else "AmbiX ACN/SN3D"})
         (source / "manifests/renders.jsonl").write_text("".join(json.dumps(x) + "\n" for x in rows))
+        # The compact fixture has different bytes from frozen Pilot004; bind the
+        # module's expected source hashes for this isolated test process.
+        repair_module.FROZEN_PILOT004_EPISODES_SHA256 = _sha(source / "manifests/episodes.jsonl")
+        repair_module.FROZEN_PILOT004_RENDERS_SHA256 = _sha(source / "manifests/renders.jsonl")
         return episodes
 
     def _target_plan_fixture(self, source, target, generation="repair-head"):
