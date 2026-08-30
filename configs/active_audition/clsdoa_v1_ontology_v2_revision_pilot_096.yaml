@@ -1,0 +1,34 @@
+dataset_id: clsdoa_v1_ontology_v2_revision_pilot_001
+plan_version: clsdoa_v1_ontology_v2_revision_pilot_096_v1
+global_seed: 20260830
+storage:
+  save_audio: true
+  save_rir: true
+  require_rir: true
+planning:
+  quota_scheduler_version: clsdoa_v1_ontology_v2_revision_096_v1
+  geometry_strategy: STEP2B_FIXED_PROBE_SEED_PLUS_LAZY64
+  lazy_attempt_budget: 64
+  geometry_cache_required: false
+  progressive_sampling_required: false
+source:
+  registry_path: registries/clsdoa_v1_ontology_v2_source_registry_v3.csv
+  split_version: clsdoa_source_split_v3_ontology_v2
+  gain_db_min: -6.0
+  gain_db_max: 6.0
+scene:
+  registry_path: registries/clsdoa_v1_scenes.yaml
+  split_version: clsdoa_v1_scene_split_v2
+  sensor_height_m: 1.5
+  listener_clearance_radius_m: 0.10
+  source_height_min_m: 0.5
+  source_height_max_m: 2.2
+  source_clearance_radius_m: 0.15
+geometry:
+  max_attempts_per_scene: 64
+  planning_workers: 1
+  distance_bins:
+    near: [1.0, 2.0]
+    mid: [2.0, 4.0]
+    far: [4.0, 6.0]
+  elevation_nonzero_threshold_deg: 5.0

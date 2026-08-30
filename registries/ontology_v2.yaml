@@ -1,0 +1,16 @@
+ontology:
+  name: clsdoa_v1_ontology_v2
+  version: clsdoa_v1_ontology_v2
+  classes:
+    - {id: 0, name: coughing, temporal_type: transient}
+    - {id: 1, name: laughing, temporal_type: repetitive}
+    - {id: 2, name: keyboard_typing, temporal_type: repetitive}
+    - {id: 3, name: vacuum_cleaner, temporal_type: persistent}
+    - {id: 4, name: clock_alarm, temporal_type: repetitive_persistent}
+    - {id: 5, name: speech, temporal_type: persistent}
+    - {id: 6, name: running_water, temporal_type: persistent}
+    - {id: 7, name: frying, temporal_type: persistent}
+    - {id: 8, name: snoring, temporal_type: persistent}
+    - {id: 9, name: dog, temporal_type: transient}
+    - {id: 10, name: instrumental_music, temporal_type: persistent}
+    - {id: 11, name: printer, temporal_type: repetitive}

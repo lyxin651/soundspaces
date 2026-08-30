@@ -34,8 +34,8 @@ from tools.clsdoa_v1.scheduler import azimuth_schedule, distance_schedule, eleva
 LOCK = ROOT / "configs/active_audition/clsdoa_v1_resources.lock.json"
 CONTRACT = ROOT / "configs/active_audition/clsdoa_v1_contract.yaml"
 SCENES = ROOT / "registries/clsdoa_v1_scenes.yaml"
-CLASSES = ["coughing", "laughing", "keyboard_typing", "vacuum_cleaner", "clock_alarm", "speech", "running_water", "frying", "mechanical_fan", "microwave_oven", "dishes", "printer"]
-CONFIG_PATH = ROOT / "configs/active_audition/clsdoa_v1_pilot_004.yaml"
+CLASSES = ["coughing", "laughing", "keyboard_typing", "vacuum_cleaner", "clock_alarm", "speech", "running_water", "frying", "snoring", "dog", "instrumental_music", "printer"]
+CONFIG_PATH = ROOT / "configs/active_audition/clsdoa_v1_ontology_v2_revision_pilot_096.yaml"
 
 
 def stable_int(*parts):
@@ -123,8 +123,11 @@ def _load_config():
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
-def _source_rows():
-    return list(read_source_registry(str(ROOT / "registries/source_audio.csv")))
+def _source_rows(config):
+    path = Path(config["source"]["registry_path"])
+    if not path.is_absolute():
+        path = ROOT / path
+    return list(read_source_registry(str(path)))
 
 
 def _pick_candidate(pool, distance_bin, elevation_bin, slot):
@@ -141,7 +144,7 @@ def _pick_candidate(pool, distance_bin, elevation_bin, slot):
 
 def build_plan():
     config = _load_config()
-    sources = _source_rows()
+    sources = _source_rows(config)
     all_pass_scenes = _scene_rows()
     scenes = all_pass_scenes
     by_class_split = defaultdict(list)
@@ -173,7 +176,7 @@ def build_plan():
     review = []
     slots = 0
     for class_id, class_name in enumerate(CLASSES):
-        for split, split_count in (("train", 56), ("val", 12), ("test", 12)):
+        for split, split_count in (("train", 4), ("val", 2), ("test", 2)):
             for family in ("Replica", "MP3D"):
                 count = split_count // 2
                 for local in range(count):
@@ -225,7 +228,11 @@ def write_plan(root, code_commit):
     (root / "reports/plan_summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     def file_sha(path):
         return hashlib.sha256(path.read_bytes()).hexdigest()
-    (root / "identity.json").write_text(json.dumps({"dataset_id": config["dataset_id"], "dataset_family": "soundspaces_binaural_foa_clsdoa_v1", "schema_version": "clsdoa_v1.0", "generation_code_commit": code_commit, "created_at": "2026-08-29T00:00:00Z", "config_sha256": file_sha(CONFIG_PATH), "ontology_sha256": file_sha(ROOT / "registries/ontology.yaml"), "source_registry_sha256": file_sha(ROOT / "registries/source_audio.csv"), "scene_registry_sha256": file_sha(ROOT / "registries/clsdoa_v1_scenes.yaml")}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    source_registry_path = Path(config["source"]["registry_path"])
+    if not source_registry_path.is_absolute():
+        source_registry_path = ROOT / source_registry_path
+    ontology_path = ROOT / "registries/ontology_v2.yaml"
+    (root / "identity.json").write_text(json.dumps({"dataset_id": config["dataset_id"], "dataset_family": "soundspaces_binaural_foa_clsdoa_v1", "schema_version": "clsdoa_v1_ontology_v2", "generation_code_commit": code_commit, "created_at": "2026-08-30T00:00:00Z", "config_sha256": file_sha(CONFIG_PATH), "ontology_sha256": file_sha(ontology_path), "source_registry_sha256": file_sha(source_registry_path), "scene_registry_sha256": file_sha(ROOT / "registries/clsdoa_v1_scenes.yaml")}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     config["resolved_from"] = {"contract": "configs/active_audition/clsdoa_v1_contract.yaml", "pilot": str(CONFIG_PATH.relative_to(ROOT))}
     config["contract"] = yaml.safe_load(CONTRACT.read_text(encoding="utf-8"))
     config = merge_resolved_config(config["contract"], {k: v for k, v in config.items() if k != "contract"})
@@ -247,8 +254,8 @@ def write_plan(root, code_commit):
         "episodes_sha256": sha256(root / "manifests/episodes.jsonl"),
         "config_resolved_sha256": sha256(root / "config_resolved.yaml"),
         "resources_lock_sha256": sha256(root / "resources.lock.json"),
-        "source_registry_sha256": "f7a59a7e245a8ae0016e5fbd47a5599c64627951e344fe049fef3ff48bab5ad1",
-        "scene_registry_sha256": "06f90a902e78bb26d0e23fdb267bebde55f56d0abe794ecaf763a172784b9508",
+        "source_registry_sha256": sha256(source_registry_path),
+        "scene_registry_sha256": sha256(ROOT / "registries/clsdoa_v1_scenes.yaml"),
         "global_seed": config["global_seed"], "episode_count": len(recipes),
     }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     _write_reports(root, recipes, review, scenes, sources, config, code_commit)

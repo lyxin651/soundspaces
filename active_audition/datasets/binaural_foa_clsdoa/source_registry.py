@@ -65,7 +65,7 @@ def read_source_registry(path: str) -> Sequence[Mapping[str, Any]]:
             seen.add(row["source_clip_id"])
             if row["manual_decision"] != "ACCEPT" or row["resource_status"] != "PRESENT" or row["split"] not in ("train", "val", "test"):
                 raise SourceRegistryError("finalized source is not pilot eligible: {}".format(row["source_clip_id"]))
-            if row["split_version"] != "clsdoa_source_split_v2_stratified" or row["canonical_dtype"] != "float32" or int(row["canonical_sample_rate_hz"]) != 24000 or int(row["canonical_channels"]) != 1 or not Path(row["canonical_path"]).is_file() or not (0.0 < float(row["canonical_duration_sec"]) <= 5.0):
+            if row["split_version"] not in ("clsdoa_source_split_v2_stratified", "clsdoa_source_split_v3_ontology_v2") or row["canonical_dtype"] != "float32" or int(row["canonical_sample_rate_hz"]) != 24000 or int(row["canonical_channels"]) != 1 or not Path(row["canonical_path"]).is_file() or not (0.0 < float(row["canonical_duration_sec"]) <= 5.0):
                 raise SourceRegistryError("finalized source contract mismatch: {}".format(row["source_clip_id"]))
         return tuple(rows)
     return validate_source_rows(rows)
