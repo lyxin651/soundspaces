@@ -36,7 +36,50 @@ class FOAAdapterTests(unittest.TestCase):
         result = native_foa_to_canonical(values, listener_yaw_deg=90.0)
         self.assertAlmostEqual(float(result[1, 0]), 0.0, places=6)
         self.assertAlmostEqual(float(result[2, 0]), 0.0, places=6)
-        self.assertAlmostEqual(float(result[3, 0]), -1.0, places=6)
+        self.assertAlmostEqual(float(result[3, 0]), 1.0, places=6)
+
+    def test_yaw_transform_matches_independent_geometry_for_all_required_views(self):
+        directions = {
+            "front": (0.0, 0.0, -1.0), "back": (0.0, 0.0, 1.0),
+            "left": (-1.0, 0.0, 0.0), "right": (1.0, 0.0, 0.0),
+            "front-left": (-2.0 ** -0.5, 0.0, -2.0 ** -0.5),
+            "front-right": (2.0 ** -0.5, 0.0, -2.0 ** -0.5),
+            "elevated": (0.0, 1.0, 0.0), "depressed": (0.0, -1.0, 0.0),
+        }
+        for yaw in (0.0, 45.0, 90.0, -45.0):
+            angle = np.deg2rad(yaw)
+            for name, (x_world, y_world, z_world) in directions.items():
+                native = np.asarray([[1.0], [np.sqrt(3.0) * y_world],
+                                     [np.sqrt(3.0) * z_world], [np.sqrt(3.0) * x_world]], dtype=np.float32)
+                converted = native_foa_to_canonical(native, yaw)
+                right_local = np.cos(angle) * x_world + np.sin(angle) * z_world
+                up_local = y_world
+                back_local = -np.sin(angle) * x_world + np.cos(angle) * z_world
+                expected = np.asarray([-back_local, -right_local, up_local])
+                actual = np.asarray([converted[3, 0], converted[1, 0], converted[2, 0]])
+                np.testing.assert_allclose(actual, expected, atol=2e-6, err_msg="{} yaw {}".format(name, yaw))
+                self.assertEqual(converted.dtype, np.float32)
+                self.assertTrue(np.isfinite(converted).all())
+                self.assertAlmostEqual(float(converted[0, 0]), 1.0, places=6)
+
+    def test_corrected_yaw_regression_catches_legacy_90_and_180_degree_errors(self):
+        def legacy_dcase(world_x, world_z, yaw_deg):
+            angle = np.deg2rad(yaw_deg)
+            old_x = np.cos(angle) * world_x - np.sin(angle) * world_z
+            old_z = np.sin(angle) * world_x + np.cos(angle) * world_z
+            return np.asarray([-old_z, -old_x])
+
+        for yaw, expected_error in ((45.0, 90.0), (90.0, 180.0)):
+            native = np.asarray([[1.0], [0.0], [0.0], [np.sqrt(3.0)]], dtype=np.float32)
+            actual = native_foa_to_canonical(native, yaw)
+            actual_direction = np.asarray([actual[3, 0], actual[1, 0]])
+            angle = np.deg2rad(yaw)
+            expected_direction = np.asarray([-(-np.sin(angle)), -np.cos(angle)])
+            corrected_error = np.rad2deg(np.arccos(np.clip(np.dot(actual_direction, expected_direction), -1.0, 1.0)))
+            legacy_direction = legacy_dcase(1.0, 0.0, yaw)
+            legacy_error = np.rad2deg(np.arccos(np.clip(np.dot(legacy_direction, expected_direction), -1.0, 1.0)))
+            self.assertLess(corrected_error, 1.0)
+            self.assertAlmostEqual(float(legacy_error), expected_error, places=5)
 
     def test_canonical_axis_mapping_matches_front_left_up(self):
         # Native RLR basis is [right, up, back]; canonical is [front, left, up].

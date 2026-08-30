@@ -17,7 +17,7 @@ IDENTIFICATION = LOG_ROOT / "foa_direct_only_identification.json"
 
 def world_to_local(vector, yaw_deg):
     yaw = math.radians(yaw_deg)
-    return np.asarray([math.cos(yaw) * vector[0] - math.sin(yaw) * vector[2], vector[1], math.sin(yaw) * vector[0] + math.cos(yaw) * vector[2]], dtype=np.float64)
+    return np.asarray([math.cos(yaw) * vector[0] + math.sin(yaw) * vector[2], vector[1], -math.sin(yaw) * vector[0] + math.cos(yaw) * vector[2]], dtype=np.float64)
 
 
 def angular_error_deg(actual, expected):

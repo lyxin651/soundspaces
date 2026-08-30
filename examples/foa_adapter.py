@@ -61,8 +61,11 @@ def native_foa_to_canonical(values, listener_yaw_deg=0.0):
     x_world = native[3]
     y_world = native[1]
     z_world = native[2]
-    x_local = np.cos(yaw) * x_world - np.sin(yaw) * z_world
-    z_local = np.sin(yaw) * x_world + np.cos(yaw) * z_world
+    # SoundSpaces native directions are world-fixed.  Project them into the
+    # listener-local RLR frame using the same right/back convention as the
+    # frozen geometry contract.
+    x_local = np.cos(yaw) * x_world + np.sin(yaw) * z_world
+    z_local = -np.sin(yaw) * x_world + np.cos(yaw) * z_world
     output = np.empty_like(native)
     output[0] = native[0]
     output[1] = -x_local
