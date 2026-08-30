@@ -61,21 +61,40 @@ degrees. Replica contributed 478 valid windows and MP3D 468.
 The high tail is not evidence of a clean production direction contract:
 105 valid windows exceeded 45 degrees, 19 were in the 80--100 degree range,
 and 9 exceeded 135 degrees. The family p95 values were 100.658 degrees
-(Replica) and 68.376 degrees (MP3D). No reliable statement about LOS-only
-error or systematic axis/sign behavior can be made from this aggregate.
+(Replica) and 68.376 degrees (MP3D).
 
-An audit-only Habitat ray-cast was attempted for all scene groups, with no
-AudioSensor or render. In the current environment, importing Habitat triggers
-a native `free(): invalid pointer` abort while loading `llvmlite` through the
-`quaternion` dependency (exit 134). Therefore LOS classification was not
-completed, and the direction gate is `REVIEW_REQUIRED`, not PASS. The
-aggregate diagnostics do not justify silently excluding the high-tail scenes.
+An audit-only Habitat ray-cast was then completed for all 103 scene groups,
+with no AudioSensor or render. The minimal probe used `import quaternion`
+before `import habitat_sim` and exited 0; the bulk run completed 103/103
+scenes and 960/960 episodes. The ray origin was the frozen listener sensor
+world position, the ray target was the frozen source world position, and a
+hit strictly before the source (`hit_distance < source_distance - 1e-3 m`)
+would have classified NLOS. The observed classification was LOS=960,
+NLOS=0, INDETERMINATE=0. Thus LOS+valid=946, LOS+weak=14, NLOS+valid=0,
+and NLOS+weak=0.
 
-For reproducibility, the unfiltered grouping used yaw quadrants
+On the required LOS+valid subset, the formal metrics are unchanged because
+all valid windows are LOS: n=946, median=0.2111 degrees, p95=87.4998
+degrees, maximum=174.8310 degrees, >15 degrees=198, >45 degrees=105,
+80--100 degrees=19, and >135 degrees=9. Replica/MP3D counts are 478/468.
+The 105 previously identified >45 degree samples are therefore LOS=105,
+NLOS=0, INDETERMINATE=0, weak=0. They cannot be dismissed as NLOS or weak
+direct-window artifacts.
+
+For reproducibility, the LOS-valid grouping used yaw quadrants
 `[-180,-90)`, `[-90,0)`, `[0,90)`, `[90,180]`; azimuth used eight 45-degree
 bins; elevation used `<-30`, `[-30,0)`, `[0,30)`, and `>=30` degrees. These
-are diagnostic bins only and are not a replacement for the required LOS
-subset.
+are diagnostic bins only. The yaw-quadrant p95 values were 86.909, 92.350,
+81.064, and 70.320 degrees respectively; azimuth-bin p95 values ranged from
+45.663 to 109.775 degrees; elevation-bin p95 values ranged from 66.548 to
+104.687 degrees where populated. There is no single yaw-45 or yaw-90-only
+cluster: the high tail occurs across yaw quadrants and azimuth bins. However,
+because the LOS-valid p95 and >15 degree count are both large, this does not
+establish absence of a fixed axis/sign transform. Explicit checks for
+left/right, front/back, X/Y swap, elevation sign flip, and fixed 90/180 degree
+transform remain unresolved by this estimator and require human/code review.
+Per-episode LOS status, direct-window validity, and direction error are recorded
+in `r3fr1_direction_qc.csv` (960 rows); this file is audit evidence only.
 
 ## Full acoustic distributions
 
@@ -107,12 +126,13 @@ was fabricated.
 
 ## Verdict and boundary
 
-FOA repair consistency and payload acoustic distribution checks completed, but
-the required LOS-classified direction semantic QC did not complete because of
-the native Habitat/Numba abort, and the unfiltered direction tail is large.
-Therefore the correct R3F verdict is:
+FOA repair consistency and payload acoustic distribution checks completed, and
+LOS classification completed. The required LOS-valid direction QC did not
+meet the audit gate: its p95 is above 45 degrees and 198/946 samples exceed
+15 degrees. The high tail is not explained by NLOS or weak windows. Therefore
+the correct R3F-R1 verdict is:
 
-`STEP 4F-R3F BLOCKED — DIRECTION QC REVIEW_REQUIRED; HUMAN REVIEW PENDING`
+`STEP 4F-R3F-R1 BLOCKED — LOS DIRECTION QC REVIEW_REQUIRED; HUMAN REVIEW PENDING`
 
 No automated conclusion changes admission, scene split, or any prior repair
 evidence. R3G/Step 4G, finalize, `_SUCCESS`, training, render, and AudioSensor
