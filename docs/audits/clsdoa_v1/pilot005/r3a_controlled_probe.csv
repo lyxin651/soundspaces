@@ -1,0 +1,33 @@
+scene_id,scene_family,direction,yaw_deg,distance_m,raw_shape,raw_finite_nonzero,native_world_error_deg,canonical_error_deg,expected_sample,peak_sample,sample_rate_hz,materials_enabled,indirect_ray_count,source_ray_count,normalization_applied,status,error
+replica.apartment_0,Replica,front,0,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+replica.apartment_0,Replica,back,45,1.25,"[4, 2128]",True,1.45392412910642e-05,1.4388049231413678e-05,87.46355685131195,80,24000,False,5000,200,False,VALID,
+replica.apartment_0,Replica,left,90,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+replica.apartment_0,Replica,right,-45,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+replica.apartment_0,Replica,front-left,0,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+replica.apartment_0,Replica,front-right,45,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+replica.apartment_0,Replica,elevated,90,1.25,,,,,,,,,,,,ZERO_DIRECT_RIR,AudioSensor RIR must be finite and non-zero
+replica.apartment_0,Replica,depressed,-45,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+replica.apartment_1,Replica,front,0,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+replica.apartment_1,Replica,back,45,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+replica.apartment_1,Replica,left,90,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+replica.apartment_1,Replica,right,-45,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+replica.apartment_1,Replica,front-left,0,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+replica.apartment_1,Replica,front-right,45,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+replica.apartment_1,Replica,elevated,90,1.25,,,,,,,,,,,,ZERO_DIRECT_RIR,AudioSensor RIR must be finite and non-zero
+replica.apartment_1,Replica,depressed,-45,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+mp3d.17DRP5sb8fy,MP3D,front,0,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+mp3d.17DRP5sb8fy,MP3D,back,45,1.25,"[4, 2128]",True,2.831646840510158e-06,4.094554566467037e-06,87.46355685131195,80,24000,False,5000,200,False,VALID,
+mp3d.17DRP5sb8fy,MP3D,left,90,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+mp3d.17DRP5sb8fy,MP3D,right,-45,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+mp3d.17DRP5sb8fy,MP3D,front-left,0,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+mp3d.17DRP5sb8fy,MP3D,front-right,45,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+mp3d.17DRP5sb8fy,MP3D,elevated,90,1.25,,,,,,,,,,,,ZERO_DIRECT_RIR,AudioSensor RIR must be finite and non-zero
+mp3d.17DRP5sb8fy,MP3D,depressed,-45,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+mp3d.1LXtFkjw3qL,MP3D,front,0,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+mp3d.1LXtFkjw3qL,MP3D,back,45,1.25,,,,,,,,,,,,ZERO_DIRECT_RIR,AudioSensor RIR must be finite and non-zero
+mp3d.1LXtFkjw3qL,MP3D,left,90,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+mp3d.1LXtFkjw3qL,MP3D,right,-45,1.25,"[4, 2128]",True,1.45392412910642e-05,1.4388049231413678e-05,87.46355685131195,80,24000,False,5000,200,False,VALID,
+mp3d.1LXtFkjw3qL,MP3D,front-left,0,1.25,,,,,,,,,,,,ZERO_DIRECT_RIR,AudioSensor RIR must be finite and non-zero
+mp3d.1LXtFkjw3qL,MP3D,front-right,45,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+mp3d.1LXtFkjw3qL,MP3D,elevated,90,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
+mp3d.1LXtFkjw3qL,MP3D,depressed,-45,1.25,"[4, 2128]",True,0.0,0.0,87.46355685131195,80,24000,False,5000,200,False,VALID,
