@@ -15,12 +15,16 @@ from active_audition.datasets.binaural_foa_clsdoa.recipe import EpisodeRecipe
 from active_audition.datasets.binaural_foa_clsdoa.schema import NUM_SAMPLES, SAMPLE_RATE_HZ
 from examples.foa_adapter import native_foa_to_canonical
 from tools.clsdoa_v1.git_identity import current_clean_head
+from tools.clsdoa_v1.integrity import verify_plan_integrity
 
 
 ROOT = Path(__file__).resolve().parents[2]
 PILOT004_ID = "clsdoa_v1_pilot_004"
 PILOT005_ID = "clsdoa_v1_pilot_005"
 REPRESENTATIONS = ("binaural", "foa")
+FROZEN_PILOT004_GENERATION_COMMIT = "5388d17ef18919a7aa7cd911b6b239f1d91813f1"
+FROZEN_R3A_CODE_COMMIT = "114b23608854622a9bc07949028d310260de71d9"
+FROZEN_R3B_EVIDENCE_COMMIT = "9804c6a3b302980698887581f42873fd607588c9"
 
 
 def _sha(path):
@@ -125,14 +129,18 @@ def _load_rows(path):
 def build_derivation_lock(source_root, repair_code_commit):
     source_root = Path(source_root)
     identity = json.loads((source_root / "identity.json").read_text(encoding="utf-8"))
+    if identity["dataset_id"] != PILOT004_ID or identity["generation_code_commit"] != FROZEN_PILOT004_GENERATION_COMMIT:
+        raise ValueError("source is not the frozen Pilot004 generation")
+    episodes_sha = _sha(source_root / "manifests/episodes.jsonl")
+    renders_sha = _sha(source_root / "manifests/renders.jsonl")
     return {
         "derivation_type": "foa_coordinate_repair_v1",
         "source_dataset_id": identity["dataset_id"],
-        "source_generation_commit": identity["generation_code_commit"],
-        "source_episodes_sha256": _sha(source_root / "manifests/episodes.jsonl"),
-        "source_renders_sha256": _sha(source_root / "manifests/renders.jsonl"),
-        "r3a_code_commit": "114b23608854622a9bc07949028d310260de71d9",
-        "r3b_evidence_commit": "9804c6a3b302980698887581f42873fd607588c9",
+        "source_generation_commit": FROZEN_PILOT004_GENERATION_COMMIT,
+        "source_episodes_sha256": episodes_sha,
+        "source_renders_sha256": renders_sha,
+        "r3a_code_commit": FROZEN_R3A_CODE_COMMIT,
+        "r3b_evidence_commit": FROZEN_R3B_EVIDENCE_COMMIT,
         "repair_code_commit": repair_code_commit,
         "binaural_policy": "byte_identical_copy",
         "foa_rir_policy": "deterministic_linear_coordinate_repair",
@@ -142,25 +150,51 @@ def build_derivation_lock(source_root, repair_code_commit):
 
 def validate_derivation_lock(lock, source_root, expected_repair_code_commit=None):
     source_root = Path(source_root)
-    required = {"derivation_type", "source_dataset_id", "source_generation_commit", "source_episodes_sha256", "source_renders_sha256", "repair_code_commit", "binaural_policy", "foa_rir_policy", "foa_wav_policy"}
+    required = {"derivation_type", "source_dataset_id", "source_generation_commit", "source_episodes_sha256", "source_renders_sha256", "r3a_code_commit", "r3b_evidence_commit", "repair_code_commit", "binaural_policy", "foa_rir_policy", "foa_wav_policy"}
     if not required.issubset(lock):
         raise ValueError("derivation lock is missing required fields")
-    if lock["derivation_type"] != "foa_coordinate_repair_v1" or lock["source_dataset_id"] != PILOT004_ID:
+    if lock["derivation_type"] != "foa_coordinate_repair_v1" or lock["source_dataset_id"] != PILOT004_ID or lock["source_generation_commit"] != FROZEN_PILOT004_GENERATION_COMMIT:
         raise ValueError("invalid derivation identity")
+    if lock["r3a_code_commit"] != FROZEN_R3A_CODE_COMMIT or lock["r3b_evidence_commit"] != FROZEN_R3B_EVIDENCE_COMMIT:
+        raise ValueError("repair provenance commit mismatch")
     if lock["source_episodes_sha256"] != _sha(source_root / "manifests/episodes.jsonl") or lock["source_renders_sha256"] != _sha(source_root / "manifests/renders.jsonl"):
         raise ValueError("source provenance SHA mismatch")
     if expected_repair_code_commit is not None and lock["repair_code_commit"] != expected_repair_code_commit:
         raise ValueError("repair code commit mismatch")
+    if lock["binaural_policy"] != "byte_identical_copy" or lock["foa_rir_policy"] != "deterministic_linear_coordinate_repair" or lock["foa_wav_policy"] != "deterministic_linear_coordinate_repair":
+        raise ValueError("repair policy mismatch")
     return True
 
 
-def _complete_target_record(root, row):
+def _complete_target_record(root, row, episode_id=None, representation=None):
     if row.get("render_status") != "complete" or not row.get("audio_path"):
+        return False
+    if episode_id is not None and row.get("episode_id") != episode_id:
+        return False
+    if representation is not None and row.get("representation") != representation:
         return False
     audio = root / row["audio_path"]
     if not audio.is_file():
         return False
-    if row.get("rir_path") and not (root / row["rir_path"]).is_file():
+    rate, waveform = wavfile.read(str(audio))
+    expected_channels = 2 if row.get("representation") == "binaural" else 4
+    expected_shape = (NUM_SAMPLES, expected_channels)
+    if int(rate) != SAMPLE_RATE_HZ or waveform.dtype != np.float32 or waveform.shape != expected_shape:
+        return False
+    if not np.isfinite(waveform).all() or not np.any(waveform):
+        return False
+    if not row.get("rir_path") or not (root / row["rir_path"]).is_file():
+        return False
+    rir = np.load(root / row["rir_path"], allow_pickle=False)
+    if rir.dtype != np.float32 or rir.ndim != 2 or not np.isfinite(rir).all() or not np.any(rir):
+        return False
+    if row.get("representation") == "binaural":
+        if rir.shape[1] != 2:
+            return False
+    elif row.get("representation") == "foa":
+        if rir.shape[0] != 4:
+            return False
+    else:
         return False
     return True
 
@@ -180,10 +214,16 @@ def repair_dataset(source_root, target_root, resume=False, repo_root=ROOT):
         raise ValueError("source root is missing")
     if (target_root / "_SUCCESS").exists():
         raise ValueError("finalized target is immutable")
-    if target_root.exists() and any(target_root.iterdir()) and not resume:
-        raise ValueError("refusing to overwrite non-empty target")
-    if target_root.exists() and any(target_root.iterdir()) and resume and not (target_root / "manifests/episodes.jsonl").exists():
-        raise ValueError("resume target is not a recognized repair root")
+    if not target_root.is_dir():
+        raise ValueError("target root with an existing PLAN is required")
+    required_plan = ("manifests/episodes.jsonl", "manifests/plan.lock.json", "identity.json", "config_resolved.yaml", "resources.lock.json")
+    if any(not (target_root / item).is_file() for item in required_plan):
+        raise ValueError("target PLAN metadata is incomplete")
+    try:
+        verify_plan_integrity(target_root, repo_root)
+    except Exception as exc:
+        raise ValueError("target PLAN integrity failed: {}".format(exc)) from exc
+    plan_sha_before = {item: _sha(target_root / item) for item in required_plan}
     generation_commit = current_clean_head(repo_root)
     if target_root.exists() and (target_root / "identity.json").exists():
         target_identity = json.loads((target_root / "identity.json").read_text(encoding="utf-8"))
@@ -200,35 +240,32 @@ def repair_dataset(source_root, target_root, resume=False, repo_root=ROOT):
     render_by_key = {(row["episode_id"], row["representation"]): row for row in source_renders}
     if len(render_by_key) != len(source_renders):
         raise ValueError("duplicate source render record")
-    target_root.mkdir(parents=True, exist_ok=True)
-    (target_root / "manifests").mkdir(exist_ok=True)
-    existing_target_episodes = _load_rows(target_root / "manifests/episodes.jsonl") if (target_root / "manifests/episodes.jsonl").exists() else []
-    if existing_target_episodes:
-        target_by_fp = {semantic_recipe_fingerprint(row): row for row in existing_target_episodes}
-        if set(target_by_fp) != set(source_by_fp):
-            raise ValueError("source/target semantic fingerprint mismatch")
-        target_episodes = existing_target_episodes
-    else:
-        target_episodes = []
-        for source in source_episodes:
-            target = json.loads(json.dumps(source))
-            target["episode_id"] = _target_id(source["episode_id"])
-            target_episodes.append(target)
-        _atomic_jsonl(target_root / "manifests/episodes.jsonl", target_episodes)
+    target_episodes = _load_rows(target_root / "manifests/episodes.jsonl")
+    target_by_fp = {}
+    for row in target_episodes:
+        fp = semantic_recipe_fingerprint(row)
+        if fp in target_by_fp:
+            raise ValueError("duplicate target semantic fingerprint")
+        target_by_fp[fp] = row
+    if set(target_by_fp) != set(source_by_fp):
+        raise ValueError("source/target semantic fingerprint mismatch")
     target_by_fp = {semantic_recipe_fingerprint(row): row for row in target_episodes}
     if len(target_by_fp) != len(target_episodes) or set(target_by_fp) != set(source_by_fp):
         raise ValueError("source/target semantic mapping is not one-to-one")
-    config = json.loads(json.dumps(yaml.safe_load((source_root / "config_resolved.yaml").read_text(encoding="utf-8")))) if (source_root / "config_resolved.yaml").exists() else {"dataset_id": PILOT005_ID}
-    config["dataset_id"] = PILOT005_ID
-    config["generation_code_commit"] = generation_commit
-    (target_root / "config_resolved.yaml").write_text(yaml.safe_dump(config, sort_keys=True), encoding="utf-8")
-    identity = {"dataset_id": PILOT005_ID, "dataset_family": "soundspaces_binaural_foa_clsdoa_v1", "schema_version": "clsdoa_v1.0", "generation_code_commit": generation_commit, "source_dataset_id": PILOT004_ID}
-    (target_root / "identity.json").write_text(json.dumps(identity, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     lock = build_derivation_lock(source_root, generation_commit)
-    (target_root / "derivation.lock.json").write_text(json.dumps(lock, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    derivation_path = target_root / "manifests/derivation.lock.json"
+    if derivation_path.exists():
+        validate_derivation_lock(json.loads(derivation_path.read_text(encoding="utf-8")), source_root, generation_commit)
+    else:
+        derivation_path.write_text(json.dumps(lock, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     journal_path = target_root / "manifests/renders.jsonl"
     journal = _load_rows(journal_path) if journal_path.exists() else []
-    existing = {(row.get("episode_id"), row.get("representation")): row for row in journal}
+    existing = {}
+    for row in journal:
+        key = (row.get("episode_id"), row.get("representation"))
+        if key in existing:
+            raise ValueError("duplicate target journal record")
+        existing[key] = row
     for target in target_episodes:
         source = source_by_fp[semantic_recipe_fingerprint(target)]
         for representation in REPRESENTATIONS:
@@ -236,7 +273,7 @@ def repair_dataset(source_root, target_root, resume=False, repo_root=ROOT):
             if source_record is None or source_record.get("render_status") != "complete":
                 raise ValueError("source payload is incomplete")
             key = (target["episode_id"], representation)
-            if resume and key in existing and _complete_target_record(target_root, existing[key]):
+            if resume and key in existing and _complete_target_record(target_root, existing[key], target["episode_id"], representation):
                 continue
             source_audio = source_root / source_record["audio_path"]
             source_rir = source_root / source_record["rir_path"] if source_record.get("rir_path") else None
@@ -271,6 +308,9 @@ def repair_dataset(source_root, target_root, resume=False, repo_root=ROOT):
             record = dict(source_record, episode_id=target["episode_id"], audio_path=str(audio_rel), rir_path=str(rir_rel), repair_policy="byte_identical_copy" if representation == "binaural" else "deterministic_linear_coordinate_repair")
             existing[key] = record
             _atomic_jsonl(journal_path, list(existing.values()))
+    plan_sha_after = {item: _sha(target_root / item) for item in required_plan}
+    if plan_sha_before != plan_sha_after:
+        raise ValueError("repair modified immutable PLAN metadata")
     return list(existing.values())
 
 

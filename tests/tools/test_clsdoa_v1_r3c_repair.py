@@ -18,6 +18,10 @@ from tools.clsdoa_v1.repair_pilot004_to_pilot005 import (
     repair_foa_wav,
     semantic_recipe_fingerprint,
     validate_derivation_lock,
+    FROZEN_PILOT004_GENERATION_COMMIT,
+    FROZEN_R3A_CODE_COMMIT,
+    FROZEN_R3B_EVIDENCE_COMMIT,
+    _sha,
 )
 
 
@@ -67,8 +71,10 @@ class R3CRepairTests(unittest.TestCase):
             root = Path(directory); (root / "manifests").mkdir()
             (root / "manifests/episodes.jsonl").write_text("{}\n")
             (root / "manifests/renders.jsonl").write_text("{}\n")
-            (root / "identity.json").write_text(json.dumps({"dataset_id": "clsdoa_v1_pilot_004", "generation_code_commit": "5388d17"}))
+            (root / "identity.json").write_text(json.dumps({"dataset_id": "clsdoa_v1_pilot_004", "generation_code_commit": FROZEN_PILOT004_GENERATION_COMMIT}))
             lock = build_derivation_lock(root, "repair")
+            self.assertEqual(lock["r3a_code_commit"], FROZEN_R3A_CODE_COMMIT)
+            self.assertEqual(lock["r3b_evidence_commit"], FROZEN_R3B_EVIDENCE_COMMIT)
             self.assertTrue(validate_derivation_lock(lock, root, "repair"))
             with self.assertRaises(ValueError): validate_derivation_lock(lock, root, "wrong")
 
@@ -76,25 +82,40 @@ class R3CRepairTests(unittest.TestCase):
         source = Path(directory); (source / "manifests").mkdir(parents=True)
         episodes = [_episode(1), _episode(2, gain=1.0, yaw=-45.0)]
         (source / "manifests/episodes.jsonl").write_text("".join(json.dumps(x) + "\n" for x in episodes))
-        (source / "identity.json").write_text(json.dumps({"dataset_id": "clsdoa_v1_pilot_004", "generation_code_commit": "5388d17"}))
+        (source / "identity.json").write_text(json.dumps({"dataset_id": "clsdoa_v1_pilot_004", "generation_code_commit": FROZEN_PILOT004_GENERATION_COMMIT}))
         rows = []
         for e in episodes:
             eid = e["episode_id"]
             for rep, channels in (("binaural", 2), ("foa", 4)):
                 audio = source / "audio" / rep / (eid + ".wav"); audio.parent.mkdir(parents=True, exist_ok=True)
-                wavfile.write(str(audio), 24000, np.ones((17, channels), dtype=np.float32))
+                wavfile.write(str(audio), 24000, np.ones((120000, channels), dtype=np.float32))
                 rir = source / "cache/rir" / rep / (eid + ".npy"); rir.parent.mkdir(parents=True, exist_ok=True)
                 np.save(str(rir), np.ones((channels, 9), dtype=np.float32), allow_pickle=False)
-                rows.append({"episode_id": eid, "representation": rep, "audio_path": str(audio.relative_to(source)), "rir_path": str(rir.relative_to(source)), "render_status": "complete", "sample_rate_hz": 24000, "num_channels": channels, "num_samples": 17, "dtype": "float32", "format": "WAV" if rep == "binaural" else "AmbiX ACN/SN3D"})
+                rows.append({"episode_id": eid, "representation": rep, "audio_path": str(audio.relative_to(source)), "rir_path": str(rir.relative_to(source)), "render_status": "complete", "sample_rate_hz": 24000, "num_channels": channels, "num_samples": 120000, "dtype": "float32", "format": "WAV" if rep == "binaural" else "AmbiX ACN/SN3D"})
         (source / "manifests/renders.jsonl").write_text("".join(json.dumps(x) + "\n" for x in rows))
         return episodes
 
+    def _target_plan_fixture(self, source, target, generation="repair-head"):
+        target.mkdir(parents=True, exist_ok=True)
+        (target / "manifests").mkdir(exist_ok=True)
+        episodes = [json.loads(x) for x in (source / "manifests/episodes.jsonl").read_text().splitlines()]
+        for episode in episodes:
+            episode["episode_id"] = episode["episode_id"].replace("pilot_004", "pilot_005")
+        (target / "manifests/episodes.jsonl").write_text("".join(json.dumps(x) + "\n" for x in episodes))
+        (target / "identity.json").write_text(json.dumps({"dataset_id": "clsdoa_v1_pilot_005", "generation_code_commit": generation}))
+        (target / "config_resolved.yaml").write_text("dataset_id: clsdoa_v1_pilot_005\nstorage:\n  require_rir: true\n")
+        (target / "resources.lock.json").write_text("{}\n")
+        (target / "manifests/plan.lock.json").write_text("{}\n")
+
     def test_repair_copies_binaural_independently_and_resume_keeps_it(self):
         with tempfile.TemporaryDirectory() as directory:
-            source = Path(directory) / "source"; target = Path(directory) / "target"; self._source_fixture(source)
-            with mock.patch("tools.clsdoa_v1.repair_pilot004_to_pilot005.current_clean_head", return_value="repair-head"):
+            source = Path(directory) / "source"; target = Path(directory) / "target"; self._source_fixture(source); self._target_plan_fixture(source, target)
+            with mock.patch("tools.clsdoa_v1.repair_pilot004_to_pilot005.current_clean_head", return_value="repair-head"), mock.patch("tools.clsdoa_v1.repair_pilot004_to_pilot005.verify_plan_integrity", return_value={"status": "PASS"}):
+                plan_files = ("manifests/episodes.jsonl", "manifests/plan.lock.json", "identity.json", "config_resolved.yaml", "resources.lock.json")
+                plan_hashes = {item: _sha(target / item) for item in plan_files}
                 first = repair_dataset(source, target, repo_root=Path(directory))
                 second = repair_dataset(source, target, resume=True, repo_root=Path(directory))
+                self.assertEqual(plan_hashes, {item: _sha(target / item) for item in plan_files})
             self.assertEqual(len(first), 4); self.assertEqual(len(second), 4)
             src = source / "audio/binaural/clsdoa_v1_pilot_004_ep_000001.wav"; dst = target / "audio/binaural/clsdoa_v1_pilot_005_ep_000001.wav"
             self.assertEqual(hashlib.sha256(src.read_bytes()).digest(), hashlib.sha256(dst.read_bytes()).digest())
@@ -113,34 +134,60 @@ class R3CRepairTests(unittest.TestCase):
                 done = Path(directory) / "done"; done.mkdir(); (done / "_SUCCESS").write_text("done")
                 with self.assertRaises(ValueError): repair_dataset(source, done, repo_root=Path(directory))
 
-    def test_duplicate_source_fingerprint_is_rejected(self):
+    def test_existing_plan_and_integrity_gate_are_required(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "source"; self._source_fixture(source)
+            target = Path(directory) / "target"; target.mkdir()
+            with self.assertRaises(ValueError): repair_dataset(source, target, repo_root=Path(directory))
+            self._target_plan_fixture(source, target)
+            with mock.patch("tools.clsdoa_v1.repair_pilot004_to_pilot005.current_clean_head", return_value="repair-head"), mock.patch("tools.clsdoa_v1.repair_pilot004_to_pilot005.verify_plan_integrity", side_effect=RuntimeError("drift")), self.assertRaises(ValueError):
+                repair_dataset(source, target, repo_root=Path(directory))
+
+    def test_duplicate_source_fingerprint_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source"; target = Path(directory) / "target"; self._source_fixture(source); self._target_plan_fixture(source, target)
             rows = [json.loads(x) for x in (source / "manifests/episodes.jsonl").read_text().splitlines()]
             rows[1] = json.loads(json.dumps(rows[0])); rows[1]["episode_id"] = "clsdoa_v1_pilot_004_ep_000002"
             (source / "manifests/episodes.jsonl").write_text("".join(json.dumps(x) + "\n" for x in rows))
-            with mock.patch("tools.clsdoa_v1.repair_pilot004_to_pilot005.current_clean_head", return_value="repair-head"), self.assertRaises(ValueError):
-                repair_dataset(source, Path(directory) / "target", repo_root=Path(directory))
+            with mock.patch("tools.clsdoa_v1.repair_pilot004_to_pilot005.current_clean_head", return_value="repair-head"), mock.patch("tools.clsdoa_v1.repair_pilot004_to_pilot005.verify_plan_integrity", return_value={"status": "PASS"}), self.assertRaises(ValueError):
+                repair_dataset(source, target, repo_root=Path(directory))
 
     def test_resume_identity_and_source_payload_negatives(self):
         with tempfile.TemporaryDirectory() as directory:
-            source = Path(directory) / "source"; target = Path(directory) / "target"; self._source_fixture(source)
-            with mock.patch("tools.clsdoa_v1.repair_pilot004_to_pilot005.current_clean_head", return_value="repair-head"):
+            source = Path(directory) / "source"; target = Path(directory) / "target"; self._source_fixture(source); self._target_plan_fixture(source, target)
+            with mock.patch("tools.clsdoa_v1.repair_pilot004_to_pilot005.current_clean_head", return_value="repair-head"), mock.patch("tools.clsdoa_v1.repair_pilot004_to_pilot005.verify_plan_integrity", return_value={"status": "PASS"}):
                 repair_dataset(source, target, repo_root=Path(directory))
                 identity = json.loads((target / "identity.json").read_text()); identity["generation_code_commit"] = "wrong"; (target / "identity.json").write_text(json.dumps(identity))
                 with self.assertRaises(ValueError): repair_dataset(source, target, resume=True, repo_root=Path(directory))
             source = Path(directory) / "missing-rir"; self._source_fixture(source)
             rir = source / "cache/rir/foa/clsdoa_v1_pilot_004_ep_000001.npy"; rir.unlink()
-            with mock.patch("tools.clsdoa_v1.repair_pilot004_to_pilot005.current_clean_head", return_value="repair-head"), self.assertRaises(ValueError):
-                repair_dataset(source, Path(directory) / "target-missing-rir", repo_root=Path(directory))
+            target = Path(directory) / "target-missing-rir"; self._target_plan_fixture(source, target)
+            with mock.patch("tools.clsdoa_v1.repair_pilot004_to_pilot005.current_clean_head", return_value="repair-head"), mock.patch("tools.clsdoa_v1.repair_pilot004_to_pilot005.verify_plan_integrity", return_value={"status": "PASS"}), self.assertRaises(ValueError):
+                repair_dataset(source, target, repo_root=Path(directory))
 
     def test_malformed_foa_payload_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
-            source = Path(directory) / "source"; self._source_fixture(source)
+            source = Path(directory) / "source"; target = Path(directory) / "target"; self._source_fixture(source); self._target_plan_fixture(source, target)
             wav = source / "audio/foa/clsdoa_v1_pilot_004_ep_000001.wav"
             wavfile.write(str(wav), 24000, np.ones((17, 2), dtype=np.float32))
-            with mock.patch("tools.clsdoa_v1.repair_pilot004_to_pilot005.current_clean_head", return_value="repair-head"), self.assertRaises(ValueError):
-                repair_dataset(source, Path(directory) / "target", repo_root=Path(directory))
+            with mock.patch("tools.clsdoa_v1.repair_pilot004_to_pilot005.current_clean_head", return_value="repair-head"), mock.patch("tools.clsdoa_v1.repair_pilot004_to_pilot005.verify_plan_integrity", return_value={"status": "PASS"}), self.assertRaises(ValueError):
+                repair_dataset(source, target, repo_root=Path(directory))
+
+    def test_corrupted_resume_repairs_only_damaged_representation_and_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "source"; target = Path(directory) / "target"; self._source_fixture(source); self._target_plan_fixture(source, target)
+            with mock.patch("tools.clsdoa_v1.repair_pilot004_to_pilot005.current_clean_head", return_value="repair-head"), mock.patch("tools.clsdoa_v1.repair_pilot004_to_pilot005.verify_plan_integrity", return_value={"status": "PASS"}):
+                repair_dataset(source, target, repo_root=Path(directory))
+                binary = target / "audio/binaural/clsdoa_v1_pilot_005_ep_000001.wav"
+                binary_hash = hashlib.sha256(binary.read_bytes()).hexdigest()
+                foa = target / "audio/foa/clsdoa_v1_pilot_005_ep_000001.wav"
+                wavfile.write(str(foa), 24000, np.ones((10, 4), dtype=np.float32))
+                repair_dataset(source, target, resume=True, repo_root=Path(directory))
+                self.assertEqual(hashlib.sha256(binary.read_bytes()).hexdigest(), binary_hash)
+                self.assertEqual(wavfile.read(str(foa))[1].shape, (120000, 4))
+                repaired_hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in target.rglob("*") if path.is_file()}
+                repair_dataset(source, target, resume=True, repo_root=Path(directory))
+                self.assertEqual(repaired_hashes, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in target.rglob("*") if path.is_file()})
 
 
 if __name__ == "__main__":
