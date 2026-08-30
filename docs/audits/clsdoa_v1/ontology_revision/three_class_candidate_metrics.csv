@@ -1,0 +1,121 @@
+class,dataset,source_clip_id,base_clip_id,metadata_label,metadata_title,original_sample_rate_hz,original_duration_sec,active_fraction,active_span_sec,longest_active_gap_sec,technical_pass,selected,crop_start_sec,final_sample_rate_hz,final_samples,final_dtype,final_sha256
+dog,ESC-50,1-100032-A-0.wav,1-100032-A-0,dog,,44100,5.0,0.08,0.4,0.0,True,False,,,,,
+dog,ESC-50,1-110389-A-0.wav,1-110389-A-0,dog,,44100,5.0,0.12,0.6000000000000001,0.0,True,False,,,,,
+dog,ESC-50,1-30226-A-0.wav,1-30226-A-0,dog,,44100,5.0,0.92,5.0,0.30000000000000004,True,True,0.0,24000,120000,float32,11f73723ac21ee1c8b28bec5cced0aa71268a66ccfe9325d78ac43685e143494
+dog,ESC-50,1-30344-A-0.wav,1-30344-A-0,dog,,44100,5.0,0.42,4.6000000000000005,0.7000000000000001,True,True,0.0,24000,120000,float32,fda10a1353797f2b5577991e5ff800b7bdffc7e20069c5e9a546466596510d44
+dog,ESC-50,1-32318-A-0.wav,1-32318-A-0,dog,,44100,5.0,0.42,4.800000000000001,0.5,True,True,0.0,24000,120000,float32,ffefaf759d7aa4f6f057e6ed0a23d2a166c8473f5aa757893d8b99db3422cf6d
+dog,ESC-50,1-59513-A-0.wav,1-59513-A-0,dog,,44100,5.0,0.54,5.0,0.9,True,True,0.0,24000,120000,float32,8719608ef8f9db5b59236d4afebca6d97d283dcea82687ba887ce89438c3d1e8
+dog,ESC-50,1-85362-A-0.wav,1-85362-A-0,dog,,44100,5.0,0.74,5.0,0.6000000000000001,True,True,0.0,24000,120000,float32,14bdbd1e88661c5147a27cb3c41629148f60707bac7794dbbae7284f6edbd3cc
+dog,ESC-50,1-97392-A-0.wav,1-97392-A-0,dog,,44100,5.0,0.26,2.5,0.7000000000000001,True,False,,,,,
+dog,ESC-50,2-114280-A-0.wav,2-114280-A-0,dog,,44100,5.0,0.46,4.800000000000001,0.6000000000000001,True,True,0.0,24000,120000,float32,605622f9933987091989ad9348f1ac18ed1c4cad720d34e6ea2e64e89cd73f1a
+dog,ESC-50,2-114587-A-0.wav,2-114587-A-0,dog,,44100,5.0,0.5,4.800000000000001,0.4,True,True,0.0,24000,120000,float32,c1aa309b83a42588218a8130052615bba85fa86e39f0ded6f3227d3bb4e044af
+dog,ESC-50,2-116400-A-0.wav,2-116400-A-0,dog,,44100,5.0,0.4,3.5,1.1,True,False,,,,,
+dog,ESC-50,2-117271-A-0.wav,2-117271-A-0,dog,,44100,5.0,0.84,5.0,0.4,True,True,0.0,24000,120000,float32,dc012406da63ef670f75c21aa76662e712ad3d1087cadd182ab0040112448190
+dog,ESC-50,2-118072-A-0.wav,2-118072-A-0,dog,,44100,5.0,0.22,1.1,0.0,True,False,,,,,
+dog,ESC-50,2-118964-A-0.wav,2-118964-A-0,dog,,44100,5.0,0.18,0.9,0.0,True,False,,,,,
+dog,ESC-50,2-122104-A-0.wav,2-122104-A-0,dog,,44100,5.0,0.54,4.5,1.3,True,False,,,,,
+dog,ESC-50,2-122104-B-0.wav,2-122104-B-0,dog,,44100,5.0,0.44,4.0,1.0,True,False,,,,,
+dog,ESC-50,3-136288-A-0.wav,3-136288-A-0,dog,,44100,5.0,0.9,4.5,0.0,True,False,,,,,
+dog,ESC-50,3-144028-A-0.wav,3-144028-A-0,dog,,44100,5.0,0.82,5.0,0.5,True,True,0.0,24000,120000,float32,49b09d3fedaa24ec2a049244cae6a788e3df81342dae518c19d6dd247695185c
+dog,ESC-50,3-155312-A-0.wav,3-155312-A-0,dog,,44100,5.0,0.54,4.7,1.0,True,True,0.0,24000,120000,float32,8f55234e287a729bfc4fe9815c4b6c20965f2fe6fcc8fc6909cee39d2385b344
+dog,ESC-50,3-157695-A-0.wav,3-157695-A-0,dog,,44100,5.0,0.46,4.800000000000001,0.8,True,True,0.0,24000,120000,float32,d25b461f2595263230ddb7b682c19f2078c1ede1ac187146f131d94a506feb07
+dog,ESC-50,3-163459-A-0.wav,3-163459-A-0,dog,,44100,5.0,0.16,0.8,0.0,True,False,,,,,
+dog,ESC-50,3-170015-A-0.wav,3-170015-A-0,dog,,44100,5.0,0.56,2.8000000000000003,0.0,True,False,,,,,
+dog,ESC-50,3-180256-A-0.wav,3-180256-A-0,dog,,44100,5.0,0.58,4.4,0.6000000000000001,True,False,,,,,
+dog,ESC-50,3-180977-A-0.wav,3-180977-A-0,dog,,44100,5.0,0.68,4.800000000000001,0.7000000000000001,True,True,0.0,24000,120000,float32,973678d88339cf1ba6c66fc49fbab320d257b7564452569283e53d3c20be00ae
+dog,ESC-50,4-182395-A-0.wav,4-182395-A-0,dog,,44100,5.0,0.16,0.8,0.0,True,False,,,,,
+dog,ESC-50,4-183992-A-0.wav,4-183992-A-0,dog,,44100,5.0,0.28,3.7,2.3000000000000003,True,False,,,,,
+dog,ESC-50,4-184575-A-0.wav,4-184575-A-0,dog,,44100,5.0,0.36,4.6000000000000005,0.7000000000000001,True,True,0.0,24000,120000,float32,f465affcf336faf70f909a95e2a47d94806b95757932f293bb8633d85ee62a1e
+dog,ESC-50,4-191687-A-0.wav,4-191687-A-0,dog,,44100,5.0,0.32,4.3,0.8,True,False,,,,,
+dog,ESC-50,4-192236-A-0.wav,4-192236-A-0,dog,,44100,5.0,0.44,3.9000000000000004,0.9,True,False,,,,,
+dog,ESC-50,4-194754-A-0.wav,4-194754-A-0,dog,,44100,5.0,0.88,4.7,0.2,True,True,0.0,24000,120000,float32,3276009cf30140d844e4ef0d96ed1590e183fd803d47b13db95353944aff32de
+dog,ESC-50,4-199261-A-0.wav,4-199261-A-0,dog,,44100,5.0,0.42,4.9,0.9,True,True,0.0,24000,120000,float32,656b11eab51b6edb00e8dfe35b44b3408295e504149163bc5b4a8646a8fd22a0
+dog,ESC-50,4-207124-A-0.wav,4-207124-A-0,dog,,44100,5.0,0.36,4.7,1.3,True,True,0.0,24000,120000,float32,0aa9af1c16d620d9201cfe61e9edbae3fbc1fde5fd06ff13d8c0286ae86b70c1
+dog,ESC-50,5-203128-A-0.wav,5-203128-A-0,dog,,44100,5.0,0.32,4.6000000000000005,1.8,True,True,0.0,24000,120000,float32,3f5c1d04a5ed1564da865396eb6ffa9010bc223c6326024135f14d30e41999fd
+dog,ESC-50,5-203128-B-0.wav,5-203128-B-0,dog,,44100,5.0,0.58,4.800000000000001,0.5,True,True,0.0,24000,120000,float32,c84be2795d94335adcbb9b1f8ddd28b62450e4686da3d0e426b7f49a159dcf56
+dog,ESC-50,5-208030-A-0.wav,5-208030-A-0,dog,,44100,5.0,0.62,4.7,0.6000000000000001,True,True,0.0,24000,120000,float32,7d632a59c251a3328f184439297bc23862691b5eb7424e99282d4df8cb7b53cb
+dog,ESC-50,5-212454-A-0.wav,5-212454-A-0,dog,,44100,5.0,0.48,3.9000000000000004,0.5,True,False,,,,,
+dog,ESC-50,5-213855-A-0.wav,5-213855-A-0,dog,,44100,5.0,0.5,4.6000000000000005,0.9,True,True,0.0,24000,120000,float32,b31e87df07469d6275646bffe5c74694047119ca358d66190387cbef7e6628a8
+dog,ESC-50,5-217158-A-0.wav,5-217158-A-0,dog,,44100,5.0,0.66,3.3000000000000003,0.0,True,False,,,,,
+dog,ESC-50,5-231762-A-0.wav,5-231762-A-0,dog,,44100,5.0,0.26,1.3,0.0,True,False,,,,,
+dog,ESC-50,5-9032-A-0.wav,5-9032-A-0,dog,,44100,5.0,0.22,2.6,0.6000000000000001,True,False,,,,,
+snoring,ESC-50,1-20545-A-28.wav,1-20545-A-28,snoring,,44100,5.0,0.44,4.0,1.1,True,False,,,,,
+snoring,ESC-50,1-27403-A-28.wav,1-27403-A-28,snoring,,44100,5.0,0.34,1.7000000000000002,0.0,True,False,,,,,
+snoring,ESC-50,1-27405-A-28.wav,1-27405-A-28,snoring,,44100,5.0,0.26,4.1000000000000005,2.8000000000000003,True,False,,,,,
+snoring,ESC-50,1-39937-A-28.wav,1-39937-A-28,snoring,,44100,5.0,1.0,5.0,0.0,True,True,0.0,24000,120000,float32,d75304188b1dc88d90c2ff7be48580b6f4d94f57ab64bb406a0cf0ff8edfe1b8
+snoring,ESC-50,1-40621-A-28.wav,1-40621-A-28,snoring,,44100,5.0,0.6,4.5,1.5,True,False,,,,,
+snoring,ESC-50,1-40967-A-28.wav,1-40967-A-28,snoring,,44100,5.0,1.0,5.0,0.0,True,True,0.0,24000,120000,float32,f38f686758abdde43fced1443300c01b8a96748b6bac5bbd5f13ca0261717c54
+snoring,ESC-50,1-47923-A-28.wav,1-47923-A-28,snoring,,44100,5.0,0.88,5.0,0.2,True,True,0.0,24000,120000,float32,162daffe9de3b85605f8683b26b037d5069a362190ad1d94f9f7c2100b6db261
+snoring,ESC-50,1-53444-A-28.wav,1-53444-A-28,snoring,,44100,5.0,0.62,4.800000000000001,1.4000000000000001,True,True,0.0,24000,120000,float32,acec52f2052e04f73c3986225111c4e0e836dbceed5a47291b1acbcced3ed359
+snoring,ESC-50,2-110417-A-28.wav,2-110417-A-28,snoring,,44100,5.0,0.3,1.5,0.0,True,False,,,,,
+snoring,ESC-50,2-110417-B-28.wav,2-110417-B-28,snoring,,44100,5.0,0.3,1.5,0.0,True,False,,,,,
+snoring,ESC-50,2-114609-A-28.wav,2-114609-A-28,snoring,,44100,5.0,0.38,4.7,2.3000000000000003,True,False,,,,,
+snoring,ESC-50,2-114609-B-28.wav,2-114609-B-28,snoring,,44100,5.0,0.54,4.1000000000000005,1.1,True,False,,,,,
+snoring,ESC-50,2-117330-A-28.wav,2-117330-A-28,snoring,,44100,5.0,1.0,5.0,0.0,True,True,0.0,24000,120000,float32,2b25af015a87e8b4daaf0c2d924bf160d2d7339b4836ed403c0374b5df181879
+snoring,ESC-50,2-52001-A-28.wav,2-52001-A-28,snoring,,44100,5.0,0.36,4.9,1.6,True,True,0.0,24000,120000,float32,6fcbd914404d8561f0f6cbf495a84efa77c802ae97b73504843f8967a29766dd
+snoring,ESC-50,2-52001-B-28.wav,2-52001-B-28,snoring,,44100,5.0,0.86,5.0,0.5,True,True,0.0,24000,120000,float32,a6e2a8d3d0a537c2ed2e4e428c96f78fae57745250105a15fd5cd7d04122c6f2
+snoring,ESC-50,2-80313-A-28.wav,2-80313-A-28,snoring,,44100,5.0,0.64,4.6000000000000005,0.5,True,False,,,,,
+snoring,ESC-50,3-123086-A-28.wav,3-123086-A-28,snoring,,44100,5.0,1.0,5.0,0.0,True,True,0.0,24000,120000,float32,7dce0b33aeb004a4533150de1b799427b4ccc43da03bec3ff6942dd688b1d24e
+snoring,ESC-50,3-124795-A-28.wav,3-124795-A-28,snoring,,44100,5.0,0.54,2.7,0.0,True,False,,,,,
+snoring,ESC-50,3-124958-A-28.wav,3-124958-A-28,snoring,,44100,5.0,1.0,5.0,0.0,True,True,0.0,24000,120000,float32,6de7970978da1b87b2ef867d4370f08fe2d63021a3fef7e81e04ea8992852176
+snoring,ESC-50,3-130998-A-28.wav,3-130998-A-28,snoring,,44100,5.0,0.98,5.0,0.1,True,True,0.0,24000,120000,float32,886acb65081f48abf436ab96ce2f60a9f6e6c16da3afc9468e26cdddf638db4a
+snoring,ESC-50,3-130998-B-28.wav,3-130998-B-28,snoring,,44100,5.0,0.78,4.7,0.5,True,False,,,,,
+snoring,ESC-50,3-151255-A-28.wav,3-151255-A-28,snoring,,44100,5.0,0.48,4.0,0.8,True,False,,,,,
+snoring,ESC-50,3-151557-A-28.wav,3-151557-A-28,snoring,,44100,5.0,0.28,3.3000000000000003,1.1,True,False,,,,,
+snoring,ESC-50,3-151557-B-28.wav,3-151557-B-28,snoring,,44100,5.0,0.34,2.1,0.4,True,False,,,,,
+snoring,ESC-50,4-180337-A-28.wav,4-180337-A-28,snoring,,44100,5.0,0.94,5.0,0.1,True,True,0.0,24000,120000,float32,87cc35296c3ebdaa431e6d655fe3dd1c3dfeb91e4e7fbd68ad05053a94c3de89
+snoring,ESC-50,4-183882-A-28.wav,4-183882-A-28,snoring,,44100,5.0,0.98,5.0,0.1,True,True,0.0,24000,120000,float32,ec82016e488a2e2fcc7a241ec70ea6c1837d5d7ed8f80fffb2816f68dad273b4
+snoring,ESC-50,4-183882-B-28.wav,4-183882-B-28,snoring,,44100,5.0,1.0,5.0,0.0,True,True,0.0,24000,120000,float32,cf2f056e1edf66d6c75fd60449566c263bab5527f5158cef6cf1640bdf97a11f
+snoring,ESC-50,4-184235-A-28.wav,4-184235-A-28,snoring,,44100,5.0,1.0,5.0,0.0,True,True,0.0,24000,120000,float32,a0578554c32c2c0df56cfe0dbe8d9e643b2a4db1a3a07272a08c57134286618b
+snoring,ESC-50,4-184237-A-28.wav,4-184237-A-28,snoring,,44100,5.0,1.0,5.0,0.0,True,True,0.0,24000,120000,float32,aca10c6f625e88922798c8192af34d3b2ce4f525038f82047bf39f1caf953558
+snoring,ESC-50,4-191297-A-28.wav,4-191297-A-28,snoring,,44100,5.0,0.92,5.0,0.2,True,True,0.0,24000,120000,float32,cffa3a16808c46c3aef5691e1b49241f9c032941330b9e56a1feba741b799484
+snoring,ESC-50,4-197454-A-28.wav,4-197454-A-28,snoring,,44100,5.0,0.42,4.5,2.4000000000000004,True,False,,,,,
+snoring,ESC-50,4-197454-B-28.wav,4-197454-B-28,snoring,,44100,5.0,0.3,1.5,0.0,True,False,,,,,
+snoring,ESC-50,5-216368-A-28.wav,5-216368-A-28,snoring,,44100,5.0,0.58,2.9000000000000004,0.0,True,False,,,,,
+snoring,ESC-50,5-233312-A-28.wav,5-233312-A-28,snoring,,44100,5.0,0.68,5.0,0.6000000000000001,True,True,0.0,24000,120000,float32,9129aabdc42eca6608d4ca0a54b722e211552f787798e889381ab01567440b80
+snoring,ESC-50,5-234145-A-28.wav,5-234145-A-28,snoring,,44100,5.0,0.9,4.7,0.2,True,True,0.0,24000,120000,float32,5062ea4c2c69b744d280cc7aa51c87367ecc03ce379d3e4943fa1eb0a0b61367
+snoring,ESC-50,5-235874-A-28.wav,5-235874-A-28,snoring,,44100,5.0,0.48,3.9000000000000004,1.4000000000000001,True,False,,,,,
+snoring,ESC-50,5-235893-A-28.wav,5-235893-A-28,snoring,,44100,5.0,0.5,4.7,1.6,True,False,,,,,
+snoring,ESC-50,5-236288-A-28.wav,5-236288-A-28,snoring,,44100,5.0,1.0,5.0,0.0,True,True,0.0,24000,120000,float32,ac79f75032067913b728312574f1a188dc9b1d6fd5a53fa173cd4728dc3e8c82
+snoring,ESC-50,5-244459-A-28.wav,5-244459-A-28,snoring,,44100,5.0,1.0,5.0,0.0,True,True,0.0,24000,120000,float32,2c0c922d01603627384adc3ee21f6ea1776716616a93d5c20366675f16908edf
+snoring,ESC-50,5-249748-A-28.wav,5-249748-A-28,snoring,,44100,5.0,0.28,4.5,2.0,True,False,,,,,
+instrumental_music,FSD50K,247198,fsd50k:dev:247198,"Trumpet,Brass_instrument,Musical_instrument,Music",overall quality of single note - trumpet - G#3,44100,5.769569160997732,0.8620689655172413,5.0,0.0,True,False,,,,,
+instrumental_music,FSD50K,120548,fsd50k:dev:120548,"Mallet_percussion,Percussion,Musical_instrument,Music",vibraphone2.wav,44100,10.454693877551021,0.47619047619047616,5.0,0.0,True,False,,,,,
+instrumental_music,FSD50K,187046,fsd50k:dev:187046,"Accordion,Musical_instrument,Music",Toriana F4.wav,44100,10.12265306122449,0.9117647058823529,9.4,0.1,True,True,2.4134013605442175,24000,120000,float32,7b5da80451955999782e33622e9ace711694a8122bae5c79e9906bed09cd5746
+instrumental_music,FSD50K,249969,fsd50k:eval:249969,"Electric_guitar,Bass_guitar,Applause,Guitar,Plucked_string_instrument,Musical_instrument,Music,Human_group_actions",stoned audience loop.wav,44100,27.296553287981858,0.9926739926739927,27.3,0.2,True,True,8.147165532879818,24000,120000,float32,280f62d3a3b18875ae89f29b28f8189c3a74e5b09f0b731c82a7fadb6de69698
+instrumental_music,FSD50K,357564,fsd50k:dev:357564,"Trumpet,Brass_instrument,Musical_instrument,Music",Trumpet - Gsharp4 - bad-dynamics-decrescendo,44100,5.1250113378684805,0.6346153846153846,3.3000000000000003,0.0,True,False,,,,,
+instrumental_music,FSD50K,359628,fsd50k:dev:359628,"Wind_instrument_and_woodwind_instrument,Musical_instrument,Music",Sax Tenor - D minor,44100,6.943650793650794,0.9285714285714286,6.5,0.0,True,False,,,,,
+instrumental_music,FSD50K,248468,fsd50k:dev:248468,"Wind_instrument_and_woodwind_instrument,Musical_instrument,Music",Clarinet - E5,44100,6.0,0.7666666666666667,4.6000000000000005,0.0,True,False,,,,,
+instrumental_music,FSD50K,64819,fsd50k:dev:64819,"Piano,Keyboard_(musical),Musical_instrument,Music",pianos_y_teclados_35.wav,44100,6.857165532879819,0.9855072463768116,6.800000000000001,0.0,True,True,0.11845804988662131,24000,120000,float32,1a172e159f39afd0ef39fa60c95468afdeceed90fe7ba2a6a581e1e0995dae34
+instrumental_music,FSD50K,248983,fsd50k:dev:248983,"Wind_instrument_and_woodwind_instrument,Musical_instrument,Music",Clarinet - G3 - bad-richness-pato,44100,6.263333333333334,0.746031746031746,4.7,0.0,True,False,,,,,
+instrumental_music,FSD50K,357048,fsd50k:dev:357048,"Wind_instrument_and_woodwind_instrument,Musical_instrument,Music",Clarinet - Dsharp major - bad-dynamics,44100,8.520702947845805,0.8488372093023255,7.300000000000001,0.0,True,True,2.6225170068027213,24000,120000,float32,08721d535f65eda63ab3e1d611ffca91ba50b681c8ec70c349deb955807dd107
+instrumental_music,FSD50K,354390,fsd50k:dev:354390,"Wind_instrument_and_woodwind_instrument,Musical_instrument,Music",Flute - Gsharp5 - bad-timbre,44100,10.453333333333333,0.6666666666666666,7.4,0.30000000000000004,True,True,5.057006802721088,24000,120000,float32,0c90f4ff4ac58072f3b2902a07f8d10c5b0aa32b8f1e2fa88f4130566c140eab
+instrumental_music,FSD50K,319588,fsd50k:eval:319588,"Piano,Keyboard_(musical),Musical_instrument,Music",Althouger-E1.wav,44100,14.769251700680272,0.6959459459459459,14.3,0.7000000000000001,True,True,2.1944444444444446,24000,120000,float32,11012692b9dfff216b11e6f5126ead28a97c979ec5c016f0d5650a6c7d3ad10b
+instrumental_music,FSD50K,375081,fsd50k:dev:375081,"Brass_instrument,Musical_instrument,Music",OldTrombone - C2 (Trombone_Vibrato_C2_v1_1.wav),44100,6.5364172335600905,0.8939393939393939,5.9,0.0,True,False,,,,,
+instrumental_music,FSD50K,357744,fsd50k:dev:357744,"Trumpet,Brass_instrument,Musical_instrument,Music",Trumpet - B natural minor - bad-dynamics,44100,7.241609977324263,0.7808219178082192,5.9,0.1,True,False,,,,,
+instrumental_music,FSD50K,359282,fsd50k:dev:359282,"Wind_instrument_and_woodwind_instrument,Musical_instrument,Music",Sax Tenor - A#2 - bad-dynamics,44100,6.485351473922902,0.5846153846153846,3.8000000000000003,0.0,True,False,,,,,
+instrumental_music,FSD50K,355245,fsd50k:dev:355245,"Wind_instrument_and_woodwind_instrument,Musical_instrument,Music",Oboe - C#5 - bad-dynamics-bad-timbre-bad-pitch,44100,6.378344671201814,0.8125,5.2,0.0,True,False,,,,,
+instrumental_music,FSD50K,58873,fsd50k:dev:58873,"Tambourine,Rattle_(instrument),Percussion,Musical_instrument,Music",mixed percussion 1.wav,44100,6.496621315192744,0.9846153846153847,6.5,0.1,True,True,0.98140589569161,24000,120000,float32,5f6184a16c73e7117ac7a102b5e0f2d6f13d7c8a810bda484025007a7629ff4f
+instrumental_music,FSD50K,55891,fsd50k:dev:55891,"Bowed_string_instrument,Musical_instrument,Music",violin arco non vib D#3.aif,44100,6.208344671201814,0.7619047619047619,4.800000000000001,0.0,True,False,,,,,
+instrumental_music,FSD50K,31468,fsd50k:eval:31468,"Harmonica,Musical_instrument,Music",harmonica2.wav,44100,12.37501133786848,0.75,11.3,0.7000000000000001,True,True,3.041224489795918,24000,120000,float32,b7ad25f6a59d79c236e5de5aa003dab8ba7c4f0ee3cdd816a859b1401985e1b2
+instrumental_music,FSD50K,264937,fsd50k:dev:264937,"Mallet_percussion,Percussion,Musical_instrument,Music",percussive loop 1L63,44100,21.368163265306123,1.0,21.400000000000002,0.0,True,True,2.9545351473922903,24000,120000,float32,d169385c88e6225faeee06627e52715c9ae5d90413b3d15fd58d12ff991e7636
+instrumental_music,FSD50K,83129,fsd50k:dev:83129,"Piano,Keyboard_(musical),Musical_instrument,Music",Manthey-D#4.WAV,44100,9.573469387755102,0.4375,5.5,0.4,True,False,,,,,
+instrumental_music,FSD50K,360397,fsd50k:dev:360397,"Bass_drum,Drum,Percussion,Musical_instrument,Music",Experimental Kick Loops  (20).wav,44100,5.6250113378684805,0.9473684210526315,5.7,0.1,True,False,,,,,
+instrumental_music,FSD50K,358104,fsd50k:dev:358104,"Bowed_string_instrument,Musical_instrument,Music",Cello - A4 - bad-pitch,44100,6.9845804988662135,0.7428571428571429,5.2,0.0,True,False,,,,,
+instrumental_music,FSD50K,65662,fsd50k:dev:65662,"Piano,Keyboard_(musical),Musical_instrument,Music",C_S Rhodes Mark II F5.aif,44100,6.791088435374149,0.3088235294117647,2.1,0.0,True,False,,,,,
+instrumental_music,FSD50K,246776,fsd50k:dev:246776,"Bowed_string_instrument,Musical_instrument,Music",Cello - G2 - other,44100,6.288231292517007,0.6349206349206349,4.0,0.0,True,False,,,,,
+instrumental_music,FSD50K,356956,fsd50k:dev:356956,"Wind_instrument_and_woodwind_instrument,Musical_instrument,Music",Clarinet - G natural minor,44100,6.523605442176871,0.8484848484848485,5.6000000000000005,0.0,True,False,,,,,
+instrumental_music,FSD50K,358838,fsd50k:dev:358838,"Wind_instrument_and_woodwind_instrument,Musical_instrument,Music",Sax Alto - G# Major,44100,9.104444444444445,0.8913043478260869,8.3,0.1,True,True,3.231519274376417,24000,120000,float32,9c8510ae7476e5c56cd18df08b7425a964be62b2c5b6e4972b479894de4b2ea4
+instrumental_music,FSD50K,367227,fsd50k:dev:367227,"Guitar,Plucked_string_instrument,Musical_instrument,Music",tico.wav,44100,8.428843537414966,0.8705882352941177,7.7,0.1,True,True,2.3991156462585033,24000,120000,float32,9020ca49a0cbcb11ce6034ab0e54ec2f27fe7577a19ee4cde1ae00bfe1e01d71
+instrumental_music,FSD50K,248404,fsd50k:dev:248404,"Wind_instrument_and_woodwind_instrument,Musical_instrument,Music",Clarinet - C4,44100,6.0,0.75,4.5,0.0,True,False,,,,,
+instrumental_music,FSD50K,172564,fsd50k:eval:172564,"Accordion,Musical_instrument,Music",joura_accordion.wav,44100,9.75,0.9795918367346939,9.600000000000001,0.0,True,True,1.814580498866213,24000,120000,float32,ba704a0bf0fea9f6433dddaf02719433c5d792e72f08cd530268584aaa0ee381
+instrumental_music,FSD50K,413863,fsd50k:dev:413863,"Bass_guitar,Guitar,Plucked_string_instrument,Musical_instrument,Music",FunkBass_GrooveLo0p_Cm_9,44100,9.6,0.9583333333333334,9.600000000000001,0.1,True,True,3.4096371882086167,24000,120000,float32,a1b0401c53f865a8ce82df68725e810f99f4d979108d109b1390c04d49b00587
+instrumental_music,FSD50K,358391,fsd50k:dev:358391,"Wind_instrument_and_woodwind_instrument,Musical_instrument,Music",Sax Alto - D#4,44100,6.03734693877551,0.6885245901639344,4.2,0.0,True,False,,,,,
+instrumental_music,FSD50K,24469,fsd50k:dev:24469,"Keyboard_(musical),Musical_instrument,Music",Brass !.wav,44100,13.520294784580498,0.6397058823529411,11.9,1.4000000000000001,True,True,3.6863945578231294,24000,120000,float32,ab328e58c64a83bb4b9c4b6b62e4d9a4c12b636d46109d701e2a563d82274c90
+instrumental_music,FSD50K,357865,fsd50k:dev:357865,"Trumpet,Brass_instrument,Musical_instrument,Music",Trumpet - Asharp major - bad-timbre-water,44100,8.106666666666667,0.9634146341463414,7.9,0.0,True,True,0.8762585034013606,24000,120000,float32,b03a50c62513792f002545b31a0a82f4acf65cdb210c2fa969d02326d008d2fc
+instrumental_music,FSD50K,357663,fsd50k:dev:357663,"Trumpet,Brass_instrument,Musical_instrument,Music",Trumpet - B major - bad-tempo,44100,10.351111111111111,0.8846153846153846,9.200000000000001,0.0,True,True,3.788956916099773,24000,120000,float32,7de0d0d1e5a9d18bbd9c974cf46fd86c2a10991b860e89fa1885dfdda38b1209
+instrumental_music,FSD50K,64780,fsd50k:dev:64780,"Electric_guitar,Guitar,Plucked_string_instrument,Musical_instrument,Music",guitarras_83.wav,44100,6.857165532879819,1.0,6.9,0.0,True,True,0.5049433106575963,24000,120000,float32,c6c556a01497fab184b63f0d7a18699bbc747120a54a21367dd447ccaa90cda7
+instrumental_music,FSD50K,13458,fsd50k:dev:13458,"Wind_instrument_and_woodwind_instrument,Musical_instrument,Music",063.wav,44100,9.080136054421768,1.0,9.1,0.0,True,True,4.064489795918368,24000,120000,float32,ee05f204a70fee1a95069edd94150ef1d4e9f9e78db21447612490d1b64ae1a8
+instrumental_music,FSD50K,24822,fsd50k:dev:24822,"Drum,Percussion,Musical_instrument,Music",timp64_D#_p2.flac,44100,28.37562358276644,0.3380281690140845,24.700000000000003,3.4000000000000004,True,True,7.765034013605442,24000,120000,float32,e0b27096f0665e266cfe640745b8b23b1e05e935be541cd55045a1c932e6be2b
+instrumental_music,FSD50K,209398,fsd50k:dev:209398,"Gong,Percussion,Musical_instrument,Music",Gong- Loud HIt,44100,20.532244897959185,0.6504854368932039,13.9,0.4,True,True,11.073832199546485,24000,120000,float32,940ea35185978d7ef4bf551181fe60fabbb8e399cf64b599c0f139250aad31c6
+instrumental_music,FSD50K,182940,fsd50k:dev:182940,"Acoustic_guitar,Guitar,Plucked_string_instrument,Musical_instrument,Music","GtrClass-00f,4s(50)~v04.wav",44100,5.208344671201814,0.8301886792452831,5.2,0.8,True,False,,,,,
