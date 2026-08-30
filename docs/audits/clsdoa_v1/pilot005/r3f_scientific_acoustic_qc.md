@@ -10,9 +10,10 @@ renderer, converter, resume journal, or `_SUCCESS` marker was modified.
 - Pilot004 source: `/home/leiyuxin/soundspaces/worktrees/clsdoa-step3-r1-3b/datasets/binaural_foa_clsdoa_v1/clsdoa_v1_pilot_004`
 - Pilot005 root: `datasets/binaural_foa_clsdoa_v1/clsdoa_v1_pilot_005`
 
-The pre/post payload file set was unchanged at 3,842 files: 1,920 WAV files,
-1,920 RIR `.npy` files, `manifests/renders.jsonl`, and
-`manifests/derivation.lock.json`. `_SUCCESS` is absent.
+The R3E snapshot file set was unchanged at 3,842 entries, covering the 1,920
+WAV files, 1,920 RIR `.npy` files, `manifests/renders.jsonl`, and
+`manifests/derivation.lock.json`; the directory also contains the frozen
+metadata files listed below. `_SUCCESS` is absent.
 
 Frozen Pilot005 SHA values observed before and after this audit were identical:
 
