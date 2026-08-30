@@ -155,7 +155,8 @@ def validate_render_payload(root):
     validate_render_rows(rows, expected)
     verify_plan_integrity(root, ROOT)
     episodes = [json.loads(line) for line in (root / "manifests/episodes.jsonl").read_text().splitlines() if line]
-    _require(len(episodes) == 960 and len({row["episode_id"] for row in episodes}) == 960, "payload requires all 960 unique episodes")
+    expected_episode_count = _expected_episode_count(root)
+    _require(len(episodes) == expected_episode_count and len({row["episode_id"] for row in episodes}) == expected_episode_count, "payload requires all {} unique episodes".format(expected_episode_count))
     for row in rows:
         validate_render_record_payload(root, row)
     return True
@@ -163,15 +164,21 @@ def validate_render_payload(root):
 
 def _payload_expected_keys(root):
     episodes = [json.loads(line) for line in (Path(root) / "manifests/episodes.jsonl").read_text().splitlines() if line]
-    _require(len(episodes) == 960 and len({row["episode_id"] for row in episodes}) == 960, "payload requires all 960 unique episodes")
+    expected_episode_count = _expected_episode_count(root)
+    _require(len(episodes) == expected_episode_count and len({row["episode_id"] for row in episodes}) == expected_episode_count, "payload requires all {} unique episodes".format(expected_episode_count))
     return {(row["episode_id"], representation) for row in episodes for representation in ("binaural", "foa")}
 
 
+def _expected_episode_count(root):
+    config = yaml.safe_load((Path(root) / "config_resolved.yaml").read_text())
+    return 96 if str(config.get("dataset_id", "")).startswith("clsdoa_v1_ontology_v2_revision_pilot_") else 960
+
+
 def validate_render_rows(rows, expected):
-    _require(len(rows) == 1920, "render journal must contain exactly 1920 records")
+    _require(len(rows) == len(expected), "render journal must contain exactly {} records".format(len(expected)))
     _require(all(row.get("render_status") == "complete" for row in rows), "render journal contains non-complete records")
     keys = {(row.get("episode_id"), row.get("representation")) for row in rows}
-    _require(keys == expected and len(keys) == 1920, "payload must contain exactly one complete binaural and foa record per episode")
+    _require(keys == expected and len(keys) == len(expected), "payload must contain exactly one complete binaural and foa record per episode")
 
 
 def validate_render_record_payload(root, row):
