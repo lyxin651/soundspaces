@@ -29,6 +29,10 @@ def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(config, dict):
         raise ConfigError("config root must be a mapping")
 
+    # V0.5 is deliberately an explicit contract; legacy V0 validation remains unchanged.
+    if config.get("acoustics", {}).get("backend") == "soundspaces_precomputed":
+        return _validate_precomputed_config(config)
+
     _require(
         config,
         (
@@ -257,4 +261,31 @@ def validate_config(config: Dict[str, Any]) -> Dict[str, Any]:
     _number(golden["listener_yaw_deg"], "golden.listener_yaw_deg")
     _number(golden["segment_start_sec"], "golden.segment_start_sec")
     _number(golden["gain_db"], "golden.gain_db")
+    return config
+
+
+def _validate_precomputed_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    experiment = config["experiment"]
+    if str(experiment.get("schema_version")) != "v0.5":
+        raise ConfigError("precomputed backend requires experiment.schema_version v0.5")
+    audio = config["dry_audio"]
+    if int(audio.get("target_sample_rate_hz", 0)) != 24000:
+        raise ConfigError("V0.5 dry_audio.target_sample_rate_hz must be 24000")
+    acoustics = config["acoustics"]
+    for key, expected in (("channel_layout", "binaural"), ("convolution_mode", "full"),
+                          ("canonical_rir_dtype", "float32"), ("canonical_wav_dtype", "float32")):
+        if acoustics.get(key) != expected: raise ConfigError("acoustics.{} must be {!r}".format(key, expected))
+    if acoustics.get("canonical_output_sample_rate_hz") != 24000 or acoustics.get("rir_intermediate_sample_rate_hz") != 16000:
+        raise ConfigError("precomputed canonical rates must be 16000 intermediate and 24000 output")
+    if acoustics.get("per_viewpoint_normalization", False):
+        raise ConfigError("precomputed backend forbids viewpoint normalization")
+    if not config.get("acoustics", {}).get("rir_root"):
+        raise ConfigError("acoustics.rir_root is required and must not be hard-coded")
+    if config.get("navigation", {}).get("backend") != "soundspaces_graph":
+        raise ConfigError("navigation.backend must be soundspaces_graph")
+    if config.get("navigation", {}).get("candidate_mode") != "graph_neighbors":
+        raise ConfigError("navigation.candidate_mode must be graph_neighbors")
+    dataset_id = str(config["storage"].get("dataset_id", ""))
+    if not dataset_id.startswith("aa_v05_"):
+        raise ConfigError("V0.5 dataset_id must use aa_v05_ namespace")
     return config

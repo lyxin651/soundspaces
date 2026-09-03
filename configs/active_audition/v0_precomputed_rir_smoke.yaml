@@ -1,0 +1,39 @@
+experiment:
+  name: v0_precomputed_rir_smoke
+  schema_version: v0.5
+  global_seed: 20260824
+
+audio:  # public V0.5 contract alias; dry_audio remains the legacy loader key
+  dry_sample_rate_hz: 24000
+
+dry_audio:
+  target_sample_rate_hz: 24000
+
+acoustics:
+  backend: soundspaces_precomputed
+  rir_root: /ABSOLUTE/PATH/TO/OFFICIAL/BINAURAL_RIRS
+  canonical_output_sample_rate_hz: 24000
+  rir_intermediate_sample_rate_hz: 16000
+  sample_rate_hz: 24000
+  per_viewpoint_normalization: false
+  save_rir: true
+  verify_asset_sha256: true
+
+navigation:
+  backend: soundspaces_graph
+  candidate_mode: graph_neighbors
+  enable_stay: true
+  enable_rotation: true
+  heading_policy: dataset_native
+
+scene:
+  ids: [replica.office_0]
+episode:
+  mode: fixed
+  count: 1
+  source_listener_min_distance_m: null
+  source_listener_max_distance_m: null
+storage:
+  dataset_id: aa_v05_precomputed_smoke_001
+  save_audio: true
+  save_rir: true

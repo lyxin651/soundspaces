@@ -15,11 +15,17 @@ from active_audition.scene.simulator import create_scene_simulator
 from active_audition.acoustics.rir import run_channel_order_gate
 from active_audition.pipeline.v0 import finalize_dataset, render_dataset
 from active_audition.data.validation import validate_dataset
+from active_audition.acoustics.precomputed_rir import PrecomputedRIRBackend
 
 
 def precheck(config_path: str) -> dict:
     config = load_resolved_config(config_path)
     repo_root = Path(config["_repo_root"])
+    if config["acoustics"].get("backend") == "soundspaces_precomputed":
+        backend = PrecomputedRIRBackend(config["acoustics"]["rir_root"], config["navigation"].get("heading_mapping_version", "dataset-native-v1"))
+        if not backend.available:
+            return {"status": "BLOCKED_ASSET_NOT_AVAILABLE", "rir_root": config["acoustics"]["rir_root"], "backend": "soundspaces_precomputed", "message": "official precomputed RIR root is not available; no download or RLRA fallback was attempted"}
+        return {"status": "PASS", "backend": "soundspaces_precomputed", "rir_root": str(backend.root), "scenes": backend.list_scenes(), "headings": {scene: backend.list_headings(scene) for scene in backend.list_scenes()}, "nodes": {scene: backend.list_nodes(scene) for scene in backend.list_scenes()}}
     scenes = load_scene_registry(config["registries"]["scenes_path"], str(repo_root))
     dry_audio = load_dry_audio_registry(config["registries"]["dry_audio_path"], str(repo_root))
     with create_scene_simulator(config) as context:
@@ -46,6 +52,11 @@ def precheck(config_path: str) -> dict:
 
 def plan(config_path: str, output_root: str = "") -> dict:
     config = load_resolved_config(config_path)
+    if config["acoustics"].get("backend") == "soundspaces_precomputed":
+        status = precheck(config_path)
+        if status.get("status") != "PASS":
+            raise RuntimeError(status["status"] + ": " + status.get("message", "precomputed RIR assets unavailable"))
+        raise RuntimeError("PRECOMPUTED_GRAPH_PLAN_REQUIRES_OFFICIAL_NODE_INDEX: legacy arbitrary-pose planner was not used")
     repo_root = Path(config["_repo_root"])
     dry_audio = load_dry_audio_registry(config["registries"]["dry_audio_path"], str(repo_root))
     storage = DatasetStorage(output_root) if output_root else DatasetStorage.from_config(str(repo_root), config)
