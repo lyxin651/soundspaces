@@ -11,7 +11,8 @@ dry_audio:
 
 acoustics:
   backend: soundspaces_precomputed
-  rir_root: /ABSOLUTE/PATH/TO/OFFICIAL/BINAURAL_RIRS
+  rir_root: source_assets/soundspaces_official/binaural_rirs/extracted
+  metadata_root: source_assets/soundspaces_official/metadata/metadata
   canonical_output_sample_rate_hz: 24000
   rir_intermediate_sample_rate_hz: 16000
   sample_rate_hz: 24000
@@ -27,10 +28,10 @@ navigation:
   heading_policy: dataset_native
 
 scene:
-  ids: [replica.office_0]
+  ids: [replica.office_0, mp3d.17DRP5sb8fy]
 episode:
   mode: fixed
-  count: 1
+  count: 2
   source_listener_min_distance_m: null
   source_listener_max_distance_m: null
 storage:

@@ -111,6 +111,9 @@ def _append_generation_event(storage: DatasetStorage, event: Mapping[str, Any]) 
 
 
 def render_dataset(config_path: str, resume: bool = False, overwrite: bool = False) -> Dict[str, Any]:
+    if load_resolved_config(config_path)["acoustics"].get("backend") == "soundspaces_precomputed":
+        from active_audition.pipeline.precomputed import render_precomputed
+        return render_precomputed(config_path, resume=resume)
     if resume and overwrite:
         raise StorageError("--resume and --overwrite are mutually exclusive")
     config = load_resolved_config(config_path)

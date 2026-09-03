@@ -8,13 +8,6 @@ from active_audition.config.loader import load_resolved_config
 from active_audition.data.catalog import load_dry_audio_registry, load_scene_registry
 from active_audition.data.manifest import write_plan_manifests
 from active_audition.data.storage import DatasetStorage
-from active_audition.navigation.candidates import generate_candidates
-from active_audition.navigation.pathfinder import PathFinderAdapter
-from active_audition.scene.episode import fixed_golden_episode, generate_episodes
-from active_audition.scene.simulator import create_scene_simulator
-from active_audition.acoustics.rir import run_channel_order_gate
-from active_audition.pipeline.v0 import finalize_dataset, render_dataset
-from active_audition.data.validation import validate_dataset
 from active_audition.acoustics.precomputed_rir import PrecomputedRIRBackend
 
 
@@ -22,13 +15,20 @@ def precheck(config_path: str) -> dict:
     config = load_resolved_config(config_path)
     repo_root = Path(config["_repo_root"])
     if config["acoustics"].get("backend") == "soundspaces_precomputed":
-        backend = PrecomputedRIRBackend(config["acoustics"]["rir_root"], config["navigation"].get("heading_mapping_version", "dataset-native-v1"))
+        backend = PrecomputedRIRBackend(str(Path(config["_repo_root"]) / config["acoustics"]["rir_root"]), config["navigation"].get("heading_mapping_version", "dataset-native-v1"), str(Path(config["_repo_root"]) / config["acoustics"]["metadata_root"]))
         if not backend.available:
             return {"status": "BLOCKED_ASSET_NOT_AVAILABLE", "rir_root": config["acoustics"]["rir_root"], "backend": "soundspaces_precomputed", "message": "official precomputed RIR root is not available; no download or RLRA fallback was attempted"}
         return {"status": "PASS", "backend": "soundspaces_precomputed", "rir_root": str(backend.root), "scenes": backend.list_scenes(), "headings": {scene: backend.list_headings(scene) for scene in backend.list_scenes()}, "nodes": {scene: backend.list_nodes(scene) for scene in backend.list_scenes()}}
     scenes = load_scene_registry(config["registries"]["scenes_path"], str(repo_root))
     dry_audio = load_dry_audio_registry(config["registries"]["dry_audio_path"], str(repo_root))
+    from active_audition.scene.simulator import create_scene_simulator
+    from active_audition.navigation.pathfinder import PathFinderAdapter
+    from active_audition.scene.episode import fixed_golden_episode
     with create_scene_simulator(config) as context:
+        from active_audition.navigation.pathfinder import PathFinderAdapter
+        from active_audition.scene.episode import generate_episodes
+        from active_audition.navigation.candidates import generate_candidates
+        from active_audition.scene.simulator import create_scene_simulator
         pathfinder = PathFinderAdapter(context.pathfinder)
         episode = fixed_golden_episode(config, pathfinder)
         source_geodesic = pathfinder.geodesic_distance(
@@ -53,13 +53,15 @@ def precheck(config_path: str) -> dict:
 def plan(config_path: str, output_root: str = "") -> dict:
     config = load_resolved_config(config_path)
     if config["acoustics"].get("backend") == "soundspaces_precomputed":
-        status = precheck(config_path)
-        if status.get("status") != "PASS":
-            raise RuntimeError(status["status"] + ": " + status.get("message", "precomputed RIR assets unavailable"))
-        raise RuntimeError("PRECOMPUTED_GRAPH_PLAN_REQUIRES_OFFICIAL_NODE_INDEX: legacy arbitrary-pose planner was not used")
+        from active_audition.pipeline.precomputed import plan_precomputed
+        return plan_precomputed(config_path)
     repo_root = Path(config["_repo_root"])
     dry_audio = load_dry_audio_registry(config["registries"]["dry_audio_path"], str(repo_root))
     storage = DatasetStorage(output_root) if output_root else DatasetStorage.from_config(str(repo_root), config)
+    from active_audition.scene.simulator import create_scene_simulator
+    from active_audition.navigation.pathfinder import PathFinderAdapter
+    from active_audition.scene.episode import generate_episodes
+    from active_audition.navigation.candidates import generate_candidates
     sampling_diagnostics = {
         "accepted_episode_count": 0,
         "total_sampling_attempts": 0,
@@ -144,8 +146,10 @@ def main() -> None:
             )
         )
     elif args.command == "render":
+        from active_audition.pipeline.v0 import render_dataset
         print(json.dumps(render_dataset(args.config, args.resume, args.overwrite), ensure_ascii=False, indent=2, sort_keys=True))
     elif args.command == "validate":
+        from active_audition.data.validation import validate_dataset
         config = load_resolved_config(args.config)
         result = validate_dataset(args.dataset, config, require_success=False)
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
@@ -155,6 +159,8 @@ def main() -> None:
         config = load_resolved_config(args.config)
         from active_audition.scene.episode import fixed_golden_episode
         from active_audition.navigation.pathfinder import PathFinderAdapter
+        from active_audition.scene.simulator import create_scene_simulator
+        from active_audition.acoustics.rir import run_channel_order_gate
         with create_scene_simulator(config) as context:
             episode = fixed_golden_episode(config, PathFinderAdapter(context.pathfinder))
             result = run_channel_order_gate(
@@ -169,7 +175,15 @@ def main() -> None:
         print(json.dumps(run_v0(args.config, args.resume, args.overwrite), ensure_ascii=False, indent=2, sort_keys=True))
     elif args.command == "finalize":
         config = load_resolved_config(args.config)
+        if config["acoustics"].get("backend") == "soundspaces_precomputed":
+            from active_audition.pipeline.precomputed import finalize_precomputed
+            from active_audition.data.validation import validate_dataset
+            dataset_root = str(Path(config["_repo_root"]) / "datasets/active_audition_v05" / config["storage"]["dataset_id"])
+            validation = validate_dataset(dataset_root, config, require_success=False)
+            print(json.dumps(finalize_precomputed(args.config, validation), ensure_ascii=False, indent=2, sort_keys=True))
+            return
         from active_audition.pipeline.v0 import finalize_dataset
+        from active_audition.data.validation import validate_dataset
         dataset_root = str(DatasetStorage.from_config(config["_repo_root"], config).root)
         validation = validate_dataset(dataset_root, config, require_success=False)
         print(json.dumps(finalize_dataset(args.config, validation), ensure_ascii=False, indent=2, sort_keys=True))

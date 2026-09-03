@@ -51,9 +51,10 @@ class PrecomputedRIRBackend:
     containing ``source``/``receiver``/``yaw`` or ``heading`` tokens.
     """
 
-    def __init__(self, rir_root: str, heading_mapping_version: str = "dataset-native-v1"):
+    def __init__(self, rir_root: str, heading_mapping_version: str = "dataset-native-v1", metadata_root: Optional[str] = None):
         self.root = Path(rir_root).expanduser().resolve()
         self.heading_mapping_version = str(heading_mapping_version)
+        self.metadata_root = Path(metadata_root).expanduser().resolve() if metadata_root else None
         self._rows: Dict[Tuple[str, str, str, int], Path] = {}
         self._nodes: Dict[str, Dict[str, Tuple[float, float, float]]] = {}
         self._headings: Dict[str, Dict[int, float]] = {}
@@ -69,8 +70,42 @@ class PrecomputedRIRBackend:
         index = next((self.root / name for name in ("rir_index.json", "index.json", "manifest.json") if (self.root / name).is_file()), None)
         if index:
             self._read_index(index)
-        for path in sorted(self.root.rglob("*.wav")):
-            self._parse_path(path)
+        indexed = False
+        for archive_list in sorted(self.root.parent.glob("*.tar.list")):
+            indexed = True
+            archive_root = self.root / archive_list.name[:-len(".tar.list")]
+            for line in archive_list.read_text(encoding="utf-8").splitlines():
+                if line.endswith(".wav"):
+                    self._parse_path(archive_root / line)
+        if not indexed:
+            for path in sorted(self.root.rglob("*.wav")):
+                self._parse_path(path)
+        self._load_graph_metadata()
+
+    def _load_graph_metadata(self) -> None:
+        if not self.metadata_root or not self.metadata_root.is_dir():
+            return
+        import pickle
+        for graph_path in sorted(self.metadata_root.rglob("graph.pkl")):
+            relative = graph_path.relative_to(self.metadata_root).parts
+            if len(relative) < 3:
+                continue
+            scene = str(relative[-2])
+            family = str(relative[-3])
+            scene_id = family + "." + scene
+            try:
+                with graph_path.open("rb") as handle:
+                    graph = pickle.load(handle)
+                self._neighbors.update({(scene_id, str(node)): tuple(sorted(str(n) for n in graph.neighbors(node))) for node in graph.nodes()})
+            except Exception as exc:
+                raise PrecomputedRIRError("graph_index_unreadable: {}".format(graph_path)) from exc
+            points = graph_path.with_name("points.txt")
+            if points.is_file():
+                node_map = self._nodes.setdefault(scene_id, {})
+                for line in points.read_text(encoding="utf-8").splitlines():
+                    fields = line.split()
+                    if len(fields) >= 4:
+                        node_map[str(fields[0])] = tuple(float(x) for x in fields[1:4])
 
     def _read_index(self, path: Path) -> None:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -95,10 +130,17 @@ class PrecomputedRIRBackend:
         parts = path.relative_to(self.root).parts
         text = "/".join(parts[:-1]) + "/" + path.stem
         numbers = re.findall(r"(?:heading|yaw|h)[_=-]?(\d+)", text, re.I)
-        if not numbers or len(parts) < 2:
+        official = len(parts) >= 5 and parts[-2].isdigit() and re.match(r"^\d+_\d+$", path.stem)
+        if not numbers and not official:
             return
-        heading = int(numbers[-1])
+        heading = int(numbers[-1]) if numbers else int(parts[-2])
         tokens = re.split(r"[/_=-]+", text)
+        if official and "binaural_rirs" in parts:
+            base = parts.index("binaural_rirs")
+            scene = str(parts[base + 2])
+            receiver, source = path.stem.split("_", 1)
+            self._register("{}.{}".format(parts[base + 1], scene), receiver, source, heading, path, heading)
+            return
         scene = str(parts[0])
         receiver_match = re.search(r"receiver[-_]?([^/_.]+)", text, re.I)
         source_match = re.search(r"source[-_]?([^/_.]+)", text, re.I)
@@ -113,12 +155,14 @@ class PrecomputedRIRBackend:
 
     def _register(self, scene: str, receiver: str, source: str, heading: int, path: Path, heading_deg: Any = None) -> None:
         if path.is_file() and path.suffix.lower() == ".wav":
-            self._rows[(scene, receiver, source, heading)] = path.resolve()
-            self._headings.setdefault(scene, {})[heading] = float(heading if heading_deg is None else heading_deg)
+            raw_heading = int(heading)
+            heading_index = {0: 0, 90: 1, 180: 2, 270: 3}.get(raw_heading, raw_heading)
+            self._rows[(scene, receiver, source, heading_index)] = path.resolve()
+            self._headings.setdefault(scene, {})[heading_index] = float(raw_heading if heading_deg is None else heading_deg)
 
     def list_scenes(self) -> List[str]: return sorted(set(key[0] for key in self._rows))
     def list_nodes(self, scene_id: str) -> List[str]:
-        values = set(key[1] for key in self._rows if key[0] == scene_id) | set(key[2] for key in self._rows if key[0] == scene_id)
+        values = set(self._nodes.get(scene_id, {})) | set(key[1] for key in self._rows if key[0] == scene_id) | set(key[2] for key in self._rows if key[0] == scene_id)
         return sorted(values)
     def list_headings(self, scene_id: str) -> List[Mapping[str, Any]]:
         return [{"heading_index": i, "heading_deg_dataset": self._headings.get(scene_id, {}).get(i, float(i))} for i in sorted(self._headings.get(scene_id, {}))]
