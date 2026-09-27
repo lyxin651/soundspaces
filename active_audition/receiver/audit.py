@@ -241,14 +241,18 @@ def _runtime_fingerprint(repo_root: Path) -> Dict[str, Any]:
     }
 
 
-def _resource_record(role: str, path: Optional[Path], runtime_evidence: Mapping[str, Any]) -> Dict[str, Any]:
+def _resource_record(role: str, path: Optional[Path], effective_runtime: Mapping[str, Any]) -> Dict[str, Any]:
     exists = path is not None and path.is_file()
     return {
         "role": role,
-        "path": str(path.resolve()) if path is not None else None,
-        "exists": exists,
-        "sha256": sha256_file(path) if exists else None,
-        "runtime_evidence": dict(runtime_evidence),
+        "registry_provenance": {
+            "status": KNOWN,
+            "path": str(path.resolve()) if path is not None else None,
+            "exists": exists,
+            "sha256": sha256_file(path) if exists else None,
+            "source": "scene registry entry",
+        },
+        "effective_runtime": dict(effective_runtime),
     }
 
 
@@ -272,9 +276,15 @@ def _scene_provenance(runtime_config: Mapping[str, Any], scene_id: str, context:
     sim_cfg = getattr(getattr(context.simulator, "config", None), "sim_cfg", None)
     loaded_scene_path = getattr(sim_cfg, "scene_id", None)
     scene_asset_evidence = {
-        "status": KNOWN if loaded_scene_path else NOT_EXPOSED,
-        "loaded_path": str(Path(loaded_scene_path).resolve()) if loaded_scene_path else None,
-        "source": "SimulatorConfiguration.scene_id",
+        "scene_state": _known("CREATED", "Simulator creation returned a live context"),
+        "configured_path": (
+            _known(str(Path(loaded_scene_path).resolve()), "SimulatorConfiguration.scene_id")
+            if loaded_scene_path
+            else _not_exposed("SimulatorConfiguration.scene_id is not publicly readable")
+        ),
+        "consumed_path": _not_exposed(
+            "public runtime API does not expose a resource-consumption trace for the scene asset"
+        ),
     }
     resources = {
         "scene_asset": _resource_record("scene_asset", path_for("scene_asset"), scene_asset_evidence),
@@ -282,27 +292,40 @@ def _scene_provenance(runtime_config: Mapping[str, Any], scene_id: str, context:
             "navmesh",
             path_for("navmesh"),
             {
-                "status": KNOWN if pathfinder_loaded else UNKNOWN,
-                "loaded": pathfinder_loaded,
-                "path": "scene registry path supplied to create_scene_simulator; navmesh path getter is not public",
+                "pathfinder_state": _known(
+                    "LOADED" if pathfinder_loaded else "NOT_LOADED",
+                    "PathFinder.is_loaded",
+                ),
+                "consumed_path": _not_exposed(
+                    "PathFinder public API does not expose the consumed navmesh path"
+                ),
+                "explicit_load_nav_mesh": _field(
+                    UNKNOWN,
+                    None,
+                    "create_scene_simulator conditionally calls load_nav_mesh; branch execution is not recorded by SimulatorContext",
+                ),
             },
         ),
         "semantic_info": _resource_record(
             "semantic_info",
             path_for("semantic_info"),
             {
-                "status": KNOWN if semantic_loaded else UNKNOWN,
-                "loaded": semantic_loaded,
-                "path": "scene registry path used by Habitat semantic-scene loading; runtime path getter is not public",
+                "semantic_scene_state": _known(
+                    "LOADED" if semantic_loaded else "NOT_LOADED",
+                    "Simulator.semantic_scene is not None",
+                ),
+                "consumed_descriptor_path": _not_exposed(
+                    "semantic scene public API does not expose the consumed descriptor path"
+                ),
             },
         ),
         "stage_config": _resource_record(
             "stage_config",
             path_for("stage_config"),
             {
-                "status": NOT_EXPOSED,
-                "loaded": None,
-                "path": "registry provenance only; current create_scene_simulator passes scene_asset directly",
+                "consumed_path": _not_exposed(
+                    "registry provenance only; current create_scene_simulator passes scene_asset directly and exposes no stage-config consumption getter"
+                ),
             },
         ),
     }
@@ -311,7 +334,12 @@ def _scene_provenance(runtime_config: Mapping[str, Any], scene_id: str, context:
         "registry": _resource_record(
             "scene_registry",
             registry_path,
-            {"status": KNOWN, "entry_present": bool(raw_entry), "source": "registries/scenes.yaml"},
+            {
+                "registry_loaded": _known(
+                    bool(raw_entry),
+                    "active_audition.data.catalog.load_scene_registry",
+                )
+            },
         ),
         "dataset": scene["dataset"],
         "materials_mode": scene["materials_mode"],
@@ -468,14 +496,17 @@ def _status_paths(value: Any, path: str = "root") -> Tuple[List[str], List[str],
     return unknown, not_exposed, not_requested
 
 
-def _audit_status(receiver: Mapping[str, Any]) -> Tuple[str, List[str], List[str], List[str]]:
+def _audit_status(
+    receiver: Mapping[str, Any], scene: Optional[Mapping[str, Any]] = None
+) -> Tuple[str, List[str], List[str], List[str], List[str]]:
     failures = [key for key, value in receiver["comparisons"].items() if value == "FAIL"]
-    unknown, not_exposed, not_requested = _status_paths(receiver)
+    authority = {"receiver": receiver, "scene": scene or {}}
+    unknown, not_exposed, not_requested = _status_paths(authority)
     if failures:
-        return "BLOCKED", failures, unknown, not_exposed + not_requested
-    if unknown or not_exposed:
-        return "PASS_WITH_UNKNOWN", failures, unknown, not_exposed + not_requested
-    return "PASS", failures, unknown, not_exposed + not_requested
+        return "BLOCKED", failures, unknown, not_exposed, not_requested
+    if unknown or not_exposed or not_requested:
+        return "PASS_WITH_LIMITATIONS", failures, unknown, not_exposed, not_requested
+    return "PASS", failures, unknown, not_exposed, not_requested
 
 
 def validate_runtime_lock(document: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -499,11 +530,16 @@ def validate_receiver_audit(document: Mapping[str, Any]) -> Mapping[str, Any]:
         raise RuntimeAuditError("receiver_audit.json schema keys do not match A1 contract")
     if document["schema_version"] != RECEIVER_AUDIT_SCHEMA_VERSION or document["gate"] != "A1":
         raise RuntimeAuditError("receiver_audit.json has an invalid A1 schema or gate")
-    if document["status"] not in ("PASS", "PASS_WITH_UNKNOWN", "BLOCKED"):
+    if document["status"] not in ("PASS", "PASS_WITH_LIMITATIONS", "BLOCKED"):
         raise RuntimeAuditError("receiver_audit.json has an invalid audit status")
     findings = document["findings"]
     if findings.get("a2_not_run") is not True or not findings.get("a2_boundary"):
         raise RuntimeAuditError("receiver_audit.json must explicitly preserve the A1/A2 boundary")
+    if "not_exposed_or_not_requested" in findings:
+        raise RuntimeAuditError("receiver_audit.json must separate NOT_EXPOSED and NOT_REQUESTED")
+    for key in ("unknown", "not_exposed", "not_requested"):
+        if key not in findings or not isinstance(findings[key], list):
+            raise RuntimeAuditError("receiver_audit.json is missing findings.{}".format(key))
     return document
 
 
@@ -564,7 +600,7 @@ def run_runtime_audit(
     }
     validate_runtime_lock(runtime_lock)
 
-    status, failures, unknown, not_exposed = _audit_status(receiver)
+    status, failures, unknown, not_exposed, not_requested = _audit_status(receiver, scene)
     receiver_audit = {
         "schema_version": RECEIVER_AUDIT_SCHEMA_VERSION,
         "gate": "A1",
@@ -575,7 +611,8 @@ def run_runtime_audit(
         "findings": {
             "requested_effective_failures": failures,
             "unknown": unknown,
-            "not_exposed_or_not_requested": not_exposed,
+            "not_exposed": not_exposed,
+            "not_requested": not_requested,
             "a2_not_run": True,
             "a2_boundary": [
                 "ITD/ILD",
@@ -643,6 +680,14 @@ def _render_markdown(receiver_audit: Mapping[str, Any], runtime_lock_digest: str
         "| `runtime.lock.json` | `{}` |".format(runtime_lock_digest),
         "| `receiver_audit.json` | `{}` |".format(receiver_audit_digest),
         "| `receiver_audit.md` | computed from emitted bytes by CLI |",
+        "",
+        "## Authority limitations",
+        "",
+        "The JSON artifact keeps UNKNOWN, NOT_EXPOSED, and NOT_REQUESTED separate.",
+        "",
+        "- UNKNOWN: {}".format(", ".join(receiver_audit["findings"]["unknown"]) or "none"),
+        "- NOT_EXPOSED: {}".format(", ".join(receiver_audit["findings"]["not_exposed"]) or "none"),
+        "- NOT_REQUESTED: {}".format(", ".join(receiver_audit["findings"]["not_requested"]) or "none"),
         "",
         "## Requested vs effective",
         "",

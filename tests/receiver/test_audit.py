@@ -14,6 +14,7 @@ from active_audition.receiver.audit import (
     RuntimeAuditError,
     _audit_status,
     _receiver_observation,
+    _scene_provenance,
     canonical_json,
     run_runtime_audit,
     validate_receiver_audit,
@@ -119,20 +120,34 @@ class ActiveASRAuditTests(unittest.TestCase):
         self.assertEqual(receiver["comparisons"]["channel_count"], "PASS")
         self.assertEqual(receiver["effective"]["channel_order"]["status"], "NOT_EXPOSED")
         self.assertEqual(receiver["receiver_geometry"]["ear_spacing_m"]["effective"]["status"], "NOT_EXPOSED")
-        status, failures, unknown, not_exposed = _audit_status(receiver)
-        self.assertEqual(status, "PASS_WITH_UNKNOWN")
+        status, failures, unknown, not_exposed, not_requested = _audit_status(receiver)
+        self.assertEqual(status, "PASS_WITH_LIMITATIONS")
         self.assertEqual(failures, [])
         self.assertEqual(unknown, [])
         self.assertTrue(not_exposed)
+        self.assertTrue(not_requested)
 
     def test_requested_effective_mismatch_is_blocked(self):
         runtime_config = copy.deepcopy(self.runtime_config)
         runtime_config["acoustics"]["sample_rate_hz"] = 24000
         receiver = _receiver_observation(self.contract, runtime_config, _fake_context())
         self.assertEqual(receiver["comparisons"]["sample_rate_hz"], "FAIL")
-        status, failures, _, _ = _audit_status(receiver)
+        status, failures, _, _, _ = _audit_status(receiver)
         self.assertEqual(status, "BLOCKED")
         self.assertIn("sample_rate_hz", failures)
+
+    def test_resource_provenance_does_not_claim_consumed_paths(self):
+        scene = _scene_provenance(self.runtime_config, "replica.office_0", _fake_context())
+        resources = scene["resources"]
+        for role in ("navmesh", "semantic_info", "stage_config"):
+            self.assertEqual(resources[role]["registry_provenance"]["status"], "KNOWN")
+            self.assertTrue(resources[role]["registry_provenance"]["exists"])
+        self.assertEqual(resources["navmesh"]["effective_runtime"]["pathfinder_state"]["status"], "KNOWN")
+        self.assertEqual(resources["navmesh"]["effective_runtime"]["consumed_path"]["status"], "NOT_EXPOSED")
+        self.assertEqual(resources["navmesh"]["effective_runtime"]["explicit_load_nav_mesh"]["status"], "UNKNOWN")
+        self.assertEqual(resources["semantic_info"]["effective_runtime"]["semantic_scene_state"]["status"], "KNOWN")
+        self.assertEqual(resources["semantic_info"]["effective_runtime"]["consumed_descriptor_path"]["status"], "NOT_EXPOSED")
+        self.assertEqual(resources["stage_config"]["effective_runtime"]["consumed_path"]["status"], "NOT_EXPOSED")
 
     def test_artifact_schema_is_strict_at_top_level(self):
         runtime_lock = {
@@ -150,11 +165,17 @@ class ActiveASRAuditTests(unittest.TestCase):
         receiver_audit = {
             "schema_version": RECEIVER_AUDIT_SCHEMA_VERSION,
             "gate": "A1",
-            "status": "PASS_WITH_UNKNOWN",
+            "status": "PASS_WITH_LIMITATIONS",
             "contract_sha256": "0" * 64,
             "scene": {},
             "receiver": {},
-            "findings": {"a2_not_run": True, "a2_boundary": ["ITD/ILD"]},
+            "findings": {
+                "a2_not_run": True,
+                "a2_boundary": ["ITD/ILD"],
+                "unknown": [],
+                "not_exposed": [],
+                "not_requested": [],
+            },
             "artifacts": {},
         }
         self.assertIs(validate_receiver_audit(receiver_audit), receiver_audit)
@@ -181,7 +202,7 @@ class ActiveASRAuditTests(unittest.TestCase):
             ):
                 second = run_runtime_audit(str(CONTRACT_PATH), second_dir, str(RUNTIME_CONFIG_PATH))
 
-            self.assertEqual(first["status"], "PASS_WITH_UNKNOWN")
+            self.assertEqual(first["status"], "PASS_WITH_LIMITATIONS")
             self.assertEqual(first["contract_sha256"], second["contract_sha256"])
             for name in ("runtime.lock.json", "receiver_audit.json", "receiver_audit.md"):
                 self.assertEqual(
