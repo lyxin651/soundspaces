@@ -2,7 +2,7 @@ contract:
   namespace: active-asr
   version: active-asr-a2-oracle-aligned-v3
   gate: A2
-  state: IMPLEMENTED
+  state: FROZEN
   role: oracle_aligned_native16_hard_gates
   parent_metric_contract_version: active-asr-a2-metric-v2
   parent_metric_contract_sha256: f1185d2c5fe81091199d5525f224822a3227c700c60bba9ab168e6d9ddc38f83
@@ -128,6 +128,11 @@ historical_v2_provenance:
   metric_contract_sha256: f1185d2c5fe81091199d5525f224822a3227c700c60bba9ab168e6d9ddc38f83
   formal_failure_artifacts_immutable: true
   cross_rate_failure_is_current_hard_blocker: false
+  historical_artifact_root: runs/active_asr_v1/a2_failure_attribution_run3
+  historical_artifact_sha256:
+    direction_channel_calibration.json: 825e0cf5444ff5ac5cde3dddc69a7772462a8a0f2556941889d16140991f5958
+    a2_summary.json: 7030391c22ab782d1da14dbcc7aa13ac04a6bb81e9d27bc437dda38002f4168d
+    qualification_cases.jsonl: 31b4324acbae28a7e3775d3a62bbdfe2fe6016d8f5d165ef9499b97f739edc94
 
 artifacts:
   schema_version: active-asr-a2-oracle-alignment-artifact-v1

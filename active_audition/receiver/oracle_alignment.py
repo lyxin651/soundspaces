@@ -30,6 +30,8 @@ from active_audition.receiver.qualification import (
     load_metric_contract,
     make_probe,
     metric_contract_sha256,
+    validate_direction_channel_calibration,
+    validate_qualification_case,
 )
 
 
@@ -39,6 +41,7 @@ SYMMETRY_ARTIFACT_SCHEMA_VERSION = "active-asr-a2-controlled-symmetry-qualificat
 POSE_GAIN_ARTIFACT_SCHEMA_VERSION = "active-asr-a2-native16-pose-gain-preservation-v1"
 WAVEFORM_ARTIFACT_SCHEMA_VERSION = "active-asr-a2-native16-waveform-validity-v1"
 SUMMARY_ARTIFACT_SCHEMA_VERSION = "active-asr-a2-oracle-alignment-summary-v1"
+POSE_ENERGY_EQUALITY_EPSILON_DB = 1.0e-9
 
 
 class OracleAlignmentError(ValueError):
@@ -128,7 +131,7 @@ def validate_oracle_contract(contract: Mapping[str, Any]) -> Mapping[str, Any]:
     _string(identity["namespace"], "contract.namespace", "active-asr")
     _string(identity["version"], "contract.version", ORACLE_CONTRACT_SCHEMA_VERSION)
     _string(identity["gate"], "contract.gate", "A2")
-    _string(identity["state"], "contract.state", "IMPLEMENTED")
+    _string(identity["state"], "contract.state", "FROZEN")
     _string(identity["role"], "contract.role", "oracle_aligned_native16_hard_gates")
     _string(identity["parent_metric_contract_version"], "contract.parent_metric_contract_version", "active-asr-a2-metric-v2")
     _string(identity["parent_metric_contract_sha256"], "contract.parent_metric_contract_sha256", "f1185d2c5fe81091199d5525f224822a3227c700c60bba9ab168e6d9ddc38f83")
@@ -262,10 +265,23 @@ def validate_oracle_contract(contract: Mapping[str, Any]) -> Mapping[str, Any]:
     history = contract["historical_v2_provenance"]
     if not isinstance(history, Mapping):
         raise OracleAlignmentError("historical_v2_provenance must be a mapping")
-    _only(history, ("metric_contract_sha256", "formal_failure_artifacts_immutable", "cross_rate_failure_is_current_hard_blocker"), "historical_v2_provenance")
+    _only(history, ("metric_contract_sha256", "formal_failure_artifacts_immutable", "cross_rate_failure_is_current_hard_blocker", "historical_artifact_root", "historical_artifact_sha256"), "historical_v2_provenance")
+    _required(history, ("metric_contract_sha256", "formal_failure_artifacts_immutable", "cross_rate_failure_is_current_hard_blocker", "historical_artifact_root", "historical_artifact_sha256"), "historical_v2_provenance")
     _string(history["metric_contract_sha256"], "historical_v2_provenance.metric_contract_sha256", "f1185d2c5fe81091199d5525f224822a3227c700c60bba9ab168e6d9ddc38f83")
     _bool(history["formal_failure_artifacts_immutable"], "historical_v2_provenance.formal_failure_artifacts_immutable", True)
     _bool(history["cross_rate_failure_is_current_hard_blocker"], "historical_v2_provenance.cross_rate_failure_is_current_hard_blocker", False)
+    _string(history["historical_artifact_root"], "historical_v2_provenance.historical_artifact_root", "runs/active_asr_v1/a2_failure_attribution_run3")
+    historical_hashes = history["historical_artifact_sha256"]
+    if not isinstance(historical_hashes, Mapping):
+        raise OracleAlignmentError("historical_v2_provenance.historical_artifact_sha256 must be a mapping")
+    _only(historical_hashes, ("direction_channel_calibration.json", "a2_summary.json", "qualification_cases.jsonl"), "historical_v2_provenance.historical_artifact_sha256")
+    _required(historical_hashes, ("direction_channel_calibration.json", "a2_summary.json", "qualification_cases.jsonl"), "historical_v2_provenance.historical_artifact_sha256")
+    for filename, expected in {
+        "direction_channel_calibration.json": "825e0cf5444ff5ac5cde3dddc69a7772462a8a0f2556941889d16140991f5958",
+        "a2_summary.json": "7030391c22ab782d1da14dbcc7aa13ac04a6bb81e9d27bc437dda38002f4168d",
+        "qualification_cases.jsonl": "31b4324acbae28a7e3775d3a62bbdfe2fe6016d8f5d165ef9499b97f739edc94",
+    }.items():
+        _string(historical_hashes[filename], "historical_v2_provenance.historical_artifact_sha256." + filename, expected)
 
     artifacts = contract["artifacts"]
     if not isinstance(artifacts, Mapping):
@@ -359,7 +375,11 @@ def _pose_waveform_record(dry: np.ndarray, rir: np.ndarray, gain: float, contrac
         "mean_lr_max_abs_formula_error": frontend_error,
         "mean_lr_l_r_swap_max_abs_error": swap_error,
         "common_full_convolution_length": int(dry.shape[0] + rir.shape[0] - 1),
-        "hard_clipping_smoke": {"threshold_abs": 1.0, "max_abs": float(np.max(np.abs(waveform))), "passed": bool(np.max(np.abs(waveform)) < 1.0)},
+        "hard_clipping_smoke": {
+            "threshold_abs": float(contract["hard_gates"]["P9_native16_waveform_validity"]["max_abs_waveform_before_clipping"]),
+            "max_abs": float(np.max(np.abs(waveform))),
+            "passed": bool(np.max(np.abs(waveform)) < float(contract["hard_gates"]["P9_native16_waveform_validity"]["max_abs_waveform_before_clipping"])),
+        },
         "runtime_sha256": runtime_sha256,
         "resource_hashes": dict(resource_hashes),
     }
@@ -395,9 +415,17 @@ def evaluate_pose_gain_invariants(rows: Sequence[Mapping[str, Any]], contract: M
         "relative_pose_energy_db_by_gain": relative_by_gain,
         "relative_pose_energy_invariance_max_abs_db": max_relative,
         "pose_energy_range_db": float(max(pose_energies, default=0.0) - min(pose_energies, default=0.0)),
-        "pose_dependent_energy_variation_observed": bool((max(pose_energies, default=0.0) - min(pose_energies, default=0.0)) > 1.0e-9),
+        "pose_dependent_energy_variation_observed": bool((max(pose_energies, default=0.0) - min(pose_energies, default=0.0)) > POSE_ENERGY_EQUALITY_EPSILON_DB),
         "normalization": "none",
-        "passed": bool(invariant["gain_linearity_exact_required"] and invariant["relative_pose_energy_invariance_exact_required"] and max_linearity == 0.0 and max_relative == 0.0),
+        "pose_energy_equality_epsilon_db": POSE_ENERGY_EQUALITY_EPSILON_DB,
+        "passed": bool(
+            invariant["gain_linearity_exact_required"]
+            and invariant["relative_pose_energy_invariance_exact_required"]
+            and invariant["pose_dependent_energy_must_not_be_equalized"]
+            and max_linearity == 0.0
+            and max_relative == 0.0
+            and abs(float(max(pose_energies, default=0.0) - min(pose_energies, default=0.0))) > POSE_ENERGY_EQUALITY_EPSILON_DB
+        ),
     }
 
 
@@ -437,27 +465,93 @@ def validate_waveform_artifact(document: Mapping[str, Any]) -> Mapping[str, Any]
     return document
 
 
-def _historical_gate_reference(repo_root: Path, historical_run_dir: str) -> Dict[str, Any]:
+def _historical_block(reason: str, source: Path, details: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
+    result: Dict[str, Any] = {"status": BLOCKED, "reason": reason, "source": str(source)}
+    if details:
+        result["details"] = dict(details)
+    return result
+
+
+def _historical_gate_reference(repo_root: Path, historical_run_dir: str, contract: Mapping[str, Any]) -> Dict[str, Any]:
     root = Path(historical_run_dir)
     if not root.is_absolute():
         root = repo_root / root
-    summary_path = root / "a2_summary.json"
-    direction_path = root / "direction_channel_calibration.json"
-    if not summary_path.is_file() or not direction_path.is_file():
-        return {"status": BLOCKED, "reason": "historical_a2_evidence_missing", "source": str(root)}
-    summary = json.loads(summary_path.read_text(encoding="utf-8"))
-    direction = json.loads(direction_path.read_text(encoding="utf-8"))
+    root = root.resolve()
+    history = contract["historical_v2_provenance"]
+    expected_root = (repo_root / history["historical_artifact_root"]).resolve()
+    if root != expected_root:
+        return _historical_block("HISTORICAL_EVIDENCE_SOURCE_MISMATCH", root, {"expected_root": str(expected_root)})
+    filenames = ("direction_channel_calibration.json", "a2_summary.json", "qualification_cases.jsonl")
+    paths = {filename: root / filename for filename in filenames}
+    missing = [filename for filename, path in paths.items() if not path.is_file()]
+    if missing:
+        return _historical_block("HISTORICAL_EVIDENCE_MISSING", root, {"missing": missing})
+    expected_hashes = history["historical_artifact_sha256"]
+    actual_hashes = {filename: _sha256_file(path) for filename, path in paths.items()}
+    mismatched = {filename: {"expected": expected_hashes[filename], "actual": actual_hashes[filename]} for filename in filenames if actual_hashes[filename] != expected_hashes[filename]}
+    if mismatched:
+        return _historical_block("HISTORICAL_EVIDENCE_INTEGRITY_FAILURE", root, {"mismatched": mismatched})
+    try:
+        summary = json.loads(paths["a2_summary.json"].read_text(encoding="utf-8"))
+        direction = json.loads(paths["direction_channel_calibration.json"].read_text(encoding="utf-8"))
+        validate_direction_channel_calibration(direction)
+        if summary.get("schema_version") != "active-asr-a2-summary-v1" or summary.get("gate") != "A2" or not isinstance(summary.get("gates"), Mapping):
+            return _historical_block("HISTORICAL_EVIDENCE_SCHEMA_INVALID", root, {"artifact": "a2_summary.json"})
+        for gate_name in ("direction", "repeatability", "near_far_los_direct_energy", "nlos_direct_metric_control"):
+            value = summary["gates"].get(gate_name)
+            if not isinstance(value, Mapping) or not {"status", "attempted", "applicable", "pass", "fail", "na"}.issubset(value):
+                return _historical_block("HISTORICAL_EVIDENCE_SCHEMA_INVALID", root, {"artifact": "a2_summary.json", "gate": gate_name})
+        qualification_rows = []
+        for line in paths["qualification_cases.jsonl"].read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            validate_qualification_case(row)
+            qualification_rows.append(row)
+        if not qualification_rows:
+            return _historical_block("HISTORICAL_EVIDENCE_SCHEMA_INVALID", root, {"artifact": "qualification_cases.jsonl", "reason": "empty"})
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        return _historical_block("HISTORICAL_EVIDENCE_SCHEMA_INVALID", root, {"error": str(exc)})
+
     gates = summary.get("gates", {})
     def gate(name: str) -> Dict[str, Any]:
         value = gates.get(name, {})
         return {"status": value.get("status", BLOCKED), "attempted": value.get("attempted", 0), "applicable": value.get("applicable", 0), "pass": value.get("pass", 0), "fail": value.get("fail", 0), "na": value.get("na", 0)}
+    h1 = direction["hypothesis_summary"].get("H1_native_ch0_L_ch1_R", {})
+    h2 = direction["hypothesis_summary"].get("H2_native_ch0_R_ch1_L", {})
+    direction_cases = direction.get("cases", [])
+    h1_supported = sum(bool(case.get("hypotheses", {}).get("H1_native_ch0_L_ch1_R", {}).get("supports")) for case in direction_cases)
+    h2_applicable = sum(case.get("raw", {}).get("applicability") == "APPLICABLE" for case in direction_cases)
+    h2_pass = sum(case.get("raw", {}).get("applicability") == "APPLICABLE" and bool(case.get("hypotheses", {}).get("H2_native_ch0_R_ch1_L", {}).get("supports")) for case in direction_cases)
+    p1_evidence = {
+        "status": PASS,
+        "applicable": h2_applicable,
+        "pass": h2_pass,
+        "sign_accuracy": float(h2_pass) / float(h2_applicable) if h2_applicable else None,
+        "supported_hypothesis": direction["hypothesis_summary"].get("supported_hypothesis"),
+        "mapping_decision": direction["hypothesis_summary"].get("mapping_decision"),
+        "h1_supported_cases": h1_supported,
+        "canonical_downstream_order": list(contract["hard_gates"]["P1_native_channel_mapping"]["canonical_order"]),
+        "source": "direction_channel_calibration.json",
+    }
+    if direction.get("status") != PASS or direction["hypothesis_summary"].get("supported_hypothesis") != "H2_native_ch0_R_ch1_L" or direction["hypothesis_summary"].get("mapping_decision") != "SWAP_NATIVE_TO_CANONICAL" or h1_supported != 0 or h2_applicable != 4 or h2_pass != 4 or h2.get("applicable") != 4 or h2.get("pass") != 4 or float(h2.get("sign_accuracy", -1.0)) != 1.0 or h1.get("pass") != 0 or p1_evidence["canonical_downstream_order"] != ["L", "R"]:
+        p1_evidence["status"] = BLOCKED
+        return {
+            "status": BLOCKED,
+            "reason": "P1_HISTORICAL_EVIDENCE_INVALID",
+            "source": str(root),
+            "P1_native_channel_mapping": p1_evidence,
+            "artifact_sha256": actual_hashes,
+        }
     return {
-        "P1_native_channel_mapping": {"status": direction.get("status", BLOCKED), "applicable": direction.get("hypothesis_summary", {}).get("H2_native_ch0_R_ch1_L", {}).get("applicable", 0), "pass": direction.get("hypothesis_summary", {}).get("H2_native_ch0_R_ch1_L", {}).get("pass", 0), "source": "direction_channel_calibration.json"},
+        "status": PASS,
+        "P1_native_channel_mapping": p1_evidence,
         "P3_side_los_itd_direction": gate("direction"),
         "P4_repeatability": gate("repeatability"),
         "P6_near_far_los": gate("near_far_los_direct_energy"),
         "P7_nlos_applicability": gate("nlos_direct_metric_control"),
-        "source_artifact": str(summary_path.relative_to(repo_root)) if summary_path.is_relative_to(repo_root) else str(summary_path),
+        "source_artifact": str(paths["a2_summary.json"].relative_to(repo_root)) if paths["a2_summary.json"].is_relative_to(repo_root) else str(paths["a2_summary.json"]),
+        "artifact_sha256": actual_hashes,
     }
 
 
@@ -543,7 +637,10 @@ def _run_symmetry(
     contract: Mapping[str, Any],
     repo_root: Path,
     historical_run_dir: str,
+    historical: Mapping[str, Any],
 ) -> Dict[str, Any]:
+    if historical.get("status") != PASS:
+        return {"schema_version": SYMMETRY_ARTIFACT_SCHEMA_VERSION, "status": BLOCKED, "formal_denominator": False, "geometry_id": "a2_symmetric_shoebox_v1", "pairs": [], "summary": {"attempted": 0, "applicable": 0, "opposite_nonzero_pass": 0, "full_rir_magnitude_symmetry_gate": False, "ild_magnitude_symmetry_gate": False, "errors": [historical.get("reason", "historical_evidence_unavailable")]}, "source_artifact": historical.get("source", str(historical_run_dir)), "contract_sha256": oracle_contract_sha256(contract)}
     root = Path(historical_run_dir)
     if not root.is_absolute():
         root = repo_root / root
@@ -552,8 +649,12 @@ def _run_symmetry(
     errors: List[str] = []
     if path.is_file():
         records = {}
+        expected_hash = contract["historical_v2_provenance"]["historical_artifact_sha256"]["qualification_cases.jsonl"]
+        if _sha256_file(path) != expected_hash:
+            return {"schema_version": SYMMETRY_ARTIFACT_SCHEMA_VERSION, "status": BLOCKED, "formal_denominator": False, "geometry_id": "a2_symmetric_shoebox_v1", "pairs": [], "summary": {"attempted": 0, "applicable": 0, "opposite_nonzero_pass": 0, "full_rir_magnitude_symmetry_gate": False, "ild_magnitude_symmetry_gate": False, "errors": ["HISTORICAL_EVIDENCE_INTEGRITY_FAILURE"]}, "source_artifact": str(path), "contract_sha256": oracle_contract_sha256(contract)}
         for line in path.read_text(encoding="utf-8").splitlines():
             row = json.loads(line)
+            validate_qualification_case(row)
             if row.get("case_type") == "controlled_qualification" and row.get("geometry_id") == "a2_symmetric_shoebox_v1" and row.get("sample_rate_hz") == 16000 and row.get("repeat_id") == 0 and row.get("geometry", {}).get("purpose") == "direction_repeatability" and row.get("ray_preset", {}).get("maxIRLength") is not None and row.get("relative_angle_deg") in (-90.0, -60.0, -30.0, 30.0, 60.0, 90.0):
                 records[(float(row["distance_m"]), float(row["relative_angle_deg"]))] = row
         for distance in contract["hard_gates"]["P5_controlled_symmetry"]["distances_m"]:
@@ -681,9 +782,9 @@ def run_oracle_alignment(
     registry = load_geometry_registry(str(geometry_path), str(repo_root))
     primary = next(item for item in registry["geometries"] if item["kind"] == "symmetric_shoebox")
     sanity = geometry_sanity(primary)
-    historical = _historical_gate_reference(repo_root, historical_run_dir)
+    historical = _historical_gate_reference(repo_root, historical_run_dir, contract)
     yaw = _run_yaw_relative(contract, metric_contract, runtime_config, registry, a0_contract)
-    symmetry = _run_symmetry(contract, repo_root, historical_run_dir)
+    symmetry = _run_symmetry(contract, repo_root, historical_run_dir, historical)
     pose_gain, waveform = _run_pose_fixture(contract, metric_contract, runtime_config, registry, a0_contract)
     validate_yaw_relative_artifact(yaw)
     validate_symmetry_artifact(symmetry)
@@ -710,9 +811,9 @@ def run_oracle_alignment(
         "geometry": {"id": primary["id"], "registry_sha256": registry["registry_sha256"], "mesh_sha256": primary["mesh_sha256"], "sanity": {"all_sources_inside": sanity["all_sources_inside"], "all_direct_windows_clear": sanity["all_direct_windows_clear"]}},
         "hard_gates": p_status,
         "qualification_evidence": {"Q1": {"status": "EVIDENCE_RECORDED_NOT_YET_GATED"}, "Q2": {"status": "COMPLETED_SENSITIVITY", "historical_artifact_preserved": True}, "Q3": {"status": "COMPLETED_DIAGNOSTIC", "historical_artifact_preserved": True}, "Q4": {"status": "DEFERRED_TO_A3"}},
-        "historical_v2": {"source": historical.get("source_artifact"), "metric_contract_sha256": contract["contract"]["parent_metric_contract_sha256"], "current_hard_blocker": False, "artifacts_immutable": True},
+        "historical_v2": {"source": historical.get("source_artifact", historical.get("source")), "integrity_status": historical.get("status", BLOCKED), "reason": historical.get("reason"), "artifact_sha256": historical.get("artifact_sha256", contract["historical_v2_provenance"]["historical_artifact_sha256"]), "metric_contract_sha256": contract["contract"]["parent_metric_contract_sha256"], "current_hard_blocker": False, "artifacts_immutable": True},
         "artifacts": {},
-        "blocker": None if all_hard_pass else "NATIVE16_ORACLE_ALIGNED_HARD_GATE_FAILURE",
+        "blocker": None if all_hard_pass else historical.get("reason", "NATIVE16_ORACLE_ALIGNED_HARD_GATE_FAILURE"),
     }
     output_root = Path(output_dir).resolve()
     storage = DatasetStorage(str(output_root))
