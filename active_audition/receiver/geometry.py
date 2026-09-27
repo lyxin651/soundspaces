@@ -133,6 +133,8 @@ def source_position_world(receiver: Sequence[float], yaw_deg: float, relative_an
 
 
 def relative_azimuth_deg(receiver: Sequence[float], yaw_deg: float, source: Sequence[float]) -> float:
+    """Return relative azimuth in the A2 canonical convention: positive-left."""
+
     delta = [float(source[i]) - float(receiver[i]) for i in range(3)]
     yaw = math.radians(float(yaw_deg))
     forward = (-math.sin(yaw), 0.0, -math.cos(yaw))

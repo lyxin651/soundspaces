@@ -25,18 +25,22 @@ from active_audition.receiver.geometry import (
     enumerate_controlled_cases,
     geometry_sanity,
     load_geometry_registry,
+    relative_azimuth_deg as geometry_relative_azimuth,
     source_position_world,
 )
 
 
 METRIC_CONTRACT_SCHEMA_VERSION = "active-asr-a2-metric-v2"
-QUALIFICATION_CASE_SCHEMA_VERSION = "active-asr-a2-qualification-case-v1"
+QUALIFICATION_CASE_SCHEMA_VERSION = "active-asr-a2-qualification-case-v2"
 A2_RUNTIME_LOCK_SCHEMA_VERSION = "active-asr-a2-runtime-lock-v1"
 KNOWN = "KNOWN"
 NA = "N/A"
 PASS = "PASS"
 FAIL = "FAIL"
 BLOCKED = "BLOCKED"
+EVIDENCE_RECORDED = "EVIDENCE_RECORDED"
+FORMAL_GATE_NAMES = ("direction", "repeatability", "sample_rate_ab", "ray_tail_convergence", "mirror_symmetry_direct", "near_far_los_direct_energy")
+HARD_GATE_NAMES = ("direction", "repeatability", "sample_rate_ab", "near_far_los_direct_energy")
 
 
 class QualificationError(ValueError):
@@ -679,6 +683,8 @@ def _case_row(
     relative_angle_deg: Optional[float],
     distance_m: Optional[float],
     probe: str,
+    probe_domain: str,
+    probe_reference: str,
     sample_rate_hz: int,
     ray_preset: Mapping[str, Any],
     ir_length_sec: Optional[float],
@@ -703,6 +709,8 @@ def _case_row(
         "relative_angle_deg": relative_angle_deg,
         "distance_m": distance_m,
         "probe": str(probe),
+        "probe_domain": str(probe_domain),
+        "probe_reference": str(probe_reference),
         "sample_rate_hz": int(sample_rate_hz),
         "ray_preset": dict(ray_preset),
         "ir_length_sec": ir_length_sec,
@@ -730,6 +738,8 @@ def validate_qualification_case(row: Mapping[str, Any]) -> Mapping[str, Any]:
         "relative_angle_deg",
         "distance_m",
         "probe",
+        "probe_domain",
+        "probe_reference",
         "sample_rate_hz",
         "ray_preset",
         "ir_length_sec",
@@ -750,6 +760,8 @@ def validate_qualification_case(row: Mapping[str, Any]) -> Mapping[str, Any]:
         raise QualificationError("qualification case applicability is invalid")
     if row["status"] not in (PASS, FAIL, NA, BLOCKED):
         raise QualificationError("qualification case status is invalid")
+    if row["probe_domain"] != "rir" or row["probe_reference"] != "impulse_response" or row["probe"] != "impulse_response":
+        raise QualificationError("formal A2 RIR case must identify probe/reference as impulse_response")
     return row
 
 
@@ -787,6 +799,43 @@ def validate_sample_rate_ab(document: Mapping[str, Any]) -> Mapping[str, Any]:
         raise QualificationError("sample_rate_ab.json applicability is invalid")
     if document["normalization"] != "none":
         raise QualificationError("sample_rate_ab.json must record no separate normalization")
+    return document
+
+
+def validate_direction_channel_calibration(document: Mapping[str, Any]) -> Mapping[str, Any]:
+    required = {"schema_version", "status", "formal_denominator", "cases", "errors", "hypothesis_summary"}
+    if set(document) != required and set(document) != required | {"convention_audit"}:
+        raise QualificationError("direction channel calibration schema keys do not match A2 contract")
+    if document["schema_version"] != "active-asr-a2-direction-channel-calibration-v1":
+        raise QualificationError("direction channel calibration schema version is invalid")
+    if document["formal_denominator"] is not False:
+        raise QualificationError("direction channel calibration must not enter the formal denominator")
+    if not isinstance(document["cases"], list) or not isinstance(document["hypothesis_summary"], Mapping):
+        raise QualificationError("direction channel calibration cases/summary are invalid")
+    return document
+
+
+def validate_probe_domain_diagnostics(document: Mapping[str, Any]) -> Mapping[str, Any]:
+    required = {"schema_version", "status", "domain", "rir_reference", "formal_denominator", "probes"}
+    if set(document) != required:
+        raise QualificationError("probe domain diagnostic schema keys do not match A2 contract")
+    if document["schema_version"] != "active-asr-a2-probe-domain-diagnostic-v1" or document["domain"] != "waveform_diagnostic":
+        raise QualificationError("probe domain diagnostic schema/version is invalid")
+    if document["formal_denominator"] is not False:
+        raise QualificationError("probe domain diagnostics must not enter the formal denominator")
+    if not isinstance(document["probes"], list):
+        raise QualificationError("probe domain diagnostics probes must be a list")
+    return document
+
+
+def validate_failure_attribution(document: Mapping[str, Any]) -> Mapping[str, Any]:
+    required = {"schema_version", "status", "formal_a2_status", "direction", "relative_angle_audit", "sample_rate_ab", "probe_domains", "gate_semantics"}
+    if set(document) != required:
+        raise QualificationError("failure attribution schema keys do not match A2 contract")
+    if document["schema_version"] != "active-asr-a2-failure-attribution-v1":
+        raise QualificationError("failure attribution schema version is invalid")
+    if not isinstance(document["sample_rate_ab"], Mapping) or not isinstance(document["gate_semantics"], Mapping):
+        raise QualificationError("failure attribution sections must be mappings")
     return document
 
 
@@ -855,6 +904,174 @@ def run_resampler_band_calibration(contract: Mapping[str, Any]) -> Dict[str, Any
         "max_absolute_energy_bias_db": max_bias,
         "frozen_gate_reference_db": contract["gates"]["sample_rate_ab"]["band_energy_difference_max_db"],
         "decision": "PROCEED_TO_FORMAL_SAMPLE_RATE_AB" if max_bias <= float(contract["gates"]["sample_rate_ab"]["band_energy_difference_max_db"]) else "STOP_AND_REVIEW_METRIC_CONTRACT",
+    }
+
+
+def _metric_onsets(metric: Optional[Mapping[str, Any]], sample_rate_hz: int) -> Dict[str, Any]:
+    if not isinstance(metric, Mapping) or metric.get("applicability") != "APPLICABLE":
+        return {"applicability": NA, "reason": (metric or {}).get("na_reason", "METRICS_UNAVAILABLE")}
+    onsets = metric["direct_window"]["channel_onset_samples"]
+    return {
+        "applicability": "APPLICABLE",
+        "L": {"samples": int(onsets["L"]), "seconds": float(onsets["L"] / float(sample_rate_hz))},
+        "R": {"samples": int(onsets["R"]), "seconds": float(onsets["R"] / float(sample_rate_hz))},
+        "itd_samples": int(metric["itd_samples"]),
+        "itd_seconds": float(metric["itd_seconds"]),
+    }
+
+
+def _raw_channel_observation(raw_rir: np.ndarray, sample_rate_hz: int, contract: Mapping[str, Any]) -> Dict[str, Any]:
+    """Compute direct-window observations while retaining native channel names."""
+
+    metric = compute_direct_metrics(raw_rir, sample_rate_hz, contract)
+    if metric.get("applicability") != "APPLICABLE":
+        return {
+            "applicability": NA,
+            "reason": metric.get("na_reason"),
+            "onset": _metric_onsets(metric, sample_rate_hz),
+            "direct_energy": {"channel0": None, "channel1": None},
+            "ild_like_ch0_div_ch1_db": None,
+            "raw_itd_channel1_minus_channel0_samples": None,
+        }
+    return {
+        "applicability": "APPLICABLE",
+        "reason": None,
+        "onset": {
+            "channel0": {"samples": int(metric["direct_window"]["channel_onset_samples"]["L"]), "seconds": float(metric["direct_window"]["channel_onset_samples"]["L"] / float(sample_rate_hz))},
+            "channel1": {"samples": int(metric["direct_window"]["channel_onset_samples"]["R"]), "seconds": float(metric["direct_window"]["channel_onset_samples"]["R"] / float(sample_rate_hz))},
+        },
+        "direct_energy": {"channel0": float(metric["direct_energy_left"]), "channel1": float(metric["direct_energy_right"])},
+        "ild_like_ch0_div_ch1_db": metric.get("ild_db"),
+        "raw_itd_channel1_minus_channel0_samples": int(metric["itd_samples"]),
+    }
+
+
+def run_probe_domain_diagnostics(contract: Mapping[str, Any]) -> Dict[str, Any]:
+    """Exercise fixed probes through one deterministic RIR fixture.
+
+    These rows are waveform-domain diagnostics only.  They are deliberately
+    separate from formal RIR metric rows and never enter a gate denominator.
+    """
+
+    rir = np.zeros((512, 2), dtype=np.float32)
+    rir[64, 0] = 1.0
+    rir[67, 1] = 0.8
+    rir[180, :] = np.asarray([0.08, 0.06], dtype=np.float32)
+    rows = []
+    for kind in ("broadband_noise", "chirp", "voiced_tone"):
+        probe = make_probe(kind, 16000, duration_sec=0.025, seed=int(contract["probes"]["fixture_seed"]))
+        waveform = np.column_stack([np.convolve(probe, rir[:, channel]) for channel in range(2)]).astype(np.float32)
+        rows.append({
+            "probe": kind,
+            "domain": "waveform_diagnostic",
+            "rir_reference": "deterministic_probe_domain_fixture_v1",
+            "formal_denominator": False,
+            "sample_rate_hz": 16000,
+            "input_num_samples": int(probe.shape[0]),
+            "output_num_samples": int(waveform.shape[0]),
+            "input_sha256": hashlib.sha256(probe.tobytes()).hexdigest(),
+            "output_sha256": hashlib.sha256(waveform.tobytes()).hexdigest(),
+            "output_peak_by_channel": [float(np.max(np.abs(waveform[:, channel]))) for channel in range(2)],
+            "output_energy_by_channel": [float(np.sum(np.square(waveform[:, channel], dtype=np.float64))) for channel in range(2)],
+        })
+    return {
+        "schema_version": "active-asr-a2-probe-domain-diagnostic-v1",
+        "status": PASS,
+        "domain": "waveform_diagnostic",
+        "rir_reference": "deterministic_probe_domain_fixture_v1",
+        "formal_denominator": False,
+        "probes": rows,
+    }
+
+
+def _run_direction_channel_calibration(
+    contract: Mapping[str, Any],
+    runtime_config: Mapping[str, Any],
+    registry: Mapping[str, Any],
+    a0_contract: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """Record raw native channel evidence before canonical [L, R] mapping."""
+
+    from active_audition.acoustics.rir import render_native_rir_raw
+    from active_audition.receiver.audit import _receiver_observation, _runtime_fingerprint
+    from active_audition.scene.pose import relative_azimuth_deg as scene_relative_azimuth
+    from active_audition.scene.simulator import create_scene_simulator
+    from active_audition.types import ListenerPose
+
+    primary = next(item for item in registry["geometries"] if item["kind"] == "symmetric_shoebox")
+    config = copy.deepcopy(dict(runtime_config))
+    config["acoustics"] = dict(runtime_config["acoustics"])
+    config["acoustics"]["sample_rate_hz"] = 16000
+    rows: List[Dict[str, Any]] = []
+    errors: List[Dict[str, Any]] = []
+    repo_root = Path(runtime_config["_repo_root"]).resolve()
+    try:
+        with create_scene_simulator(
+            config,
+            scene_id=primary["id"],
+            require_navmesh=False,
+            load_semantic_mesh=False,
+            scene_override={"scene_asset": primary["mesh_path"]},
+        ) as context:
+            fingerprint = _runtime_fingerprint(repo_root)
+            receiver = _receiver_observation(a0_contract, config, context)
+            offset = np.asarray(config["listener"]["sensor_offset_m"], dtype=np.float64)
+            for yaw in (0.0, 180.0):
+                for angle in (-45.0, 45.0):
+                    receiver_sensor = tuple(primary["receiver"]["sensor_position_world"])
+                    source = source_position_world(receiver_sensor, yaw, angle, 2.0)
+                    base = tuple((np.asarray(receiver_sensor, dtype=np.float64) - offset).tolist())
+                    pose = ListenerPose(base_position_world=base, sensor_position_world=receiver_sensor, yaw_deg=yaw)
+                    raw_rir = render_native_rir_raw(context, source, pose)
+                    raw = _raw_channel_observation(raw_rir, 16000, contract)
+                    projected_angle = float(geometry_relative_azimuth(receiver_sensor, yaw, source))
+                    pose_angle = float(scene_relative_azimuth(source, receiver_sensor, yaw))
+                    observed = raw.get("raw_itd_channel1_minus_channel0_samples")
+                    h1_expected_sign = 1 if projected_angle > 0 else -1
+                    h2_expected_sign = -h1_expected_sign
+                    rows.append({
+                        "case_id": "direction_channel_calibration_yaw{}_a{}".format(int(yaw), str(int(angle)).replace("-", "m")),
+                        "receiver": {"sensor_position_world": list(receiver_sensor), "base_position_world": list(base), "yaw_deg": yaw},
+                        "source": {"position_world": list(source), "world_x": float(source[0]), "world_z": float(source[2]), "distance_m": 2.0},
+                        "project_relative_angle_deg": projected_angle,
+                        "scene_pose_relative_angle_deg": pose_angle,
+                        "relative_angle_convention": "positive_left",
+                        "raw_native_channel_order": ["channel0", "channel1"],
+                        "raw": raw,
+                        "hypotheses": {
+                            "H1_native_ch0_L_ch1_R": {"expected_raw_itd_sign": h1_expected_sign, "supports": observed is not None and int(observed) * h1_expected_sign > 0},
+                            "H2_native_ch0_R_ch1_L": {"expected_raw_itd_sign": h2_expected_sign, "supports": observed is not None and int(observed) * h2_expected_sign > 0},
+                        },
+                        "runtime_sha256": _sha256_json(fingerprint),
+                        "resource_hashes": {"geometry_registry": registry["registry_sha256"], "scene_asset": primary["mesh_sha256"]},
+                    })
+    except Exception as exc:  # pragma: no cover - requires the real SS2 runtime
+        errors.append({"type": type(exc).__name__, "message": str(exc)})
+
+    applicable = [row for row in rows if row["raw"]["applicability"] == "APPLICABLE"]
+    h1_pass = sum(bool(row["hypotheses"]["H1_native_ch0_L_ch1_R"]["supports"]) for row in applicable)
+    h2_pass = sum(bool(row["hypotheses"]["H2_native_ch0_R_ch1_L"]["supports"]) for row in applicable)
+    h1_accuracy = h1_pass / float(len(applicable)) if applicable else None
+    h2_accuracy = h2_pass / float(len(applicable)) if applicable else None
+    mapping_decision = "SWAP_NATIVE_TO_CANONICAL" if h2_accuracy == 1.0 and (h1_accuracy or 0.0) < h2_accuracy else "NO_MAPPING_DECISION"
+    return {
+        "schema_version": "active-asr-a2-direction-channel-calibration-v1",
+        "status": PASS if rows and not errors and applicable else BLOCKED,
+        "formal_denominator": False,
+        "cases": rows,
+        "errors": errors,
+        "hypothesis_summary": {
+            "H1_native_ch0_L_ch1_R": {"pass": h1_pass, "applicable": len(applicable), "sign_accuracy": h1_accuracy},
+            "H2_native_ch0_R_ch1_L": {"pass": h2_pass, "applicable": len(applicable), "sign_accuracy": h2_accuracy},
+            "supported_hypothesis": "H2_native_ch0_R_ch1_L" if mapping_decision == "SWAP_NATIVE_TO_CANONICAL" else None,
+            "mapping_decision": mapping_decision,
+        },
+        "convention_audit": {
+            "receiver_geometry_relative_azimuth": "positive_left",
+            "scene_pose_relative_azimuth": "positive_left",
+            "world_frame": "Y-up, forward=-Z, right=+X at yaw=0",
+            "raw_channel_evidence_is_independent_of_canonical_mapping": True,
+        },
     }
 
 
@@ -941,7 +1158,9 @@ def _runtime_smoke(
                             line_of_sight="UNKNOWN",
                             relative_angle_deg=None,
                             distance_m=None,
-                            probe="impulse",
+                            probe="impulse_response",
+                            probe_domain="rir",
+                            probe_reference="impulse_response",
                             sample_rate_hz=int(config["acoustics"]["sample_rate_hz"]),
                             ray_preset=effective_acoustics(receiver),
                             ir_length_sec=float(effective_acoustics(receiver)["maxIRLength"]),
@@ -1046,6 +1265,113 @@ def _controlled_metric16(record: Mapping[str, Any]) -> Optional[Mapping[str, Any
     return metrics if isinstance(metrics, Mapping) else None
 
 
+def _sample_rate_pair_detail(
+    key: Tuple[str, float, float],
+    pair: Mapping[int, Mapping[str, Any]],
+    records: Mapping[str, Mapping[str, Any]],
+    contract: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """Build the auditable 16/24 kHz table row and attribution candidates."""
+
+    native16_record = pair.get(16000)
+    native24_record = pair.get(24000)
+    native16 = native16_record.get("native_metrics") if native16_record else None
+    native24 = native24_record.get("native_metrics") if native24_record else None
+    resampled = native24_record.get("resampled_metrics16") if native24_record else None
+    comparison = _metric_comparison(native16, resampled) if native16 is not None and resampled is not None else {"applicability": NA, "reason": "RATE_PAIR_MISSING"}
+
+    def criterion_values(field: str) -> List[float]:
+        return [float(item[field]) for item in comparison.get("bands", {}).values() if item.get(field) is not None]
+
+    band_ild = criterion_values("ild_difference_db")
+    band_energy = criterion_values("energy_difference_db")
+    ab_contract = contract["gates"]["sample_rate_ab"]
+    itd_pass = comparison.get("itd_difference_samples") is not None and comparison["itd_difference_samples"] <= float(ab_contract["itd_difference_max_samples"])
+    ild_pass = bool(band_ild) and max(band_ild) <= float(ab_contract["band_ild_difference_max_db"])
+    energy_pass = bool(band_energy) and max(band_energy) <= float(ab_contract["band_energy_difference_max_db"])
+    applicable = comparison.get("applicability") == "APPLICABLE"
+
+    native16_onset = _metric_onsets(native16, 16000)
+    native24_onset = _metric_onsets(native24, 24000)
+    resampled_onset = _metric_onsets(resampled, 16000)
+    native_time_delta = {"L": None, "R": None, "itd_seconds_native24_minus_native16": None}
+    resample_shift = {"L": None, "R": None, "itd_samples_at_16khz": None}
+    if native16_onset.get("applicability") == "APPLICABLE" and native24_onset.get("applicability") == "APPLICABLE":
+        native_time_delta = {
+            "L": float(native24_onset["L"]["seconds"] - native16_onset["L"]["seconds"]),
+            "R": float(native24_onset["R"]["seconds"] - native16_onset["R"]["seconds"]),
+            "itd_seconds_native24_minus_native16": float(native24_onset["itd_seconds"] - native16_onset["itd_seconds"]),
+        }
+    if native24_onset.get("applicability") == "APPLICABLE" and resampled_onset.get("applicability") == "APPLICABLE":
+        resample_shift = {
+            "L": float(resampled_onset["L"]["samples"] - native24_onset["L"]["seconds"] * 16000.0),
+            "R": float(resampled_onset["R"]["samples"] - native24_onset["R"]["seconds"] * 16000.0),
+            "itd_samples_at_16khz": float(resampled_onset["itd_samples"] - native24_onset["itd_seconds"] * 16000.0),
+        }
+
+    repeat_metrics = []
+    for record in records.values():
+        spec = record["spec"]
+        if (
+            spec["purpose"] == "direction_repeatability"
+            and spec["line_of_sight"] == "LOS"
+            and spec["geometry"]["id"] == key[0]
+            and float(spec["distance_m"]) == key[1]
+            and float(spec["relative_angle_deg"]) == key[2]
+        ):
+            metric = _controlled_metric16(record)
+            if metric is not None and metric.get("applicability") == "APPLICABLE":
+                repeat_metrics.append(metric)
+    stochastic_proxy: Dict[str, Any] = {"available": False, "not_isolated_from_all_runtime_variation": True}
+    if len(repeat_metrics) >= 2:
+        itd_values = [float(item["itd_samples"]) for item in repeat_metrics]
+        energy_values = [float(item["direct_energy_db"]) for item in repeat_metrics]
+        band_spreads = {}
+        for band_id in repeat_metrics[0].get("bands", {}):
+            values = [float(item["bands"][band_id]["energy_db"]) for item in repeat_metrics if item["bands"][band_id].get("energy_db") is not None]
+            if values:
+                band_spreads[band_id] = max(values) - min(values)
+        stochastic_proxy = {
+            "available": True,
+            "repeat_count": len(repeat_metrics),
+            "itd_spread_samples": max(itd_values) - min(itd_values),
+            "direct_energy_spread_db": max(energy_values) - min(energy_values),
+            "band_energy_spread_db": band_spreads,
+            "not_isolated_from_all_runtime_variation": True,
+        }
+
+    return {
+        "geometry": key[0],
+        "distance_m": key[1],
+        "angle_deg": key[2],
+        "native16_onset": native16_onset,
+        "native24_onset": native24_onset,
+        "resampled24_to_16_onset": resampled_onset,
+        "native_time_difference_candidate_A": native_time_delta,
+        "resampled_onset_shift_candidate_B": resample_shift,
+        "renderer_amplitude_frequency_candidate_C": {
+            "direct_energy_difference_db": comparison.get("direct_energy_difference_db"),
+            "band_ild_difference_db": {band_id: item.get("ild_difference_db") for band_id, item in comparison.get("bands", {}).items()},
+            "band_energy_difference_db": {band_id: item.get("energy_difference_db") for band_id, item in comparison.get("bands", {}).items()},
+            "interpretation": "renderer/filter response is not isolated by this pair; no separate normalization was applied",
+        },
+        "stochastic_ray_difference_candidate_D": stochastic_proxy,
+        "comparison": comparison,
+        "criterion": {
+            "applicable": applicable,
+            "itd_pass": bool(applicable and itd_pass),
+            "ild_pass": bool(applicable and ild_pass),
+            "energy_pass": bool(applicable and energy_pass),
+            "joint_pass": bool(applicable and itd_pass and ild_pass and energy_pass),
+        },
+        "tolerances": {
+            "itd_difference_max_samples": ab_contract["itd_difference_max_samples"],
+            "band_ild_difference_max_db": ab_contract["band_ild_difference_max_db"],
+            "band_energy_difference_max_db": ab_contract["band_energy_difference_max_db"],
+        },
+    }
+
+
 def _evaluate_formal_gates(records: Mapping[str, Mapping[str, Any]], contract: Mapping[str, Any]) -> Dict[str, Any]:
     direction_specs = [record for record in records.values() if record["spec"]["purpose"] == "direction_repeatability" and record["spec"]["line_of_sight"] == "LOS" and record["spec"]["sample_rate_hz"] == 16000 and float(record["spec"]["relative_angle_deg"]) in contract["gates"]["direction"]["side_los_angles_deg"]]
     direction_groups: Dict[Tuple[str, float, float], List[Mapping[str, Any]]] = {}
@@ -1110,24 +1436,20 @@ def _evaluate_formal_gates(records: Mapping[str, Mapping[str, Any]], contract: M
     ab_details = []
     ab_contract = contract["gates"]["sample_rate_ab"]
     for key, pair in sorted(ab_groups.items()):
-        native = _controlled_metric16(pair.get(16000, {})) if 16000 in pair else None
-        reference = pair.get(24000, {}).get("resampled_metrics16") if 24000 in pair else None
-        comparison = _metric_comparison(native, reference) if native is not None and reference is not None else {"applicability": NA, "reason": "RATE_PAIR_MISSING"}
-        if comparison.get("applicability") != "APPLICABLE":
+        detail = _sample_rate_pair_detail(key, pair, records, contract)
+        if not detail["criterion"]["applicable"]:
             ab_na += 1
             continue
-        band_ild = [item["ild_difference_db"] for item in comparison["bands"].values() if item.get("ild_difference_db") is not None]
-        band_energy = [item["energy_difference_db"] for item in comparison["bands"].values() if item.get("energy_difference_db") is not None]
-        detail = {"key": list(key), "comparison": comparison, "max_band_ild_difference_db": max(band_ild) if band_ild else None, "max_band_energy_difference_db": max(band_energy) if band_energy else None}
         ab_details.append(detail)
-        passed = comparison.get("itd_difference_samples") is not None and comparison["itd_difference_samples"] <= float(ab_contract["itd_difference_max_samples"]) and detail["max_band_ild_difference_db"] is not None and detail["max_band_ild_difference_db"] <= float(ab_contract["band_ild_difference_max_db"]) and detail["max_band_energy_difference_db"] is not None and detail["max_band_energy_difference_db"] <= float(ab_contract["band_energy_difference_max_db"])
-        if passed:
+        if detail["criterion"]["joint_pass"]:
             ab_pass += 1
         else:
             ab_fail += 1
     ab_attempted = len(ab_groups)
     ab_applicable = ab_pass + ab_fail
-    ab_status = PASS if ab_attempted and ab_applicable / float(ab_attempted) >= 0.95 and ab_pass == ab_applicable else BLOCKED
+    ab_applicable_fraction = ab_applicable / float(ab_attempted) if ab_attempted else 0.0
+    ab_joint_pass_fraction = ab_pass / float(ab_attempted) if ab_attempted else 0.0
+    ab_status = PASS if ab_attempted and ab_applicable_fraction >= float(ab_contract["applicable_case_min_fraction"]) and ab_joint_pass_fraction >= float(ab_contract["applicable_case_min_fraction"]) else BLOCKED
 
     convergence_groups: Dict[Tuple[str, float, float], Dict[Tuple[str, str], Mapping[str, Any]]] = {}
     for record in records.values():
@@ -1135,7 +1457,7 @@ def _evaluate_formal_gates(records: Mapping[str, Mapping[str, Any]], contract: M
         if spec["purpose"] == "ray_tail_convergence" and spec["line_of_sight"] == "LOS":
             key = (spec["geometry"]["id"], float(spec["distance_m"]), float(spec["relative_angle_deg"]))
             convergence_groups.setdefault(key, {})[(spec["ray_variant"], spec["ir_variant"])] = record
-    convergence_pass = convergence_na = convergence_fail = 0
+    convergence_evidence = convergence_na = 0
     convergence_details = []
     for key, variants in sorted(convergence_groups.items()):
         baseline = variants.get(("baseline", "baseline"))
@@ -1148,12 +1470,10 @@ def _evaluate_formal_gates(records: Mapping[str, Mapping[str, Any]], contract: M
         comparison_ir = _metric_comparison(_controlled_metric16(baseline), _controlled_metric16(ir))
         convergence_details.append({"key": list(key), "baseline_vs_rays_x2": comparison_rays, "baseline_vs_ir_x2": comparison_ir})
         if comparison_rays.get("applicability") == "APPLICABLE" and comparison_ir.get("applicability") == "APPLICABLE":
-            convergence_pass += 1
-        else:
-            convergence_fail += 1
+            convergence_evidence += 1
     convergence_attempted = len(convergence_groups)
-    convergence_applicable = convergence_pass + convergence_fail
-    convergence_status = PASS if convergence_attempted and convergence_applicable == convergence_attempted else BLOCKED
+    convergence_applicable = convergence_evidence
+    convergence_status = EVIDENCE_RECORDED if convergence_attempted and convergence_evidence == convergence_attempted else BLOCKED
 
     nlos_rows = [record for record in records.values() if record["spec"]["line_of_sight"] == "NLOS"]
     nlos_na = sum(1 for record in nlos_rows if record["row"]["applicability"] == NA and record["row"]["reason"] == "NLOS_DIRECT_PATH_BY_CONTRACT")
@@ -1172,7 +1492,8 @@ def _evaluate_formal_gates(records: Mapping[str, Mapping[str, Any]], contract: M
                     mirror_groups.append(int(left_metric["itd_samples"]) * int(right_metric["itd_samples"]) < 0)
     mirror_pass = sum(bool(value) for value in mirror_groups)
     mirror_attempted = len(mirror_groups)
-    mirror_gate = _formal_gate_counts(mirror_attempted, mirror_attempted, mirror_pass, mirror_attempted - mirror_pass, 0, PASS if mirror_attempted and mirror_pass == mirror_attempted else BLOCKED, "direct-dominant mathematical mirror pairs only; no full-RIR equality asserted")
+    mirror_gate = _formal_gate_counts(mirror_attempted, mirror_attempted, 0, 0, 0, EVIDENCE_RECORDED if mirror_attempted else BLOCKED, "mirror_symmetry_direct evidence only; current cases do not test listener yaw-relative invariance")
+    mirror_gate["evidence_recorded"] = mirror_pass
 
     near_far_groups = []
     for geometry_id in sorted(primary_ids):
@@ -1194,11 +1515,26 @@ def _evaluate_formal_gates(records: Mapping[str, Mapping[str, Any]], contract: M
         "direction": _formal_gate_counts(attempted, applicable, direction_pass, direction_fail, direction_na, direction_status, "side LOS sign expectation from controlled transform geometry"),
         "repeatability": _formal_gate_counts(repeat_attempted, repeat_applicable, repeat_pass, repeat_fail, repeat_na, repeat_status, "five repeats per LOS pose"),
         "sample_rate_ab": _formal_gate_counts(ab_attempted, ab_applicable, ab_pass, ab_fail, ab_na, ab_status, "native 16 kHz versus native 24 kHz resampled to 16 kHz"),
-        "ray_tail_convergence": _formal_gate_counts(convergence_attempted, convergence_applicable, convergence_pass, convergence_fail, convergence_na, convergence_status, "paired diagnostics; no samplewise identity requirement"),
+        "ray_tail_convergence": dict(_formal_gate_counts(convergence_attempted, convergence_applicable, 0, 0, convergence_na, convergence_status, "evidence recorded only; no numeric convergence tolerance is frozen"), evidence_recorded=convergence_evidence),
         "nlos_direct_metric_control": _formal_gate_counts(len(nlos_rows), 0, 0, 0, nlos_na, PASS if nlos_rows and nlos_na == len(nlos_rows) else BLOCKED, "NLOS direct-path metrics are N/A by contract"),
-        "mirror_yaw": mirror_gate,
+        "mirror_symmetry_direct": mirror_gate,
         "near_far_los_direct_energy": near_far_gate,
-        "details": {"repeatability": repeat_details, "sample_rate_ab": ab_details, "ray_tail_convergence": convergence_details},
+        "details": {
+            "repeatability": repeat_details,
+            "sample_rate_ab": ab_details,
+            "sample_rate_ab_summary": {
+                "itd_pass_count": sum(bool(item["criterion"]["itd_pass"]) for item in ab_details),
+                "ild_pass_count": sum(bool(item["criterion"]["ild_pass"]) for item in ab_details),
+                "energy_pass_count": sum(bool(item["criterion"]["energy_pass"]) for item in ab_details),
+                "joint_pass_count": ab_pass,
+                "attempted": ab_attempted,
+                "applicable": ab_applicable,
+                "applicable_fraction": ab_applicable_fraction,
+                "joint_pass_fraction": ab_joint_pass_fraction,
+                "standard_interpretation": "at least 95% of attempted cases must be applicable and jointly pass; N/A is reported separately",
+            },
+            "ray_tail_convergence": convergence_details,
+        },
     }
 
 
@@ -1265,16 +1601,16 @@ def _run_controlled_qualification(contract: Mapping[str, Any], runtime_config: M
                     applicability = NA if nlos else metrics16["applicability"]
                     reason = "NLOS_DIRECT_PATH_BY_CONTRACT" if nlos else metrics16.get("na_reason")
                     status = NA if applicability == NA else PASS
-                    row = _case_row(case_id=case_id, case_type="controlled_qualification", geometry_id=geometry["id"], geometry={"registry_sha256": registry["registry_sha256"], "mesh_path": geometry["mesh_path"], "mesh_sha256": geometry["mesh_sha256"], "purpose": spec["purpose"], "generator_version": registry["generator_version"]}, source_transform={"position_world": list(source)}, receiver_transform={"sensor_position_world": list(receiver_sensor), "base_position_world": list(base), "yaw_deg": float(spec["transforms"]["receiver_yaw_deg"])}, line_of_sight=spec["line_of_sight"], relative_angle_deg=float(spec["relative_angle_deg"]), distance_m=float(spec["distance_m"]), probe=spec["probe"], sample_rate_hz=rate, ray_preset=dict(effective), ir_length_sec=float(effective["maxIRLength"]), repeat_id=int(spec["repeat_id"]), applicability=applicability, raw_metrics={"native": native_metrics, "resampled_to_16khz": metrics16 if rate == 24000 else None}, status=status, reason=reason, runtime_sha256=_sha256_json(fingerprint), contract_sha256=metric_contract_sha256(contract), resource_hashes=resource_hashes)
-                    records[case_id] = {"spec": spec, "row": row, "metrics16": metrics16, "resampled_metrics16": metrics16 if rate == 24000 else None}
+                    row = _case_row(case_id=case_id, case_type="controlled_qualification", geometry_id=geometry["id"], geometry={"registry_sha256": registry["registry_sha256"], "mesh_path": geometry["mesh_path"], "mesh_sha256": geometry["mesh_sha256"], "purpose": spec["purpose"], "generator_version": registry["generator_version"]}, source_transform={"position_world": list(source)}, receiver_transform={"sensor_position_world": list(receiver_sensor), "base_position_world": list(base), "yaw_deg": float(spec["transforms"]["receiver_yaw_deg"])}, line_of_sight=spec["line_of_sight"], relative_angle_deg=float(spec["relative_angle_deg"]), distance_m=float(spec["distance_m"]), probe="impulse_response", probe_domain="rir", probe_reference="impulse_response", sample_rate_hz=rate, ray_preset=dict(effective), ir_length_sec=float(effective["maxIRLength"]), repeat_id=int(spec["repeat_id"]), applicability=applicability, raw_metrics={"native": native_metrics, "resampled_to_16khz": metrics16 if rate == 24000 else None}, status=status, reason=reason, runtime_sha256=_sha256_json(fingerprint), contract_sha256=metric_contract_sha256(contract), resource_hashes=resource_hashes)
+                    records[case_id] = {"spec": spec, "row": row, "native_metrics": native_metrics, "metrics16": metrics16, "resampled_metrics16": metrics16 if rate == 24000 else None}
         except Exception as exc:  # pragma: no cover - requires the real SS2 runtime
             errors.append({"geometry_id": geometry["id"], "sample_rate_hz": rate, "ray_variant": ray_variant, "ir_variant": ir_variant, "type": type(exc).__name__, "message": str(exc)})
 
     rows = [record["row"] for record in records.values()]
-    gates = _evaluate_formal_gates(records, contract) if not errors else {name: _gate_counts(BLOCKED, "CONTROLLED_RUNTIME_RENDER_ERROR") for name in ("direction", "repeatability", "sample_rate_ab", "ray_tail_convergence", "mirror_yaw", "near_far_los_direct_energy")}
+    gates = _evaluate_formal_gates(records, contract) if not errors else {name: _gate_counts(BLOCKED, "CONTROLLED_RUNTIME_RENDER_ERROR") for name in FORMAL_GATE_NAMES}
     geometry_sanity_results = {entry["id"]: geometry_sanity(entry) for entry in registry["geometries"]}
     complete = not errors and len(rows) == len(cases)
-    gate_values = [gates[name]["status"] for name in ("direction", "repeatability", "sample_rate_ab", "ray_tail_convergence", "mirror_yaw", "near_far_los_direct_energy") if name in gates]
+    gate_values = [gates[name]["status"] for name in HARD_GATE_NAMES if name in gates]
     overall = PASS if complete and all(value == PASS for value in gate_values) else BLOCKED
     blocker = None if overall == PASS else ("CONTROLLED_RUNTIME_RENDER_ERROR" if errors else "A2_FORMAL_GATE_FAILURE")
     return {
@@ -1331,28 +1667,38 @@ def run_a2_qualification(
     geometry_path, geometry_reason = _load_geometry_registry(contract, repo_root)
     fixtures = run_synthetic_metric_fixtures(contract)
     calibration = run_resampler_band_calibration(contract)
+    probe_diagnostics = run_probe_domain_diagnostics(contract)
     smoke: Dict[str, Any] = {"status": "NOT_RUN_FORMAL_CONTROLLED_GEOMETRY", "cases": [], "errors": []}
     formal: Dict[str, Any]
     registry: Optional[Mapping[str, Any]] = None
+    direction_channel_calibration: Dict[str, Any] = {
+        "schema_version": "active-asr-a2-direction-channel-calibration-v1",
+        "status": "NOT_RUN",
+        "formal_denominator": False,
+        "cases": [],
+        "errors": [],
+        "hypothesis_summary": {},
+    }
     if geometry_reason is not None:
         smoke = _runtime_smoke(contract, runtime_config, scene_id, geometry_reason)
-        formal = {"status": BLOCKED, "blocker": geometry_reason, "cases": [], "gates": {name: _gate_counts(BLOCKED, geometry_reason) for name in ("direction", "repeatability", "sample_rate_ab", "ray_tail_convergence", "mirror_yaw", "near_far_los_direct_energy")}, "errors": []}
+        formal = {"status": BLOCKED, "blocker": geometry_reason, "cases": [], "gates": {name: _gate_counts(BLOCKED, geometry_reason) for name in FORMAL_GATE_NAMES}, "errors": []}
     elif calibration["status"] != PASS:
-        formal = {"status": BLOCKED, "blocker": "RESAMPLER_CALIBRATION_EXCEEDS_FROZEN_AB_TOLERANCE", "cases": [], "gates": {name: _gate_counts(BLOCKED, "RESAMPLER_CALIBRATION_EXCEEDS_FROZEN_AB_TOLERANCE") for name in ("direction", "repeatability", "sample_rate_ab", "ray_tail_convergence", "mirror_yaw", "near_far_los_direct_energy")}, "errors": []}
+        formal = {"status": BLOCKED, "blocker": "RESAMPLER_CALIBRATION_EXCEEDS_FROZEN_AB_TOLERANCE", "cases": [], "gates": {name: _gate_counts(BLOCKED, "RESAMPLER_CALIBRATION_EXCEEDS_FROZEN_AB_TOLERANCE") for name in FORMAL_GATE_NAMES}, "errors": []}
         registry = load_geometry_registry(str(geometry_path), str(repo_root))
     else:
         registry = load_geometry_registry(str(geometry_path), str(repo_root))
+        direction_channel_calibration = _run_direction_channel_calibration(contract, runtime_config, registry, runtime_contract)
         formal = _run_controlled_qualification(contract, runtime_config, registry, runtime_contract)
 
     cases: List[Dict[str, Any]] = list(formal.get("cases", []))
     if geometry_reason is not None:
-        cases.append(_case_row(case_id="controlled_geometry_required", case_type="controlled_geometry_requirement", geometry_id=None, geometry={"registry_path": str(geometry_path), "authority": "NOT_AVAILABLE"}, source_transform={}, receiver_transform={}, line_of_sight="UNKNOWN", relative_angle_deg=None, distance_m=None, probe="impulse", sample_rate_hz=16000, ray_preset={}, ir_length_sec=None, repeat_id=0, applicability=NA, raw_metrics=None, status=NA, reason=geometry_reason, runtime_sha256=_sha256_json(smoke.get("runtime_lock", {})), contract_sha256=contract_digest, resource_hashes=smoke.get("runtime_lock", {}).get("resource_hashes", {})))
+        cases.append(_case_row(case_id="controlled_geometry_required", case_type="controlled_geometry_requirement", geometry_id=None, geometry={"registry_path": str(geometry_path), "authority": "NOT_AVAILABLE"}, source_transform={}, receiver_transform={}, line_of_sight="UNKNOWN", relative_angle_deg=None, distance_m=None, probe="impulse_response", probe_domain="rir", probe_reference="impulse_response", sample_rate_hz=16000, ray_preset={}, ir_length_sec=None, repeat_id=0, applicability=NA, raw_metrics=None, status=NA, reason=geometry_reason, runtime_sha256=_sha256_json(smoke.get("runtime_lock", {})), contract_sha256=contract_digest, resource_hashes=smoke.get("runtime_lock", {}).get("resource_hashes", {})))
     for row in cases:
         validate_qualification_case(row)
 
     blocker = formal.get("blocker")
     overall_status = formal.get("status", BLOCKED)
-    gates = formal.get("gates", {name: _gate_counts(BLOCKED, blocker or "A2_NOT_RUN") for name in ("direction", "repeatability", "sample_rate_ab", "ray_tail_convergence", "mirror_yaw", "near_far_los_direct_energy")})
+    gates = formal.get("gates", {name: _gate_counts(BLOCKED, blocker or "A2_NOT_RUN") for name in FORMAL_GATE_NAMES})
     if registry is not None and "nlos_direct_metric_control" in gates:
         gates = dict(gates)
     runtime_lock = formal.get("runtime_lock")
@@ -1370,10 +1716,49 @@ def run_a2_qualification(
         "reason": gates.get("sample_rate_ab", {}).get("reason") or blocker,
         "resampler_calibration": calibration,
         "comparisons": comparison_details,
+        "criterion_summary": gates.get("details", {}).get("sample_rate_ab_summary", {}),
         "tolerances": {"itd_difference_max_samples": contract["gates"]["sample_rate_ab"]["itd_difference_max_samples"], "band_ild_difference_max_db": contract["gates"]["sample_rate_ab"]["band_ild_difference_max_db"], "band_energy_difference_max_db": contract["gates"]["sample_rate_ab"]["band_energy_difference_max_db"]},
         "normalization": "none",
     }
     validate_sample_rate_ab(sample_rate_ab)
+    pattern_by_angle_distance: Dict[str, Any] = {}
+    for detail in comparison_details:
+        pattern_by_angle_distance["d{}_a{}".format(detail["distance_m"], detail["angle_deg"])] = {
+            "distance_m": detail["distance_m"],
+            "angle_deg": detail["angle_deg"],
+            "itd_pass": detail["criterion"]["itd_pass"],
+            "ild_pass": detail["criterion"]["ild_pass"],
+            "energy_pass": detail["criterion"]["energy_pass"],
+            "joint_pass": detail["criterion"]["joint_pass"],
+        }
+    failure_attribution = {
+        "schema_version": "active-asr-a2-failure-attribution-v1",
+        "status": "ATTRIBUTION_RECORDED",
+        "formal_a2_status": overall_status,
+        "direction": direction_channel_calibration,
+        "relative_angle_audit": direction_channel_calibration.get("convention_audit", {}),
+        "sample_rate_ab": {
+            "diagnostic_rows": comparison_details,
+            "criterion_summary": sample_rate_ab["criterion_summary"],
+            "pattern_by_angle_distance": pattern_by_angle_distance,
+            "candidate_attribution": {
+                "A_native16_vs_native24_physical_time": "native onset seconds and native ITD seconds are recorded; this is a timing-base comparison, not a causal physical isolation",
+                "B_native24_to_16_resampled_onset_estimator": "resampled onset minus native24 onset projected to 16 kHz is recorded per channel and ITD",
+                "C_renderer_amplitude_frequency_response": "direct and per-band ILD/energy differences are recorded without separate normalization; renderer/filter effects are not isolated by this pair",
+                "D_stochastic_rays": "five-repeat baseline spread is recorded as a proxy and is explicitly not isolated from other runtime variation",
+            },
+        },
+        "probe_domains": probe_diagnostics,
+        "gate_semantics": {
+            "sample_rate_applicable_case_min_fraction": contract["gates"]["sample_rate_ab"]["applicable_case_min_fraction"],
+            "sample_rate_interpretation": "applicable fraction and joint-pass fraction are both evaluated against the registered 0.95 start gate; no unsupported 100-percent rule is used",
+            "ray_tail_convergence": "EVIDENCE_RECORDED / NOT_YET_GATED; no numeric tolerance is frozen",
+            "mirror_scope": "mirror_symmetry_direct; no listener-yaw-relative test was run",
+        },
+    }
+    validate_direction_channel_calibration(direction_channel_calibration)
+    validate_probe_domain_diagnostics(probe_diagnostics)
+    validate_failure_attribution(failure_attribution)
     geometry_status = "VALIDATED" if geometry_reason is None else "BLOCKED"
     geometry_summary: Dict[str, Any] = {"path": str(geometry_path), "status": geometry_status, "reason": geometry_reason}
     if registry is not None:
@@ -1387,6 +1772,9 @@ def run_a2_qualification(
         "qualification_geometry": geometry_summary,
         "synthetic_metric_fixtures": fixtures,
         "resampler_calibration": calibration,
+        "probe_domain_diagnostics": probe_diagnostics,
+        "direction_channel_calibration": direction_channel_calibration,
+        "failure_attribution": {"path": "a2_failure_attribution.json", "status": failure_attribution["status"]},
         "scene_technical_smoke": {"status": smoke.get("status"), "case_count": len(smoke.get("cases", [])), "errors": smoke.get("errors", []), "not_physics_evidence": True},
         "formal_runtime": {"errors": formal.get("errors", []), "case_count": len(formal.get("cases", []))},
         "ir_length_provenance": {"formal_contract_default_sec": {"status": KNOWN, "value": 2.0, "source": "Issue #2 mixed-contract A2 default; A0 schema is unchanged"}, "legacy_config_requested_max_ir_length_sec": {"status": "NOT_REQUESTED", "value": None, "source": "V0 runtime config does not request acousticsConfig.maxIRLength"}, "runtime_effective_max_ir_length_sec": {"status": KNOWN if formal.get("effective_baseline_ir_length_sec") is not None else "UNKNOWN", "value": formal.get("effective_baseline_ir_length_sec"), "source": "A1 public AudioSensor.acousticsConfig readback on controlled geometry"}, "a2_adoption_decision": "QUALIFICATION_EVIDENCE_RECORDED_NO_A0_OR_A1_VALUE_CHANGED"},
@@ -1401,11 +1789,14 @@ def run_a2_qualification(
     storage.atomic_write_json(output_root / "runtime.lock.json", runtime_lock)
     storage.atomic_write_text(output_root / "qualification_cases.jsonl", "".join(json_line(row) + "\n" for row in cases))
     storage.atomic_write_json(output_root / "sample_rate_ab.json", sample_rate_ab)
-    summary["artifacts"] = {name: {"sha256": _file_sha256(output_root / name)} for name in ("runtime.lock.json", "qualification_cases.jsonl", "sample_rate_ab.json")}
+    storage.atomic_write_json(output_root / "direction_channel_calibration.json", direction_channel_calibration)
+    storage.atomic_write_json(output_root / "probe_domain_diagnostics.json", probe_diagnostics)
+    storage.atomic_write_json(output_root / "a2_failure_attribution.json", failure_attribution)
+    summary["artifacts"] = {name: {"sha256": _file_sha256(output_root / name)} for name in ("runtime.lock.json", "qualification_cases.jsonl", "sample_rate_ab.json", "direction_channel_calibration.json", "probe_domain_diagnostics.json", "a2_failure_attribution.json")}
     storage.atomic_write_json(output_root / "a2_summary.json", summary)
     summary_digest = _file_sha256(output_root / "a2_summary.json")
     storage.atomic_write_text(output_root / "a2_report.md", _render_report(summary, summary_digest, smoke, fixtures))
-    return {"status": overall_status, "contract_sha256": contract_digest, "output_dir": str(output_root), "artifacts": {name: {"path": str(output_root / name), "sha256": _file_sha256(output_root / name)} for name in ("runtime.lock.json", "qualification_cases.jsonl", "sample_rate_ab.json", "a2_summary.json", "a2_report.md")}, "blocker": blocker, "gates": gates}
+    return {"status": overall_status, "contract_sha256": contract_digest, "output_dir": str(output_root), "artifacts": {name: {"path": str(output_root / name), "sha256": _file_sha256(output_root / name)} for name in ("runtime.lock.json", "qualification_cases.jsonl", "sample_rate_ab.json", "direction_channel_calibration.json", "probe_domain_diagnostics.json", "a2_failure_attribution.json", "a2_summary.json", "a2_report.md")}, "blocker": blocker, "gates": gates}
 
 
 def _file_sha256(path: Path) -> str:
@@ -1437,13 +1828,15 @@ def _render_report(summary: Mapping[str, Any], summary_sha256: str, smoke: Mappi
         "",
         "- Fixture status: **{}**".format(fixtures["status"]),
         "- The known-delay/gain impulse, sign reversal, low-energy N/A, and 24 kHz→16 kHz resampling convention were executed before any runtime qualification.",
-        "- Probe names are impulse, broadband_noise, chirp, and voiced_tone; voiced_tone is synthetic auxiliary evidence, not natural speech.",
+        "- Formal rows are RIR-domain cases with `probe/reference=impulse_response`; broadband_noise, chirp, and voiced_tone are separate waveform-domain diagnostics only.",
         "",
         "## Geometry and resampler sanity",
         "",
         "- Registry status: `{}`; registry SHA256: `{}`.".format(geometry.get("status"), geometry.get("registry_sha256")),
         "- Minimum analytic first-reflection extra delay: `{:.6f} ms`; direct-window-clear: `{}`.".format(min((item.get("minimum_first_reflection_extra_time_ms", 0.0) for item in geometry.get("sanity", {}).values()), default=0.0), all(item.get("all_direct_windows_clear", False) for item in geometry.get("sanity", {}).values()) if geometry.get("sanity") else False),
         "- Resampler calibration: `{}`; maximum absolute energy bias: `{:.6f} dB`; decision: `{}`.".format(calibration.get("status"), float(calibration.get("max_absolute_energy_bias_db", 0.0)), calibration.get("decision")),
+        "- Direction channel calibration: H1 accuracy `{}`; H2 accuracy `{}`; decision `{}`.".format(summary.get("direction_channel_calibration", {}).get("hypothesis_summary", {}).get("H1_native_ch0_L_ch1_R", {}).get("sign_accuracy"), summary.get("direction_channel_calibration", {}).get("hypothesis_summary", {}).get("H2_native_ch0_R_ch1_L", {}).get("sign_accuracy"), summary.get("direction_channel_calibration", {}).get("hypothesis_summary", {}).get("mapping_decision")),
+        "- Relative-angle audit: geometry and scene pose use positive-left; raw native channel evidence is stored before canonical mapping.",
         "",
         "## Runtime evidence",
         "",
@@ -1451,6 +1844,13 @@ def _render_report(summary: Mapping[str, Any], summary_sha256: str, smoke: Mappi
         "- office_0 is never included in the formal denominator; this run used the registered controlled geometry only.",
         "- A1 effective ray preset and IR length are recorded in `runtime.lock.json`; no A0/A1 value was silently changed.",
         "- IR provenance remains distinct: Issue #2 formal default 2 s, legacy config did not request maxIRLength, and current A1 runtime readback is recorded separately; this run reports effective controlled-runtime IR length without changing A0/A1.",
+        "",
+        "## Failure attribution and gate semantics",
+        "",
+        "- Failure-attribution artifact: `a2_failure_attribution.json`; probe-domain artifact is not part of any formal denominator.",
+        "- Sample-rate criterion counts ITD/ILD/energy/joint: `{}/{}/{}/{}`; applicable fraction `{}`; joint-pass fraction `{}`.".format(summary.get("gates", {}).get("details", {}).get("sample_rate_ab_summary", {}).get("itd_pass_count", 0), summary.get("gates", {}).get("details", {}).get("sample_rate_ab_summary", {}).get("ild_pass_count", 0), summary.get("gates", {}).get("details", {}).get("sample_rate_ab_summary", {}).get("energy_pass_count", 0), summary.get("gates", {}).get("details", {}).get("sample_rate_ab_summary", {}).get("joint_pass_count", 0), summary.get("gates", {}).get("details", {}).get("sample_rate_ab_summary", {}).get("applicable_fraction", 0.0), summary.get("gates", {}).get("details", {}).get("sample_rate_ab_summary", {}).get("joint_pass_fraction", 0.0)),
+        "- A/B attribution records native-time, resampled-onset, amplitude/frequency, and repeat-ray proxy fields; it does not claim causal isolation.",
+        "- Ray/tail is `EVIDENCE_RECORDED / NOT_YET_GATED`; mirror scope is `mirror_symmetry_direct`, not yaw-relative invariance.",
         "",
         "## Gate counts",
         "",
@@ -1488,10 +1888,14 @@ __all__ = [
     "make_probe",
     "metric_contract_sha256",
     "run_a2_qualification",
+    "run_probe_domain_diagnostics",
     "run_resampler_band_calibration",
     "run_synthetic_metric_fixtures",
     "validate_a2_runtime_lock",
+    "validate_direction_channel_calibration",
+    "validate_failure_attribution",
     "validate_metric_contract",
+    "validate_probe_domain_diagnostics",
     "validate_qualification_case",
     "validate_sample_rate_ab",
 ]

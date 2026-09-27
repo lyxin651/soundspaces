@@ -1,4 +1,4 @@
-"""The single coordinate and yaw implementation for V0."""
+"""The shared coordinate and yaw implementation; relative azimuth is positive-left."""
 
 import math
 from typing import Iterable, Tuple, Union
@@ -77,7 +77,10 @@ def relative_azimuth_deg(
 ) -> float:
     delta_world = _array(source_position_world) - _array(listener_sensor_position_world)
     delta_agent = np.asarray(world_direction_to_agent(delta_world, listener_yaw_deg))
-    angle = math.degrees(math.atan2(float(delta_agent[0]), float(-delta_agent[2])))
+    # V1/A2 canonical convention is positive-left, matching the controlled
+    # geometry registry.  Habitat local +X is the listener's right direction,
+    # hence the sign inversion before atan2.
+    angle = math.degrees(math.atan2(float(-delta_agent[0]), float(-delta_agent[2])))
     return normalize_yaw_deg(angle)
 
 

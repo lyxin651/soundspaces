@@ -17,10 +17,14 @@ from active_audition.receiver.qualification import (
     make_probe,
     metric_contract_sha256,
     run_a2_qualification,
+    run_probe_domain_diagnostics,
     run_resampler_band_calibration,
     run_synthetic_metric_fixtures,
     validate_a2_runtime_lock,
+    validate_direction_channel_calibration,
+    validate_failure_attribution,
     validate_metric_contract,
+    validate_probe_domain_diagnostics,
     validate_qualification_case,
     validate_sample_rate_ab,
 )
@@ -77,6 +81,39 @@ class ActiveASRA2MetricTests(unittest.TestCase):
             second = make_probe(kind, 16000)
             self.assertEqual(first.dtype.name, "float32")
             self.assertEqual(first.tolist(), second.tolist())
+
+    def test_probe_domain_diagnostic_is_separate_from_rir_gate_rows(self):
+        first = run_probe_domain_diagnostics(self.contract)
+        second = run_probe_domain_diagnostics(self.contract)
+        self.assertEqual(first, second)
+        self.assertEqual(first["formal_denominator"], False)
+        self.assertEqual([row["probe"] for row in first["probes"]], ["broadband_noise", "chirp", "voiced_tone"])
+        self.assertTrue(all(row["domain"] == "waveform_diagnostic" for row in first["probes"]))
+        self.assertIs(validate_probe_domain_diagnostics(first), first)
+
+    def test_failure_attribution_and_direction_artifact_schemas_are_versioned(self):
+        direction = {
+            "schema_version": "active-asr-a2-direction-channel-calibration-v1",
+            "status": "BLOCKED",
+            "formal_denominator": False,
+            "cases": [],
+            "errors": [],
+            "hypothesis_summary": {},
+        }
+        self.assertIs(validate_direction_channel_calibration(direction), direction)
+        attribution = {
+            "schema_version": "active-asr-a2-failure-attribution-v1",
+            "status": "ATTRIBUTION_RECORDED",
+            "formal_a2_status": BLOCKED,
+            "direction": direction,
+            "relative_angle_audit": {},
+            "sample_rate_ab": {},
+            "probe_domains": {},
+            "gate_semantics": {},
+        }
+        self.assertIs(validate_failure_attribution(attribution), attribution)
+        with self.assertRaises(QualificationError):
+            validate_failure_attribution(dict(attribution, future_field=True))
 
     def test_synthetic_fixtures_pass_before_runtime(self):
         result = run_synthetic_metric_fixtures(self.contract)
@@ -137,7 +174,9 @@ class ActiveASRA2MetricTests(unittest.TestCase):
             "line_of_sight": "UNKNOWN",
             "relative_angle_deg": None,
             "distance_m": None,
-            "probe": "impulse",
+            "probe": "impulse_response",
+            "probe_domain": "rir",
+            "probe_reference": "impulse_response",
             "sample_rate_hz": 16000,
             "ray_preset": {},
             "ir_length_sec": None,
@@ -188,7 +227,7 @@ class ActiveASRA2MetricTests(unittest.TestCase):
             "geometry_sanity": {},
             "effective_baseline_ray_preset": {},
             "effective_baseline_ir_length_sec": None,
-            "gates": {name: {"status": BLOCKED, "attempted": 0, "applicable": 0, "pass": 0, "fail": 0, "na": 0, "reason": "fixture"} for name in ("direction", "repeatability", "sample_rate_ab", "ray_tail_convergence", "mirror_yaw", "near_far_los_direct_energy")},
+            "gates": {name: {"status": BLOCKED, "attempted": 0, "applicable": 0, "pass": 0, "fail": 0, "na": 0, "reason": "fixture"} for name in ("direction", "repeatability", "sample_rate_ab", "ray_tail_convergence", "mirror_symmetry_direct", "near_far_los_direct_energy")},
             "runtime_lock": {
                 "schema_version": "active-asr-a2-runtime-lock-v1",
                 "gate": "A2",
@@ -201,13 +240,13 @@ class ActiveASRA2MetricTests(unittest.TestCase):
             },
         }
         with tempfile.TemporaryDirectory() as first_dir, tempfile.TemporaryDirectory() as second_dir:
-            with patch("active_audition.receiver.qualification._run_controlled_qualification", return_value=formal):
+            with patch("active_audition.receiver.qualification._run_direction_channel_calibration", return_value={"schema_version": "active-asr-a2-direction-channel-calibration-v1", "status": "NOT_RUN", "formal_denominator": False, "cases": [], "errors": [], "hypothesis_summary": {}}), patch("active_audition.receiver.qualification._run_controlled_qualification", return_value=formal):
                 first = run_a2_qualification(str(METRIC_CONTRACT_PATH), first_dir, str(RUNTIME_CONFIG_PATH))
-            with patch("active_audition.receiver.qualification._run_controlled_qualification", return_value=formal):
+            with patch("active_audition.receiver.qualification._run_direction_channel_calibration", return_value={"schema_version": "active-asr-a2-direction-channel-calibration-v1", "status": "NOT_RUN", "formal_denominator": False, "cases": [], "errors": [], "hypothesis_summary": {}}), patch("active_audition.receiver.qualification._run_controlled_qualification", return_value=formal):
                 second = run_a2_qualification(str(METRIC_CONTRACT_PATH), second_dir, str(RUNTIME_CONFIG_PATH))
             self.assertEqual(first["status"], BLOCKED)
             self.assertEqual(first["contract_sha256"], second["contract_sha256"])
-            for name in ("runtime.lock.json", "qualification_cases.jsonl", "sample_rate_ab.json", "a2_summary.json", "a2_report.md"):
+            for name in ("runtime.lock.json", "qualification_cases.jsonl", "sample_rate_ab.json", "direction_channel_calibration.json", "probe_domain_diagnostics.json", "a2_failure_attribution.json", "a2_summary.json", "a2_report.md"):
                 self.assertEqual((Path(first_dir) / name).read_bytes(), (Path(second_dir) / name).read_bytes())
             summary = json.loads((Path(first_dir) / "a2_summary.json").read_text(encoding="utf-8"))
             self.assertEqual(summary["status"], BLOCKED)
