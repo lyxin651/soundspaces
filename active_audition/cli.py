@@ -109,13 +109,22 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command", required=True)
     v1_command = subparsers.add_parser(
         "v1",
-        help="Active-ASR V1.1 A0 contract commands; runtime and later gates are not implemented here",
+        help="Active-ASR V1.1 contract and A1 runtime audit commands",
     )
     v1_subparsers = v1_command.add_subparsers(dest="v1_command", required=True)
     v1_validate = v1_subparsers.add_parser("validate", aliases=["validate-contract"])
     v1_validate.add_argument("--config", required=True)
     v1_hash = v1_subparsers.add_parser("hash", aliases=["contract-hash"])
     v1_hash.add_argument("--config", required=True)
+    v1_audit = v1_subparsers.add_parser("audit-runtime")
+    v1_audit.add_argument("--config", required=True, help="Active-ASR V1.1 A0 contract")
+    v1_audit.add_argument(
+        "--runtime-config",
+        default="configs/active_audition/v0_replica_debug.yaml",
+        help="Existing legacy live-runtime config used by create_scene_simulator",
+    )
+    v1_audit.add_argument("--scene-id", default="replica.office_0")
+    v1_audit.add_argument("--output-dir", default="runs/active_asr_v1/a1_runtime_audit")
     command = subparsers.add_parser("precheck")
     command.add_argument("--config", required=True)
     plan_command = subparsers.add_parser("plan")
@@ -144,6 +153,14 @@ def main() -> None:
     qc_command.add_argument("--evidence", default="")
     args = parser.parse_args()
     if args.command == "v1":
+        if args.v1_command == "audit-runtime":
+            from active_audition.receiver.audit import run_runtime_audit
+
+            result = run_runtime_audit(args.config, args.output_dir, args.runtime_config, args.scene_id)
+            print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+            if result["status"] == "BLOCKED":
+                raise SystemExit(1)
+            return
         from active_audition.v1.cli import _result
 
         result = _result(args.config)
