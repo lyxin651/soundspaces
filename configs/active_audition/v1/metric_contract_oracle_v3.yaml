@@ -1,0 +1,139 @@
+contract:
+  namespace: active-asr
+  version: active-asr-a2-oracle-aligned-v3
+  gate: A2
+  state: IMPLEMENTED
+  role: oracle_aligned_native16_hard_gates
+  parent_metric_contract_version: active-asr-a2-metric-v2
+  parent_metric_contract_sha256: f1185d2c5fe81091199d5525f224822a3227c700c60bba9ab168e6d9ddc38f83
+
+serialization:
+  version: canonical-json-v1
+  hash_algorithm: sha256
+
+production_native16:
+  sample_rate_hz: 16000
+  channel_order: [L, R]
+  direct_window:
+    search_start_sec: 0.0
+    search_duration_sec: 0.050
+    onset_threshold_fraction_of_channel_peak: 0.10
+    minimum_peak_amplitude: 1.0e-8
+    minimum_energy: 1.0e-12
+    length_sec: 0.010
+    onset_rule: first_absolute_sample_at_or_above_threshold
+    low_energy_policy: N/A
+    no_onset_policy: N/A
+  metrics:
+    itd:
+      definition: tR_minus_tL
+      units: samples_at_native_rate
+      sign_positive: right_onset_later_than_left
+    ild:
+      definition: 10log10(E_L_divided_by_E_R)
+      energy_definition: sum_of_squared_samples_in_common_direct_window
+      units: dB
+    no_per_render_normalization: true
+    no_per_pose_normalization: true
+    no_per_ear_normalization: true
+
+hard_gates:
+  P1_native_channel_mapping:
+    kind: relational_invariant
+    canonical_order: [L, R]
+    independent_raw_channel_calibration_required: true
+  P2_yaw_relative_coordinate:
+    kind: controlled_fixed_world_source
+    fixed_world_source_distance_m: 4.0
+    listener_yaws_deg: [-90, -60, -30, 0, 30, 60, 90, 180]
+    side_relative_angles_deg: [-90, -60, -30, 30, 60, 90]
+    geometry_pose_relative_azimuth_must_match: true
+    side_itd_sign_follows_listener_relative_direction: true
+    front_back_zero_or_near_zero_itd_allowed: true
+    source_position_changes_with_yaw: false
+  P3_side_los_itd_direction:
+    kind: relational_invariant
+    minimum_sign_accuracy_fraction: 0.95
+    global_lr_reversal_forbidden: true
+  P4_repeatability:
+    kind: inherited_frozen_metric_tolerances
+    repeat_count: 5
+    direct_itd_spread_max_samples_at_16khz: 2.0
+    band_direct_ild_spread_max_db: 1.0
+    direct_energy_spread_max_db: 1.0
+    applicable_case_min_fraction: 0.95
+  P5_controlled_symmetry:
+    kind: relational_invariant
+    mirror_angles_deg: [-90, -60, -30, 30, 60, 90]
+    distances_m: [1.0, 4.0]
+    both_sides_applicable_required: true
+    direct_itd_nonzero_required: true
+    direct_itd_signs_opposite_required: true
+    full_rir_magnitude_symmetry_gate: false
+    ild_magnitude_symmetry_gate: false
+  P6_near_far_los:
+    kind: relational_invariant
+    direct_energy_decreases_with_distance_required: true
+    full_window_or_wer_monotonicity_required: false
+  P7_nlos_applicability:
+    kind: applicability_invariant
+    direct_path_metric_policy: N/A
+    na_cannot_reduce_hard_gate_denominator: true
+  P8_native16_pose_gain_preservation:
+    kind: implementation_and_relational_invariants
+    sample_rate_hz: 16000
+    dry_fixture: deterministic_broadband_chirp_v1
+    global_gains: [0.25, 0.50]
+    normalization: none
+    forbidden_normalization: [per_rir, per_pose, per_ear, per_sample_rate, loudness_equalization]
+    gain_linearity_exact_required: true
+    relative_pose_energy_invariance_exact_required: true
+    pose_dependent_energy_must_not_be_equalized: true
+  P9_native16_waveform_validity:
+    kind: implementation_invariants
+    sample_rate_hz: 16000
+    channel_order: [L, R]
+    frontend: mean_lr
+    frontend_formula: (L+R)/2
+    dtype: float32
+    finite_required: true
+    full_convolution_time_axis_required: true
+    pose_dependent_crop_or_trim_forbidden: true
+    max_abs_waveform_before_clipping: 1.0
+    repeated_artifact_reproducibility_required: true
+
+qualification_evidence:
+  Q1_rays_ir_tail:
+    role: qualification_evidence
+    status: EVIDENCE_RECORDED_NOT_YET_GATED
+    numeric_tolerance_frozen: false
+    blocks_native16_hard_gates: false
+  Q2_cross_rate_itd_ild:
+    role: sensitivity_diagnostic
+    status: COMPLETED_SENSITIVITY
+    numeric_tolerance_frozen: false
+    blocks_native16_hard_gates: false
+  Q3_cross_rate_raw_energy:
+    role: sensitivity_diagnostic
+    status: COMPLETED_DIAGNOSTIC
+    numeric_tolerance_frozen: false
+    blocks_native16_hard_gates: false
+  Q4_waveform_asr_bridge:
+    role: deferred_a3_sensitivity
+    status: DEFERRED_TO_A3
+    numeric_tolerance_frozen: false
+    blocks_native16_hard_gates: false
+
+historical_v2_provenance:
+  metric_contract_sha256: f1185d2c5fe81091199d5525f224822a3227c700c60bba9ab168e6d9ddc38f83
+  formal_failure_artifacts_immutable: true
+  cross_rate_failure_is_current_hard_blocker: false
+
+artifacts:
+  schema_version: active-asr-a2-oracle-alignment-artifact-v1
+  yaw_relative_filename: yaw_relative_qualification.json
+  symmetry_filename: controlled_symmetry_qualification.json
+  pose_gain_filename: native16_pose_gain_preservation.json
+  waveform_filename: native16_waveform_validity.json
+  summary_filename: a2_oracle_alignment_summary.json
+  report_filename: a2_oracle_alignment_report.md

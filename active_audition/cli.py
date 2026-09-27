@@ -120,6 +120,23 @@ def main() -> None:
     v1_metric_validate.add_argument("--config", required=True)
     v1_metric_hash = v1_subparsers.add_parser("hash-metric")
     v1_metric_hash.add_argument("--config", required=True)
+    v1_oracle_validate = v1_subparsers.add_parser("validate-oracle")
+    v1_oracle_validate.add_argument("--config", required=True)
+    v1_oracle_hash = v1_subparsers.add_parser("hash-oracle")
+    v1_oracle_hash.add_argument("--config", required=True)
+    v1_oracle_qualify = v1_subparsers.add_parser("qualify-oracle-alignment")
+    v1_oracle_qualify.add_argument("--config", required=True)
+    v1_oracle_qualify.add_argument(
+        "--runtime-config",
+        default="configs/active_audition/v0_replica_debug.yaml",
+        help="Existing legacy live-runtime config used by the native16 qualification",
+    )
+    v1_oracle_qualify.add_argument(
+        "--historical-run-dir",
+        default="runs/active_asr_v1/a2_failure_attribution_run3",
+        help="Read-only historical v2 evidence source; it is never overwritten",
+    )
+    v1_oracle_qualify.add_argument("--output-dir", default="runs/active_asr_v1/a2_native16_oracle_alignment")
     v1_qualify = v1_subparsers.add_parser("qualify-physics")
     v1_qualify.add_argument("--metric-contract", required=True)
     v1_qualify.add_argument(
@@ -179,6 +196,31 @@ def main() -> None:
     qc_command.add_argument("--evidence", default="")
     args = parser.parse_args()
     if args.command == "v1":
+        if args.v1_command in ("validate-oracle", "hash-oracle", "qualify-oracle-alignment"):
+            from active_audition.receiver.oracle_alignment import (
+                load_oracle_contract,
+                oracle_contract_sha256,
+                run_oracle_alignment,
+            )
+
+            if args.v1_command == "qualify-oracle-alignment":
+                result = run_oracle_alignment(
+                    args.config,
+                    args.output_dir,
+                    args.runtime_config,
+                    args.historical_run_dir,
+                )
+            else:
+                contract = load_oracle_contract(args.config)
+                result = {
+                    "status": "PASS",
+                    "gate": contract["contract"]["gate"],
+                    "schema_version": contract["contract"]["version"],
+                    "oracle_contract_sha256": oracle_contract_sha256(contract),
+                    "parent_metric_contract_sha256": contract["contract"]["parent_metric_contract_sha256"],
+                }
+            print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+            return
         if args.v1_command in ("validate-metric", "hash-metric", "qualify-physics", "calibrate-sample-rate"):
             from active_audition.receiver.qualification import (
                 load_metric_contract,
