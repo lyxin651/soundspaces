@@ -115,7 +115,7 @@ def _validate_audio(audio: Mapping) -> None:
         (
             "render_sample_rate_hz",
             "asr_sample_rate_hz",
-            "render_to_asr",
+            "sample_rate_qualification_reference",
             "waveform_dtype",
             "dry_shape",
             "binaural_shape",
@@ -130,7 +130,7 @@ def _validate_audio(audio: Mapping) -> None:
         (
             "render_sample_rate_hz",
             "asr_sample_rate_hz",
-            "render_to_asr",
+            "sample_rate_qualification_reference",
             "waveform_dtype",
             "dry_shape",
             "binaural_shape",
@@ -140,7 +140,7 @@ def _validate_audio(audio: Mapping) -> None:
         ),
         path,
     )
-    _expect_int(audio["render_sample_rate_hz"], _path(path, "render_sample_rate_hz"), 24000)
+    _expect_int(audio["render_sample_rate_hz"], _path(path, "render_sample_rate_hz"), 16000)
     _expect_int(audio["asr_sample_rate_hz"], _path(path, "asr_sample_rate_hz"), 16000)
     _expect_string(audio["waveform_dtype"], _path(path, "waveform_dtype"), "float32")
     _expect_exact_list(audio["dry_shape"], ["T"], _path(path, "dry_shape"))
@@ -149,42 +149,35 @@ def _validate_audio(audio: Mapping) -> None:
     _expect_exact_list(audio["channel_order"], ["L", "R"], _path(path, "channel_order"))
     _expect_string(audio["asr_frontend"], _path(path, "asr_frontend"), "mean_lr")
 
-    render_to_asr = _require_mapping(audio["render_to_asr"], _path(path, "render_to_asr"))
-    render_path = _path(path, "render_to_asr")
-    _only_keys(render_to_asr, ("source_sample_rate_hz", "target_sample_rate_hz", "algorithm", "anti_aliasing"), render_path)
-    _require_keys(render_to_asr, ("source_sample_rate_hz", "target_sample_rate_hz", "algorithm", "anti_aliasing"), render_path)
-    _expect_int(render_to_asr["source_sample_rate_hz"], _path(render_path, "source_sample_rate_hz"), 24000)
-    _expect_int(render_to_asr["target_sample_rate_hz"], _path(render_path, "target_sample_rate_hz"), 16000)
-    _expect_string(render_to_asr["algorithm"], _path(render_path, "algorithm"), "resample_poly")
-    _expect_bool(render_to_asr["anti_aliasing"], _path(render_path, "anti_aliasing"), True)
+    reference = _require_mapping(
+        audio["sample_rate_qualification_reference"],
+        _path(path, "sample_rate_qualification_reference"),
+    )
+    reference_path = _path(path, "sample_rate_qualification_reference")
+    _only_keys(
+        reference,
+        ("scope", "render_sample_rate_hz", "target_sample_rate_hz", "algorithm", "anti_aliasing"),
+        reference_path,
+    )
+    _require_keys(
+        reference,
+        ("scope", "render_sample_rate_hz", "target_sample_rate_hz", "algorithm", "anti_aliasing"),
+        reference_path,
+    )
+    _expect_string(reference["scope"], _path(reference_path, "scope"), "A2_only")
+    _expect_int(reference["render_sample_rate_hz"], _path(reference_path, "render_sample_rate_hz"), 24000)
+    _expect_int(reference["target_sample_rate_hz"], _path(reference_path, "target_sample_rate_hz"), 16000)
+    _expect_string(reference["algorithm"], _path(reference_path, "algorithm"), "resample_poly")
+    _expect_bool(reference["anti_aliasing"], _path(reference_path, "anti_aliasing"), True)
 
 
 def _validate_actions(actions: Mapping) -> None:
     path = "actions"
-    _only_keys(actions, ("order", "definitions"), path)
-    _require_keys(actions, ("order", "definitions"), path)
-    _expect_exact_list(actions["order"], ["Forward", "TurnLeft", "TurnRight", "Stop"], _path(path, "order"))
-    definitions = _require_mapping(actions["definitions"], _path(path, "definitions"))
-    definitions_path = _path(path, "definitions")
-    _only_keys(definitions, actions["order"], definitions_path)
-    _require_keys(definitions, actions["order"], definitions_path)
-
-    expected = {
-        "Forward": {"kind": "translation", "distance_m": 0.25, "local_direction": "forward"},
-        "TurnLeft": {"kind": "rotation", "angle_deg": 30.0, "yaw_sign": "positive"},
-        "TurnRight": {"kind": "rotation", "angle_deg": 30.0, "yaw_sign": "negative"},
-        "Stop": {"kind": "stop"},
-    }
-    for action_name, fields in expected.items():
-        action = _require_mapping(definitions[action_name], _path(definitions_path, action_name))
-        action_path = _path(definitions_path, action_name)
-        _only_keys(action, fields.keys(), action_path)
-        _require_keys(action, fields.keys(), action_path)
-        for field, value in fields.items():
-            if field in ("distance_m", "angle_deg"):
-                _expect_number(action[field], _path(action_path, field), value)
-            else:
-                _expect_string(action[field], _path(action_path, field), value)
+    _only_keys(actions, ("kind", "execution", "primitive_controls_in_action_space"), path)
+    _require_keys(actions, ("kind", "execution", "primitive_controls_in_action_space"), path)
+    _expect_string(actions["kind"], _path(path, "kind"), "safe_waypoint_macro_action")
+    _expect_exact_list(actions["execution"], ["move", "stop", "listen"], _path(path, "execution"))
+    _expect_bool(actions["primitive_controls_in_action_space"], _path(path, "primitive_controls_in_action_space"), False)
 
 
 def _validate_coordinates(coordinates: Mapping) -> None:
@@ -242,12 +235,19 @@ def _validate_sources(sources: Mapping) -> None:
     _require_keys(sources, ("target", "noise"), path)
     target = _require_mapping(sources["target"], _path(path, "target"))
     target_path = _path(path, "target")
-    _only_keys(target, ("dataset", "split", "modality", "utterance_unit"), target_path)
-    _require_keys(target, ("dataset", "split", "modality", "utterance_unit"), target_path)
+    _only_keys(target, ("dataset", "split_policy", "modality", "utterance_unit"), target_path)
+    _require_keys(target, ("dataset", "split_policy", "modality", "utterance_unit"), target_path)
     _expect_string(target["dataset"], _path(target_path, "dataset"), "LibriSpeech")
-    _expect_string(target["split"], _path(target_path, "split"), "test-clean")
     _expect_string(target["modality"], _path(target_path, "modality"), "speech")
     _expect_string(target["utterance_unit"], _path(target_path, "utterance_unit"), "complete")
+    split_policy = _require_mapping(target["split_policy"], _path(target_path, "split_policy"))
+    split_path = _path(target_path, "split_policy")
+    _only_keys(split_policy, ("o1", "o2", "speaker_disjoint", "source_registry_freeze"), split_path)
+    _require_keys(split_policy, ("o1", "o2", "speaker_disjoint", "source_registry_freeze"), split_path)
+    _expect_exact_list(split_policy["o1"], ["dev-clean", "dev-other"], _path(split_path, "o1"))
+    _expect_exact_list(split_policy["o2"], ["test-clean", "test-other"], _path(split_path, "o2"))
+    _expect_bool(split_policy["speaker_disjoint"], _path(split_path, "speaker_disjoint"), True)
+    _expect_string(split_policy["source_registry_freeze"], _path(split_path, "source_registry_freeze"), "A3")
 
     noise = _require_mapping(sources["noise"], _path(path, "noise"))
     noise_path = _path(path, "noise")
@@ -261,10 +261,43 @@ def _validate_sources(sources: Mapping) -> None:
 
 def _validate_asr(asr: Mapping) -> None:
     path = "asr"
-    _only_keys(asr, ("provider", "model_id", "input_sample_rate_hz", "input_channels", "reference_access"), path)
-    _require_keys(asr, ("provider", "model_id", "input_sample_rate_hz", "input_channels", "reference_access"), path)
+    _only_keys(
+        asr,
+        (
+            "provider",
+            "family",
+            "default_checkpoint",
+            "checkpoint_status",
+            "revision_decoder_freeze",
+            "input_sample_rate_hz",
+            "input_channels",
+            "reference_access",
+        ),
+        path,
+    )
+    _require_keys(
+        asr,
+        (
+            "provider",
+            "family",
+            "default_checkpoint",
+            "checkpoint_status",
+            "revision_decoder_freeze",
+            "input_sample_rate_hz",
+            "input_channels",
+            "reference_access",
+        ),
+        path,
+    )
     _expect_string(asr["provider"], _path(path, "provider"), "SpeechBrain")
-    _expect_string(asr["model_id"], _path(path, "model_id"), "speechbrain/asr-transformer-transformerlm-librispeech")
+    _expect_string(asr["family"], _path(path, "family"), "LibriSpeech Transformer family")
+    _expect_string(
+        asr["default_checkpoint"],
+        _path(path, "default_checkpoint"),
+        "speechbrain/asr-transformer-transformerlm-librispeech",
+    )
+    _expect_string(asr["checkpoint_status"], _path(path, "checkpoint_status"), "reference_only_not_A3_frozen")
+    _expect_string(asr["revision_decoder_freeze"], _path(path, "revision_decoder_freeze"), "A3")
     _expect_int(asr["input_sample_rate_hz"], _path(path, "input_sample_rate_hz"), 16000)
     _expect_string(asr["input_channels"], _path(path, "input_channels"), "mono")
     _expect_string(asr["reference_access"], _path(path, "reference_access"), "forbidden")

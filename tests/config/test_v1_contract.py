@@ -27,15 +27,37 @@ class ActiveASRV1ContractTests(unittest.TestCase):
 
     def test_a0_freezes_experiment_boundary(self):
         self.assertEqual(self.contract["contract"], {"namespace": "active-asr", "version": "active-asr-v1.1", "gate": "A0", "state": "FROZEN"})
-        self.assertEqual(self.contract["audio"]["render_sample_rate_hz"], 24000)
+        self.assertEqual(self.contract["audio"]["render_sample_rate_hz"], 16000)
         self.assertEqual(self.contract["audio"]["asr_sample_rate_hz"], 16000)
+        self.assertEqual(
+            self.contract["audio"]["sample_rate_qualification_reference"]["render_sample_rate_hz"],
+            24000,
+        )
+        self.assertEqual(
+            self.contract["audio"]["sample_rate_qualification_reference"]["scope"],
+            "A2_only",
+        )
         self.assertEqual(self.contract["audio"]["channel_order"], ["L", "R"])
-        self.assertEqual(self.contract["actions"]["order"], ["Forward", "TurnLeft", "TurnRight", "Stop"])
-        self.assertEqual(self.contract["actions"]["definitions"]["Forward"]["distance_m"], 0.25)
-        self.assertEqual(self.contract["actions"]["definitions"]["TurnLeft"]["angle_deg"], 30.0)
-        self.assertEqual(self.contract["sources"]["target"]["split"], "test-clean")
+        self.assertEqual(self.contract["actions"]["kind"], "safe_waypoint_macro_action")
+        self.assertEqual(self.contract["actions"]["execution"], ["move", "stop", "listen"])
+        self.assertFalse(self.contract["actions"]["primitive_controls_in_action_space"])
+        self.assertEqual(
+            self.contract["sources"]["target"]["split_policy"],
+            {
+                "o1": ["dev-clean", "dev-other"],
+                "o2": ["test-clean", "test-other"],
+                "speaker_disjoint": True,
+                "source_registry_freeze": "A3",
+            },
+        )
         self.assertEqual(self.contract["sources"]["noise"]["dataset"], "MUSAN")
-        self.assertEqual(self.contract["asr"]["model_id"], "speechbrain/asr-transformer-transformerlm-librispeech")
+        self.assertEqual(self.contract["asr"]["family"], "LibriSpeech Transformer family")
+        self.assertEqual(
+            self.contract["asr"]["default_checkpoint"],
+            "speechbrain/asr-transformer-transformerlm-librispeech",
+        )
+        self.assertEqual(self.contract["asr"]["checkpoint_status"], "reference_only_not_A3_frozen")
+        self.assertEqual(self.contract["asr"]["revision_decoder_freeze"], "A3")
         self.assertFalse(self.contract["mix"]["normalization"]["per_pose"])
         self.assertEqual(self.contract["mix"]["noise_gain"]["calibration_pose"], "initial")
         self.assertNotIn("attempt", self.contract["seed_policy"]["component_order"])
@@ -47,9 +69,9 @@ class ActiveASRV1ContractTests(unittest.TestCase):
         self.assertEqual(canonical_json(self.contract), canonical_json(reordered))
         self.assertEqual(contract_sha256(self.contract), contract_sha256(reordered))
 
-    def test_hash_changes_for_a_contract_change(self):
+    def test_changed_frozen_value_is_rejected(self):
         changed = copy.deepcopy(self.contract)
-        changed["actions"]["definitions"]["Forward"]["distance_m"] = 0.5
+        changed["audio"]["render_sample_rate_hz"] = 24000
         with self.assertRaises(ContractError):
             validate_contract(changed)
 
@@ -60,8 +82,8 @@ class ActiveASRV1ContractTests(unittest.TestCase):
             validate_contract(unknown)
 
         invalid = copy.deepcopy(self.contract)
-        invalid["sources"]["target"]["split"] = "dev-clean"
-        with self.assertRaisesRegex(ContractError, "test-clean"):
+        invalid["sources"]["target"]["split_policy"]["o1"] = ["test-clean"]
+        with self.assertRaisesRegex(ContractError, "dev-clean"):
             validate_contract(invalid)
 
         invalid = copy.deepcopy(self.contract)

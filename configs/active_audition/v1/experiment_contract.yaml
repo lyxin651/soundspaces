@@ -5,11 +5,13 @@ contract:
   state: FROZEN
 
 audio:
-  # Acoustic rendering is 24 kHz; the explicit ASR boundary is 16 kHz.
-  render_sample_rate_hz: 24000
+  # Main SS2 chain: native 16 kHz render into the 16 kHz ASR input.
+  render_sample_rate_hz: 16000
   asr_sample_rate_hz: 16000
-  render_to_asr:
-    source_sample_rate_hz: 24000
+  # Native 24 kHz -> 16 kHz is an A2 qualification reference only.
+  sample_rate_qualification_reference:
+    scope: A2_only
+    render_sample_rate_hz: 24000
     target_sample_rate_hz: 16000
     algorithm: resample_poly
     anti_aliasing: true
@@ -21,22 +23,9 @@ audio:
   asr_frontend: mean_lr
 
 actions:
-  order: [Forward, TurnLeft, TurnRight, Stop]
-  definitions:
-    Forward:
-      kind: translation
-      distance_m: 0.25
-      local_direction: forward
-    TurnLeft:
-      kind: rotation
-      angle_deg: 30.0
-      yaw_sign: positive
-    TurnRight:
-      kind: rotation
-      angle_deg: 30.0
-      yaw_sign: negative
-    Stop:
-      kind: stop
+  kind: safe_waypoint_macro_action
+  execution: [move, stop, listen]
+  primitive_controls_in_action_space: false
 
 coordinates:
   position_order: [x, y, z]
@@ -52,7 +41,11 @@ coordinates:
 sources:
   target:
     dataset: LibriSpeech
-    split: test-clean
+    split_policy:
+      o1: [dev-clean, dev-other]
+      o2: [test-clean, test-other]
+      speaker_disjoint: true
+      source_registry_freeze: A3
     modality: speech
     utterance_unit: complete
   noise:
@@ -63,7 +56,10 @@ sources:
 
 asr:
   provider: SpeechBrain
-  model_id: speechbrain/asr-transformer-transformerlm-librispeech
+  family: LibriSpeech Transformer family
+  default_checkpoint: speechbrain/asr-transformer-transformerlm-librispeech
+  checkpoint_status: reference_only_not_A3_frozen
+  revision_decoder_freeze: A3
   input_sample_rate_hz: 16000
   input_channels: mono
   reference_access: forbidden
