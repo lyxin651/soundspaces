@@ -107,6 +107,15 @@ def plan(config_path: str, output_root: str = "") -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m active_audition.cli")
     subparsers = parser.add_subparsers(dest="command", required=True)
+    v1_command = subparsers.add_parser(
+        "v1",
+        help="Active-ASR V1.1 A0 contract commands; runtime and later gates are not implemented here",
+    )
+    v1_subparsers = v1_command.add_subparsers(dest="v1_command", required=True)
+    v1_validate = v1_subparsers.add_parser("validate", aliases=["validate-contract"])
+    v1_validate.add_argument("--config", required=True)
+    v1_hash = v1_subparsers.add_parser("hash", aliases=["contract-hash"])
+    v1_hash.add_argument("--config", required=True)
     command = subparsers.add_parser("precheck")
     command.add_argument("--config", required=True)
     plan_command = subparsers.add_parser("plan")
@@ -134,7 +143,14 @@ def main() -> None:
     qc_command.add_argument("--topdown", action="store_true")
     qc_command.add_argument("--evidence", default="")
     args = parser.parse_args()
-    if args.command == "precheck":
+    if args.command == "v1":
+        from active_audition.v1.cli import _result
+
+        result = _result(args.config)
+        if args.v1_command in ("hash", "contract-hash"):
+            result = {"contract_sha256": result["contract_sha256"]}
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+    elif args.command == "precheck":
         print(json.dumps(precheck(args.config), ensure_ascii=False, indent=2, sort_keys=True))
     elif args.command == "plan":
         print(
