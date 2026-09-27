@@ -26,7 +26,8 @@ def waveform_sha256(waveform: Any) -> str:
 def decoder_metadata(tokens: Sequence[Any], relative_length: float, log_probs: Any, beam_size: int) -> Dict[str, Any]:
     """Preserve SpeechBrain's relative length without mislabelling it as a token count."""
 
-    shape = list(getattr(log_probs, "shape", np.asarray(log_probs).shape))
+    tensor_shape = getattr(log_probs, "shape", None)
+    shape = list(tensor_shape if tensor_shape is not None else np.asarray(log_probs).shape)
     return {
         "token_count": len(tokens),
         "decoder_length_relative": float(relative_length),

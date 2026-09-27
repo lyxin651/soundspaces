@@ -70,6 +70,17 @@ class FrontendAndMetricTest(unittest.TestCase):
         self.assertEqual(metadata["decoder_length_relative"], 0.375)
         self.assertEqual(metadata["best_log_probs_shape"], [8])
 
+        class DeviceTensorFixture:
+            shape = (5,)
+
+            def __array__(self):
+                raise AssertionError("shape-bearing device tensors must not be converted to NumPy")
+
+        self.assertEqual(
+            decoder_metadata([1], 0.2, DeviceTensorFixture(), 66)["best_log_probs_shape"],
+            [5],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
