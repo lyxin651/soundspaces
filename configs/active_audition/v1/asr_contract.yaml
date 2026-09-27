@@ -95,7 +95,7 @@ text:
 
 sources:
   config_path: configs/active_audition/v1/sources.yaml
-  config_sha256: 297410ea88cfe6f1cc0381f41ae53bcc988b165b5737d259fca87a2ca5eef8cf
+  config_sha256: b7b69cf0295f8c2bf725219151af829abafbb15468dd85770dcdd0a1e1489d51
   speech_registry:
     path: registries/active_asr_a3/librispeech.jsonl
     sha256: 2c8b00970592cfdfeede158de975708245346981b5d23827c5db2993dcd539e2

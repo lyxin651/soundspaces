@@ -26,7 +26,7 @@ class A3ContractTest(unittest.TestCase):
         reordered = dict(reversed(list(self.contract.items())))
         self.assertEqual(canonical_asr_json(self.contract), canonical_asr_json(reordered))
         self.assertEqual(asr_contract_sha256(self.contract), asr_contract_sha256(reordered))
-        self.assertEqual(asr_contract_sha256(self.contract), "644d79ad9053fa5fe78f8472ec33187216a4b48bc58246627e9b0d3237218f1f")
+        self.assertEqual(asr_contract_sha256(self.contract), "b972d3ca2354ead8a10d2954a60602896ebbc5204adb7e8692c22f2b340497e2")
         invalid = copy.deepcopy(self.contract)
         invalid["decoder"]["unknown"] = True
         with self.assertRaises(ASRContractError):
