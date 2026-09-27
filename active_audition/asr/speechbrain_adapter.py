@@ -23,6 +23,18 @@ def waveform_sha256(waveform: Any) -> str:
     return hashlib.sha256(value.tobytes(order="C")).hexdigest()
 
 
+def decoder_metadata(tokens: Sequence[Any], relative_length: float, log_probs: Any, beam_size: int) -> Dict[str, Any]:
+    """Preserve SpeechBrain's relative length without mislabelling it as a token count."""
+
+    shape = list(getattr(log_probs, "shape", np.asarray(log_probs).shape))
+    return {
+        "token_count": len(tokens),
+        "decoder_length_relative": float(relative_length),
+        "best_log_probs_shape": shape,
+        "beam_size": int(beam_size),
+    }
+
+
 @dataclass(frozen=True)
 class ASROutput:
     hypothesis: str
@@ -145,17 +157,17 @@ class SpeechBrainASRAdapter:
         model_identity = self.contract["model"]
         asr_sha = model_identity["loaded_files"]["asr_weights"]["sha256"]
         for index, word in enumerate(words):
-            log_prob_shape = list(best_log_probs[index].shape)
             outputs.append(
                 ASROutput(
                     hypothesis=str(word),
                     score=float(scores[index]),
                     score_semantics="raw_decoder_sequence_score_not_confidence_or_probability",
-                    raw_decoder_metadata={
-                        "token_count": int(token_lengths[index]),
-                        "best_log_probs_shape": log_prob_shape,
-                        "beam_size": int(self.contract["decoder"]["beam_size"]),
-                    },
+                    raw_decoder_metadata=decoder_metadata(
+                        hypotheses[index],
+                        token_lengths[index],
+                        best_log_probs[index],
+                        self.contract["decoder"]["beam_size"],
+                    ),
                     input_waveform_sha256=waveform_sha256(canonical[index]),
                     frontend="mono_input",
                     model_repo_id=str(model_identity["repo_id"]),

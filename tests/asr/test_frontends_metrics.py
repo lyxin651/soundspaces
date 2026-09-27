@@ -5,7 +5,7 @@ import numpy as np
 
 from active_audition.asr import frontends
 from active_audition.asr.frontends import FrontendError, apply_frontend
-from active_audition.asr.speechbrain_adapter import ASROutput, SpeechBrainASRAdapter
+from active_audition.asr.speechbrain_adapter import ASROutput, SpeechBrainASRAdapter, decoder_metadata
 from active_audition.evaluation.asr_metrics import ASRMetricError, error_counts, normalize_text
 
 
@@ -63,6 +63,12 @@ class FrontendAndMetricTest(unittest.TestCase):
         self.assertEqual(output["model_revision"], "2" * 40)
         self.assertEqual(output["model_artifact_sha256"], "3" * 64)
         self.assertEqual(output["score_semantics"], "raw_decoder_sequence_score_not_confidence_or_probability")
+
+    def test_decoder_metadata_distinguishes_token_count_from_relative_length(self):
+        metadata = decoder_metadata([10, 20, 30], 0.375, np.zeros(8, dtype=np.float32), 66)
+        self.assertEqual(metadata["token_count"], 3)
+        self.assertEqual(metadata["decoder_length_relative"], 0.375)
+        self.assertEqual(metadata["best_log_probs_shape"], [8])
 
 
 if __name__ == "__main__":
