@@ -1,0 +1,176 @@
+contract:
+  namespace: active-asr
+  version: active-asr-a3-instrument-v1
+  gate: A3
+  state: FROZEN
+
+serialization:
+  version: canonical-json-v1
+  hash_algorithm: sha256
+
+parents:
+  a0_contract_sha256: d731393cda3ddb29f0bdf58249f104da59f29d012b976eeb2de1f160e1df8107
+  a2_oracle_v3_sha256: c8f3ff23c5dca6f6d18dcb25613e6df6e20663e552f5df76170077ca67b13e7c
+
+model:
+  family: SpeechBrain_LibriSpeech_Transformer
+  repo_id: speechbrain/asr-transformer-transformerlm-librispeech
+  resolved_revision: bcf56f762f37877912578f8800bc2a4f5171e5e5
+  local_root: data/active_asr_a3/model/bcf56f762f37877912578f8800bc2a4f5171e5e5
+  loaded_files:
+    hyperparams:
+      path: hyperparams.yaml
+      sha256: 9c08563baed98e0072115c7d7c4d576369f164cac3c8170f512fdeabef7e8f42
+    asr_weights:
+      path: asr.ckpt
+      sha256: 5a04a1b364fe37769ed47904e0237c412e874321efeda55986f08a06822fe6ea
+    language_model:
+      path: lm.ckpt
+      sha256: 87f1398c0ed833631e487aedfbda32be4c9618565482f6fad78ca4e8dda03e5b
+    tokenizer:
+      path: tokenizer.ckpt
+      sha256: 3cdc063492725aa2809a5fbb1aa790eda0e58370c810ebb54a8f4c8b2c46ea68
+    normalizer:
+      path: normalizer.ckpt
+      sha256: 956e9c1751beac2f75bfff8253f9811b76a1d57bb52f28587d3b6d45bbce6315
+
+environment:
+  conda_env: active_asr_asr
+  python: 3.11.16
+  speechbrain: 1.1.1
+  torch: 2.5.1+cu121
+  torchaudio: 2.5.1+cu121
+  torch_cuda: '12.1'
+  cuda_available: true
+  device: cuda:0
+  precision: float32
+  dependency_lock_sha256: ca865d8115e6482904b978a2ff1f7e56d7eff8d434e81f5a3e197f44bd5f14ca
+
+decoder:
+  beam_size: 66
+  blank_index: 0
+  pad_index: 0
+  bos_index: 1
+  eos_index: 2
+  ctc_weight: 0.40
+  lm_weight: 0.60
+  min_decode_ratio: 0.0
+  max_decode_ratio: 1.0
+  temperature: 1.15
+  lm_scorer_temperature: 1.15
+  using_eos_threshold: false
+  eos_threshold: 1.5
+  length_normalization: true
+  return_topk: false
+  topk: 1
+  using_max_attn_shift: false
+  max_attn_shift: 60
+  minus_inf: -1.0e+20
+  tokenizer_type: sentencepiece_unigram
+  score_semantics: decoder_score_not_confidence
+
+input:
+  sample_rate_hz: 16000
+  channels: mono
+  dtype: float32
+  waveform_normalization: speechbrain_frozen_global_input_normalizer
+  utterance_unit: complete
+  batch_padding: zero_right_pad
+  length_semantics: relative_valid_length
+  post_convolution_normalization: none
+
+frontends:
+  primary: mean_lr
+  sensitivity: [fixed_L, fixed_R]
+  best_ear_forbidden: true
+
+text:
+  normalization_version: librispeech-uppercase-apostrophe-v1
+  case: uppercase
+  whitespace: collapse_and_strip
+  punctuation: remove_except_apostrophe
+  apostrophe: preserve_internal
+  numbers: preserve_digit_tokens
+  cer_units: normalized_characters_excluding_spaces
+
+sources:
+  config_path: configs/active_audition/v1/sources.yaml
+  config_sha256: 297410ea88cfe6f1cc0381f41ae53bcc988b165b5737d259fca87a2ca5eef8cf
+  speech_registry:
+    path: registries/active_asr_a3/librispeech.jsonl
+    sha256: 2c8b00970592cfdfeede158de975708245346981b5d23827c5db2993dcd539e2
+  noise_registry:
+    path: registries/active_asr_a3/musan_noise.jsonl
+    sha256: c0e44f543b1bdbe490185699d322b2096945b3aa670434c3c80d5ea162cb173c
+  o1_splits: [dev-clean, dev-other]
+  o2_splits: [test-clean, test-other]
+  speaker_disjoint_required: true
+  duration_sec:
+    minimum: 4.0
+    maximum: 15.0
+  minimum_reference_words: 10
+  complete_utterance_required: true
+  noise_parent_split_required: true
+  noise_technical_audit:
+    minimum_duration_sec: 4.0
+    extreme_silence_rms_max: 1.0e-5
+    unreadable_policy: reject
+    speech_leakage_audit: explicit_manual_or_validated_audit_field
+    strong_reverberation_audit: explicit_manual_or_validated_audit_field
+    legal_slice_policy: whole_recording_if_technically_eligible
+
+qualification:
+  seed: 20260927
+  manifests:
+    clean:
+      path: registries/active_asr_a3/clean_qualification_manifest.json
+      sha256: 3c3fe2a84fd88bdaa878d4f0b0094b29eebe074fc9b81c7e6d55a284fb1ff63c
+      schema_version: active-asr-a3-clean-qualification-v1
+      records: 24
+    ss2_domain:
+      path: registries/active_asr_a3/ss2_domain_qualification_manifest.json
+      sha256: 7b7f9b79ebc8bed64881e5475180623333da94454f3838257dcc7b2372b190ba
+      schema_version: active-asr-a3-ss2-domain-qualification-v1
+      records: 18
+    snr_sensitivity:
+      path: registries/active_asr_a3/snr_sensitivity_manifest.json
+      sha256: afe772ace63ddd109af065a65a378529a6347d1fe8dacd4ea79be1cf45286dcb
+      schema_version: active-asr-a3-snr-sensitivity-v1
+      records: 6
+    q4:
+      path: registries/active_asr_a3/q4_manifest.json
+      sha256: b5a812a150a2828fe25ad1b9b2da40f14f4ac14eba69406508f2726c2e52d5b4
+      schema_version: active-asr-a3-q4-bridge-v1
+      records: 12
+  clean:
+    utterances_total: 24
+    per_split: 12
+    repeat_inferences: 3
+    wer_max_fraction: 0.10
+  ss2_domain:
+    sample_rate_hz: 16000
+    noise: none
+    post_convolution_normalization: none
+    minimum_nonempty_fraction: 0.80
+    wer_max_fraction: 0.50
+  snr_sensitivity:
+    conditions_db: [reverb_only, 10, 0, -10]
+    noise_algorithm: numpy_pcg64_standard_normal_float32
+    noise_seed: 20260927
+    target_power: mean_square_full_mono_waveform
+    noise_power: mean_square_same_length_noise
+    postmix_normalization: none
+    minimum_low_high_wer_delta_percentage_points: 10.0
+    edit_count_order_required: true
+  q4:
+    path_a: native_ss2_16khz
+    path_b: native_ss2_24khz_resample_poly_to_16khz
+    separate_normalization: false
+    decision_authority: reviewer
+
+artifacts:
+  schema_version: active-asr-a3-qualification-artifact-v1
+  model_lock: registries/active_asr_a3/model_lock.json
+  model_lock_sha256: 5d038cc09584b99b8b8434fbe9979c40f5ddd51cc99a17c6964c5e0194249581
+  summary: a3_qualification_summary.json
+  report: a3_qualification_report.md

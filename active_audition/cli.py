@@ -109,7 +109,7 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command", required=True)
     v1_command = subparsers.add_parser(
         "v1",
-        help="Active-ASR V1.1 contract, A1 audit, and A2 qualification commands",
+        help="Active-ASR V1.1 A0-A3 gated commands",
     )
     v1_subparsers = v1_command.add_subparsers(dest="v1_command", required=True)
     v1_validate = v1_subparsers.add_parser("validate", aliases=["validate-contract"])
@@ -124,6 +124,24 @@ def main() -> None:
     v1_oracle_validate.add_argument("--config", required=True)
     v1_oracle_hash = v1_subparsers.add_parser("hash-oracle")
     v1_oracle_hash.add_argument("--config", required=True)
+    v1_asr_validate = v1_subparsers.add_parser("validate-asr")
+    v1_asr_validate.add_argument("--config", required=True)
+    v1_asr_validate.add_argument("--require-frozen", action="store_true")
+    v1_asr_hash = v1_subparsers.add_parser("hash-asr")
+    v1_asr_hash.add_argument("--config", required=True)
+    v1_asr_prepare = v1_subparsers.add_parser("prepare-asr-freeze")
+    v1_asr_prepare.add_argument("--config", required=True)
+    v1_asr_prepare.add_argument("--sources", default="configs/active_audition/v1/sources.yaml")
+    v1_asr_prepare.add_argument("--registry-dir", default="registries/active_asr_a3")
+    v1_asr_prepare.add_argument("--dependency-lock", default="registries/active_asr_a3/asr_environment_lock.txt")
+    v1_asr_rirs = v1_subparsers.add_parser("prepare-asr-rirs")
+    v1_asr_rirs.add_argument("--config", required=True)
+    v1_asr_rirs.add_argument("--runtime-config", default="configs/active_audition/v0_replica_debug.yaml")
+    v1_asr_rirs.add_argument("--output-dir", default="runs/active_asr_v1/a3_frozen_rirs")
+    v1_asr_qualify = v1_subparsers.add_parser("qualify-asr")
+    v1_asr_qualify.add_argument("--config", required=True)
+    v1_asr_qualify.add_argument("--rir-lock", required=True)
+    v1_asr_qualify.add_argument("--output-dir", default="runs/active_asr_v1/a3_qualification")
     v1_oracle_qualify = v1_subparsers.add_parser("qualify-oracle-alignment")
     v1_oracle_qualify.add_argument("--config", required=True)
     v1_oracle_qualify.add_argument(
@@ -196,6 +214,48 @@ def main() -> None:
     qc_command.add_argument("--evidence", default="")
     args = parser.parse_args()
     if args.command == "v1":
+        if args.v1_command in ("validate-asr", "hash-asr", "prepare-asr-freeze", "prepare-asr-rirs", "qualify-asr"):
+            from active_audition.asr.contract import asr_contract_sha256, load_asr_contract
+
+            if args.v1_command == "qualify-asr":
+                from active_audition.asr.run_qualification import run_a3_qualification
+
+                result = run_a3_qualification(
+                    args.config,
+                    args.rir_lock,
+                    args.output_dir,
+                )
+            elif args.v1_command == "prepare-asr-rirs":
+                from active_audition.asr.rir_bridge import render_a3_qualification_rirs
+
+                result = render_a3_qualification_rirs(
+                    args.config,
+                    args.output_dir,
+                    args.runtime_config,
+                )
+            elif args.v1_command == "prepare-asr-freeze":
+                from active_audition.asr.qualification import prepare_a3_freeze_material
+
+                result = prepare_a3_freeze_material(
+                    args.config,
+                    args.sources,
+                    args.registry_dir,
+                    args.dependency_lock,
+                )
+            else:
+                contract = load_asr_contract(
+                    args.config,
+                    require_frozen=bool(getattr(args, "require_frozen", False)),
+                )
+                result = {
+                    "status": "PASS",
+                    "gate": contract["contract"]["gate"],
+                    "state": contract["contract"]["state"],
+                    "schema_version": contract["contract"]["version"],
+                    "asr_contract_sha256": asr_contract_sha256(contract),
+                }
+            print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+            return
         if args.v1_command in ("validate-oracle", "hash-oracle", "qualify-oracle-alignment"):
             from active_audition.receiver.oracle_alignment import (
                 load_oracle_contract,
