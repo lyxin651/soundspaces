@@ -1,6 +1,6 @@
 contract:
   namespace: active-asr
-  version: active-asr-a2-metric-v1
+  version: active-asr-a2-metric-v2
   gate: A2
   state: FROZEN
 
@@ -67,7 +67,7 @@ frequency_bands:
 
 probes:
   required: [impulse, broadband_noise, chirp]
-  auxiliary: [natural_speech]
+  auxiliary: [voiced_tone]
   rir_metric_reference: impulse_response
   fixture_seed: 20260923
 

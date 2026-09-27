@@ -51,24 +51,39 @@ def create_scene_simulator(
     config: Dict[str, Any],
     scene_id: Optional[str] = None,
     acoustics_overrides: Optional[Mapping[str, Any]] = None,
+    require_navmesh: bool = True,
+    load_semantic_mesh: bool = True,
+    scene_override: Optional[Mapping[str, Any]] = None,
 ) -> SimulatorContext:
-    """Create a materials-OFF scene with a binaural sensor, without observing it."""
+    """Create a materials-OFF scene with a binaural sensor, without observing it.
+
+    The optional arguments are qualification-only escape hatches.  Their
+    defaults preserve the legacy V0/V0.5 behavior exactly: scene registry
+    resolution, semantic loading, and navmesh loading remain required unless a
+    caller explicitly supplies a controlled qualification scene.
+    """
 
     repo_root = Path(config["_repo_root"])
     selected_scene_id = scene_id or config["scene"]["ids"][0]
-    scenes = load_scene_registry(config["registries"]["scenes_path"], str(repo_root))
-    if selected_scene_id not in scenes:
-        raise SimulatorError("scene is not registered: {}".format(selected_scene_id))
-    scene = scenes[selected_scene_id]
+    if scene_override is None:
+        scenes = load_scene_registry(config["registries"]["scenes_path"], str(repo_root))
+        if selected_scene_id not in scenes:
+            raise SimulatorError("scene is not registered: {}".format(selected_scene_id))
+        scene = scenes[selected_scene_id]
+    else:
+        scene = dict(scene_override)
+        if not scene.get("scene_asset"):
+            raise SimulatorError("qualification scene_override requires scene_asset")
+        scene["scene_asset"] = str(Path(scene["scene_asset"]).resolve())
 
     backend_config = habitat_sim.SimulatorConfiguration()
     backend_config.scene_id = scene["scene_asset"]
     backend_config.enable_physics = False
-    backend_config.load_semantic_mesh = True
+    backend_config.load_semantic_mesh = bool(load_semantic_mesh)
     agent_config = habitat_sim.agent.AgentConfiguration()
     simulator = habitat_sim.Simulator(habitat_sim.Configuration(backend_config, [agent_config]))
     try:
-        if not simulator.pathfinder.is_loaded:
+        if require_navmesh and not simulator.pathfinder.is_loaded:
             if not simulator.pathfinder.load_nav_mesh(scene["navmesh"]):
                 raise SimulatorError("failed to load navmesh: {}".format(scene["navmesh"]))
 

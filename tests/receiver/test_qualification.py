@@ -17,6 +17,7 @@ from active_audition.receiver.qualification import (
     make_probe,
     metric_contract_sha256,
     run_a2_qualification,
+    run_resampler_band_calibration,
     run_synthetic_metric_fixtures,
     validate_a2_runtime_lock,
     validate_metric_contract,
@@ -71,7 +72,7 @@ class ActiveASRA2MetricTests(unittest.TestCase):
         silent = compute_direct_metrics([[0.0, 0.0]] * 256, 16000, self.contract)
         self.assertEqual(silent["applicability"], NA)
         self.assertEqual(silent["na_reason"], "LOW_ENERGY")
-        for kind in ("impulse", "broadband_noise", "chirp", "natural_speech"):
+        for kind in ("impulse", "broadband_noise", "chirp", "voiced_tone"):
             first = make_probe(kind, 16000)
             second = make_probe(kind, 16000)
             self.assertEqual(first.dtype.name, "float32")
@@ -82,6 +83,47 @@ class ActiveASRA2MetricTests(unittest.TestCase):
         self.assertEqual(result["status"], PASS)
         self.assertTrue(all(result["checks"].values()))
         self.assertEqual(result["resampling_convention"]["separate_normalization"], False)
+
+    def test_geometry_registry_and_case_enumeration_are_strict_and_deterministic(self):
+        from active_audition.receiver.geometry import (
+            enumerate_controlled_cases,
+            generate_geometry_asset,
+            geometry_sanity,
+            load_geometry_registry,
+        )
+
+        registry = load_geometry_registry(str(REPO_ROOT / "registries/active_asr_a2/qualification_geometry.yaml"), str(REPO_ROOT))
+        self.assertEqual(len(registry["geometries"]), 2)
+        self.assertTrue(all(geometry_sanity(entry)["all_sources_inside"] for entry in registry["geometries"]))
+        self.assertTrue(all(geometry_sanity(entry)["all_direct_windows_clear"] for entry in registry["geometries"]))
+        cases = enumerate_controlled_cases(registry)
+        self.assertEqual(sum(case["line_of_sight"] == "LOS" for case in cases), 160)
+        self.assertEqual(sum(case["line_of_sight"] == "NLOS" for case in cases), 10)
+        self.assertEqual(sorted(set(case["relative_angle_deg"] for case in cases if case["line_of_sight"] == "LOS")), [-90.0, -60.0, -30.0, 0.0, 30.0, 60.0, 90.0, 180.0])
+        with tempfile.TemporaryDirectory() as directory:
+            first_mesh = Path(directory) / "first.ply"
+            second_mesh = Path(directory) / "second.ply"
+            generate_geometry_asset(first_mesh, "a2_symmetric_shoebox_v1")
+            generate_geometry_asset(second_mesh, "a2_symmetric_shoebox_v1")
+            self.assertEqual(first_mesh.read_bytes(), second_mesh.read_bytes())
+            bad = Path(directory) / "bad.yaml"
+            bad.write_text((REPO_ROOT / "registries/active_asr_a2/qualification_geometry.yaml").read_text(encoding="utf-8").replace("schema_version:", "future_field: true\nschema_version:"), encoding="utf-8")
+            with self.assertRaises(Exception):
+                load_geometry_registry(str(bad), str(REPO_ROOT))
+            bad_hash = Path(directory) / "bad_hash.yaml"
+            bad_hash.write_text((REPO_ROOT / "registries/active_asr_a2/qualification_geometry.yaml").read_text(encoding="utf-8").replace("c9bbf650ef35e1ac1d0c337f9b7550afeaab31ec77f9c9273f3a378a832e7e4e", "0" * 64), encoding="utf-8")
+            with self.assertRaises(Exception):
+                load_geometry_registry(str(bad_hash), str(REPO_ROOT))
+
+    def test_geometry_reflection_timing_and_resampler_calibration(self):
+        from active_audition.receiver.geometry import first_reflection_sanity, source_position_world
+
+        source = source_position_world([0.0, 6.0, 0.0], 0.0, 90.0, 4.0)
+        reflection = first_reflection_sanity({"x": 24.0, "y": 12.0, "z": 24.0}, [0.0, 6.0, 0.0], source)
+        self.assertGreater(reflection["nearest_first_reflection_extra_time_ms"], 10.0)
+        calibration = run_resampler_band_calibration(self.contract)
+        self.assertIn(calibration["status"], (PASS, "FAIL"))
+        self.assertEqual(calibration["separate_normalization"], False)
 
     def test_case_schema_keeps_na_separate_from_blocked(self):
         row = {
@@ -94,6 +136,7 @@ class ActiveASRA2MetricTests(unittest.TestCase):
             "receiver_transform": {},
             "line_of_sight": "UNKNOWN",
             "relative_angle_deg": None,
+            "distance_m": None,
             "probe": "impulse",
             "sample_rate_hz": 16000,
             "ray_preset": {},
@@ -136,11 +179,16 @@ class ActiveASRA2MetricTests(unittest.TestCase):
         with self.assertRaises(QualificationError):
             validate_sample_rate_ab(dict(sample, normalization="per_render"))
 
-    def test_runtime_output_is_blocked_without_geometry_and_is_reproducible(self):
-        smoke = {
-            "status": PASS,
+    def test_runtime_output_is_reproducible_with_valid_geometry_fixture(self):
+        formal = {
+            "status": BLOCKED,
+            "blocker": "FIXTURE_GATE_BLOCKED",
             "cases": [],
             "errors": [],
+            "geometry_sanity": {},
+            "effective_baseline_ray_preset": {},
+            "effective_baseline_ir_length_sec": None,
+            "gates": {name: {"status": BLOCKED, "attempted": 0, "applicable": 0, "pass": 0, "fail": 0, "na": 0, "reason": "fixture"} for name in ("direction", "repeatability", "sample_rate_ab", "ray_tail_convergence", "mirror_yaw", "near_far_los_direct_energy")},
             "runtime_lock": {
                 "schema_version": "active-asr-a2-runtime-lock-v1",
                 "gate": "A2",
@@ -149,13 +197,13 @@ class ActiveASRA2MetricTests(unittest.TestCase):
                 "runtime_fingerprint": {"git_commit": "fixture"},
                 "receiver_effective": {},
                 "resource_hashes": {},
-                "geometry_registry_reason": "AUTHORITATIVE_CONTROLLED_QUALIFICATION_GEOMETRY_MISSING",
+                "geometry_registry_reason": "VALIDATED",
             },
         }
         with tempfile.TemporaryDirectory() as first_dir, tempfile.TemporaryDirectory() as second_dir:
-            with patch("active_audition.receiver.qualification._runtime_smoke", return_value=smoke):
+            with patch("active_audition.receiver.qualification._run_controlled_qualification", return_value=formal):
                 first = run_a2_qualification(str(METRIC_CONTRACT_PATH), first_dir, str(RUNTIME_CONFIG_PATH))
-            with patch("active_audition.receiver.qualification._runtime_smoke", return_value=smoke):
+            with patch("active_audition.receiver.qualification._run_controlled_qualification", return_value=formal):
                 second = run_a2_qualification(str(METRIC_CONTRACT_PATH), second_dir, str(RUNTIME_CONFIG_PATH))
             self.assertEqual(first["status"], BLOCKED)
             self.assertEqual(first["contract_sha256"], second["contract_sha256"])
