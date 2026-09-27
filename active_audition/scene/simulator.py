@@ -1,7 +1,7 @@
 """Minimal Habitat-Sim context for M1 planning."""
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Mapping, Optional
 
 import numpy as np
 import quaternion  # Must be imported before habitat_sim.
@@ -47,7 +47,11 @@ class SimulatorContext:
         self.close()
 
 
-def create_scene_simulator(config: Dict[str, Any], scene_id: Optional[str] = None) -> SimulatorContext:
+def create_scene_simulator(
+    config: Dict[str, Any],
+    scene_id: Optional[str] = None,
+    acoustics_overrides: Optional[Mapping[str, Any]] = None,
+) -> SimulatorContext:
     """Create a materials-OFF scene with a binaural sensor, without observing it."""
 
     repo_root = Path(config["_repo_root"])
@@ -77,6 +81,10 @@ def create_scene_simulator(config: Dict[str, Any], scene_id: Optional[str] = Non
         audio_spec.channelLayout.channelCount = 2
         audio_spec.position = list(config["listener"]["sensor_offset_m"])
         audio_spec.acousticsConfig.sampleRate = config["acoustics"]["sample_rate_hz"]
+        for field, value in (acoustics_overrides or {}).items():
+            if not hasattr(audio_spec.acousticsConfig, str(field)):
+                raise SimulatorError("unsupported acoustics override: {}".format(field))
+            setattr(audio_spec.acousticsConfig, str(field), value)
         simulator.add_sensor(audio_spec)
     except Exception:
         simulator.close()

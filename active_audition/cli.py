@@ -109,13 +109,26 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command", required=True)
     v1_command = subparsers.add_parser(
         "v1",
-        help="Active-ASR V1.1 contract and A1 runtime audit commands",
+        help="Active-ASR V1.1 contract, A1 audit, and A2 qualification commands",
     )
     v1_subparsers = v1_command.add_subparsers(dest="v1_command", required=True)
     v1_validate = v1_subparsers.add_parser("validate", aliases=["validate-contract"])
     v1_validate.add_argument("--config", required=True)
     v1_hash = v1_subparsers.add_parser("hash", aliases=["contract-hash"])
     v1_hash.add_argument("--config", required=True)
+    v1_metric_validate = v1_subparsers.add_parser("validate-metric")
+    v1_metric_validate.add_argument("--config", required=True)
+    v1_metric_hash = v1_subparsers.add_parser("hash-metric")
+    v1_metric_hash.add_argument("--config", required=True)
+    v1_qualify = v1_subparsers.add_parser("qualify-physics")
+    v1_qualify.add_argument("--metric-contract", required=True)
+    v1_qualify.add_argument(
+        "--runtime-config",
+        default="configs/active_audition/v0_replica_debug.yaml",
+        help="Existing legacy live-runtime config used by the A2 technical smoke",
+    )
+    v1_qualify.add_argument("--scene-id", default="replica.office_0")
+    v1_qualify.add_argument("--output-dir", default="runs/active_asr_v1/a2_physics_qualification")
     v1_audit = v1_subparsers.add_parser("audit-runtime")
     v1_audit.add_argument("--config", required=True, help="Active-ASR V1.1 A0 contract")
     v1_audit.add_argument(
@@ -153,6 +166,36 @@ def main() -> None:
     qc_command.add_argument("--evidence", default="")
     args = parser.parse_args()
     if args.command == "v1":
+        if args.v1_command in ("validate-metric", "hash-metric", "qualify-physics"):
+            from active_audition.receiver.qualification import (
+                load_metric_contract,
+                metric_contract_sha256,
+                run_a2_qualification,
+            )
+
+            if args.v1_command == "qualify-physics":
+                result = run_a2_qualification(
+                    args.metric_contract,
+                    args.output_dir,
+                    args.runtime_config,
+                    args.scene_id,
+                )
+                print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+                if result["status"] != "PASS":
+                    raise SystemExit(1)
+                return
+            metric = load_metric_contract(args.config)
+            if args.v1_command == "hash-metric":
+                result = {"metric_contract_sha256": metric_contract_sha256(metric)}
+            else:
+                result = {
+                    "status": "PASS",
+                    "gate": metric["contract"]["gate"],
+                    "schema_version": metric["contract"]["version"],
+                    "metric_contract_sha256": metric_contract_sha256(metric),
+                }
+            print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+            return
         if args.v1_command == "audit-runtime":
             from active_audition.receiver.audit import run_runtime_audit
 

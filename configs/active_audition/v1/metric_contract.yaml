@@ -1,0 +1,119 @@
+contract:
+  namespace: active-asr
+  version: active-asr-a2-metric-v1
+  gate: A2
+  state: FROZEN
+
+serialization:
+  version: canonical-json-v1
+  hash_algorithm: sha256
+
+sample_rate:
+  primary_native_hz: 16000
+  qualification_reference_native_hz: 24000
+  qualification_target_hz: 16000
+  resampler: resample_poly
+  anti_aliasing_required: true
+  common_band_hz: [0, 8000]
+  separate_normalization: false
+
+direct_window:
+  search_start_sec: 0.0
+  search_duration_sec: 0.050
+  onset_threshold_fraction_of_channel_peak: 0.10
+  minimum_peak_amplitude: 1.0e-8
+  minimum_energy: 1.0e-12
+  length_sec: 0.010
+  start_rule: minimum_channel_onset
+  end_rule: maximum_channel_onset_plus_length
+  onset_rule: first_absolute_sample_at_or_above_threshold
+  low_energy_policy: N/A
+  no_onset_policy: N/A
+
+metrics:
+  itd:
+    definition: tR_minus_tL
+    time_reference: direct_window_channel_onset
+    units: samples_at_native_rate
+    sign_positive: right_onset_later_than_left
+    conversion: samples_divided_by_sample_rate_hz
+  ild:
+    definition: 10log10(E_L_divided_by_E_R)
+    energy_definition: sum_of_squared_samples_in_common_direct_window
+    units: dB
+    sign_positive: left_energy_greater_than_right_energy
+    epsilon_power: 1.0e-12
+  energy:
+    definition: sum_of_squared_samples
+    units: sample_squared
+    db_definition: 10log10(energy)
+    epsilon_power: 1.0e-12
+  tail:
+    name: post_direct_tail_energy_relative_to_direct
+    definition: 10log10(E_post_direct_tail_divided_by_E_direct)
+    interval: direct_window_end_to_ir_end
+    units: dB
+    diagnostic_only: true
+    prohibited_aliases: [DRR, RT60, rir_tail_ratio_100ms]
+
+frequency_bands:
+  transform: rfft_parseval_energy
+  edge_rule: low_inclusive_high_exclusive
+  bands:
+    - {id: full_0_8000, low_hz: 0, high_hz: 8000}
+    - {id: low_0_1000, low_hz: 0, high_hz: 1000}
+    - {id: mid_1000_4000, low_hz: 1000, high_hz: 4000}
+    - {id: high_4000_8000, low_hz: 4000, high_hz: 8000}
+
+probes:
+  required: [impulse, broadband_noise, chirp]
+  auxiliary: [natural_speech]
+  rir_metric_reference: impulse_response
+  fixture_seed: 20260923
+
+qualification_geometry:
+  registry_path: registries/active_asr_a2/qualification_geometry.yaml
+  authoritative_registry_required: true
+  selection_rule: registered_before_formal_qualification_and_independent_of_asr_landscape
+  relative_angles_deg: [0, -30, 30, -60, 60, -90, 90, 180]
+  line_of_sight_distance_m: [1.0, 4.0]
+  scene_conditions: [LOS, NLOS]
+  nlos_direct_metric_policy: N/A
+  mirror_yaw_scope: direct_dominant_or_explicitly_symmetric_only
+  front_back_itd_policy: zero_or_near_zero_is_valid
+  low_frequency_ild_policy: near_zero_is_valid
+
+gates:
+  direction:
+    side_los_angles_deg: [-90, -60, -30, 30, 60, 90]
+    itd_sign_accuracy_min_fraction: 0.95
+    global_lr_reversal_forbidden: true
+  repeatability:
+    repeat_count: 5
+    direct_itd_spread_max_samples_at_16khz: 2
+    band_direct_ild_spread_max_db: 1.0
+    direct_energy_spread_max_db: 1.0
+    applicable_case_min_fraction: 0.95
+    low_energy_is_na: true
+  sample_rate_ab:
+    native_rate_hz: 16000
+    reference_native_rate_hz: 24000
+    resampled_rate_hz: 16000
+    common_band_hz: [0, 8000]
+    itd_difference_max_samples: 2
+    band_ild_difference_max_db: 1.0
+    band_energy_difference_max_db: 1.0
+    applicable_case_min_fraction: 0.95
+    per_render_normalization_forbidden: true
+  convergence:
+    ray_count_multiplier: 2
+    ir_length_multiplier: 2
+    compare_metrics: [direct_delay, itd, band_ild, direct_energy, band_energy, post_direct_tail_energy]
+    samplewise_identity_required: false
+
+artifacts:
+  schema_version: active-asr-a2-artifact-v1
+  cases_filename: qualification_cases.jsonl
+  sample_rate_filename: sample_rate_ab.json
+  summary_filename: a2_summary.json
+  report_filename: a2_report.md
