@@ -129,6 +129,19 @@ def main() -> None:
     )
     v1_qualify.add_argument("--scene-id", default="replica.office_0")
     v1_qualify.add_argument("--output-dir", default="runs/active_asr_v1/a2_physics_qualification")
+    v1_sample_rate = v1_subparsers.add_parser("calibrate-sample-rate")
+    v1_sample_rate.add_argument("--metric-contract", required=True)
+    v1_sample_rate.add_argument(
+        "--runtime-config",
+        default="configs/active_audition/v0_replica_debug.yaml",
+        help="Existing legacy live-runtime config used by the controlled shoebox calibration",
+    )
+    v1_sample_rate.add_argument(
+        "--formal-sample-rate-artifact",
+        default="runs/active_asr_v1/a2_failure_attribution_run3/sample_rate_ab.json",
+        help="Preserved formal v2 sample_rate_ab.json used for read-only offset attribution",
+    )
+    v1_sample_rate.add_argument("--output-dir", default="runs/active_asr_v1/a2_sample_rate_blocker_calibration")
     v1_audit = v1_subparsers.add_parser("audit-runtime")
     v1_audit.add_argument("--config", required=True, help="Active-ASR V1.1 A0 contract")
     v1_audit.add_argument(
@@ -166,10 +179,11 @@ def main() -> None:
     qc_command.add_argument("--evidence", default="")
     args = parser.parse_args()
     if args.command == "v1":
-        if args.v1_command in ("validate-metric", "hash-metric", "qualify-physics"):
+        if args.v1_command in ("validate-metric", "hash-metric", "qualify-physics", "calibrate-sample-rate"):
             from active_audition.receiver.qualification import (
                 load_metric_contract,
                 metric_contract_sha256,
+                run_a2_sample_rate_blocker_calibration,
                 run_a2_qualification,
             )
 
@@ -183,6 +197,15 @@ def main() -> None:
                 print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
                 if result["status"] != "PASS":
                     raise SystemExit(1)
+                return
+            if args.v1_command == "calibrate-sample-rate":
+                result = run_a2_sample_rate_blocker_calibration(
+                    args.metric_contract,
+                    args.output_dir,
+                    args.runtime_config,
+                    args.formal_sample_rate_artifact,
+                )
+                print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
                 return
             metric = load_metric_contract(args.config)
             if args.v1_command == "hash-metric":

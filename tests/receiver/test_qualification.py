@@ -13,12 +13,17 @@ from active_audition.receiver.qualification import (
     QualificationError,
     canonical_json,
     compute_direct_metrics,
+    energy_metric_convention_audit,
     load_metric_contract,
     make_probe,
     metric_contract_sha256,
     run_a2_qualification,
+    run_fractional_delay_estimator_calibration,
     run_probe_domain_diagnostics,
     run_resampler_band_calibration,
+    validate_rir_sample_rate_convention_calibration,
+    validate_energy_metric_convention,
+    validate_fractional_delay_calibration,
     run_synthetic_metric_fixtures,
     validate_a2_runtime_lock,
     validate_direction_channel_calibration,
@@ -161,6 +166,38 @@ class ActiveASRA2MetricTests(unittest.TestCase):
         calibration = run_resampler_band_calibration(self.contract)
         self.assertIn(calibration["status"], (PASS, "FAIL"))
         self.assertEqual(calibration["separate_normalization"], False)
+
+    def test_energy_metric_convention_is_explicitly_not_rms(self):
+        audit = energy_metric_convention_audit()
+        self.assertIs(validate_energy_metric_convention(audit), audit)
+        self.assertFalse(audit["same_quantity"])
+        self.assertEqual(audit["formal_rir_metric"]["formula"], "sum_n(x[n]^2)")
+        self.assertIn("RMS", audit["resampler_calibration_metric"]["name"])
+
+    def test_fractional_delay_estimator_calibration_is_independent_and_deterministic(self):
+        first = run_fractional_delay_estimator_calibration(self.contract)
+        second = run_fractional_delay_estimator_calibration(self.contract)
+        self.assertEqual(first, second)
+        self.assertIs(validate_fractional_delay_calibration(first), first)
+        self.assertFalse(first["formal_denominator"])
+        self.assertLessEqual(first["summary"]["max_per_channel_onset_shift_samples"], 2.0)
+        self.assertLessEqual(first["summary"]["max_itd_shift_samples"], 2.0)
+        self.assertGreater(first["summary"]["max_absolute_native16_channel_estimator_error_samples"], 0.0)
+
+    def test_rir_convention_artifact_schema_keeps_calibration_non_formal(self):
+        artifact = {
+            "schema_version": "active-asr-a2-rir-sample-rate-convention-v1",
+            "status": "CALIBRATION_COMPLETE",
+            "formal_denominator": False,
+            "energy_metric_convention": energy_metric_convention_audit(),
+            "candidate_conventions": {},
+            "cases": [],
+            "summary": {},
+            "formal_energy_offset_attribution": {},
+        }
+        self.assertIs(validate_rir_sample_rate_convention_calibration(artifact), artifact)
+        with self.assertRaises(QualificationError):
+            validate_rir_sample_rate_convention_calibration(dict(artifact, formal_denominator=True))
 
     def test_case_schema_keeps_na_separate_from_blocked(self):
         row = {

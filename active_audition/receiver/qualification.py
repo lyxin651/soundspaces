@@ -15,6 +15,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 import yaml
+from scipy.signal import fftconvolve
 
 from active_audition.acoustics.resampling import resample_array
 from active_audition.data.storage import DatasetStorage, json_line
@@ -33,6 +34,10 @@ from active_audition.receiver.geometry import (
 METRIC_CONTRACT_SCHEMA_VERSION = "active-asr-a2-metric-v2"
 QUALIFICATION_CASE_SCHEMA_VERSION = "active-asr-a2-qualification-case-v2"
 A2_RUNTIME_LOCK_SCHEMA_VERSION = "active-asr-a2-runtime-lock-v1"
+ENERGY_METRIC_CONVENTION_SCHEMA_VERSION = "active-asr-a2-energy-metric-convention-v1"
+RIR_SAMPLE_RATE_CONVENTION_SCHEMA_VERSION = "active-asr-a2-rir-sample-rate-convention-v1"
+FRACTIONAL_DELAY_CALIBRATION_SCHEMA_VERSION = "active-asr-a2-fractional-delay-estimator-v1"
+SAMPLE_RATE_ATTRIBUTION_SCHEMA_VERSION = "active-asr-a2-sample-rate-attribution-v2"
 KNOWN = "KNOWN"
 NA = "N/A"
 PASS = "PASS"
@@ -905,6 +910,525 @@ def run_resampler_band_calibration(contract: Mapping[str, Any]) -> Dict[str, Any
         "frozen_gate_reference_db": contract["gates"]["sample_rate_ab"]["band_energy_difference_max_db"],
         "decision": "PROCEED_TO_FORMAL_SAMPLE_RATE_AB" if max_bias <= float(contract["gates"]["sample_rate_ab"]["band_energy_difference_max_db"]) else "STOP_AND_REVIEW_METRIC_CONTRACT",
     }
+
+
+def energy_metric_convention_audit() -> Dict[str, Any]:
+    """Record the two energy conventions used by A2 diagnostics.
+
+    The existing formal metric is deliberately not changed here.  In
+    particular, ``sum(x**2)`` is a discrete coefficient energy in sample
+    squared units, whereas the earlier resampler calibration measured RMS /
+    mean-square gain.  They are related but are not interchangeable when the
+    sample count changes with sample rate.
+    """
+
+    return {
+        "schema_version": ENERGY_METRIC_CONVENTION_SCHEMA_VERSION,
+        "formal_rir_metric": {
+            "name": "sum_squared_samples",
+            "formula": "sum_n(x[n]^2)",
+            "mean_square_formula": "sum_n(x[n]^2)/N (not used by formal gate)",
+            "db_formula": "10*log10(sum_n(x[n]^2))",
+            "units": "sample_squared",
+            "band_formula": "one_sided_rfft_parseval_sum_squared_samples",
+        },
+        "resampler_calibration_metric": {
+            "name": "RMS_and_mean_square_gain",
+            "rms_formula": "sqrt(mean_n(x[n]^2))",
+            "mean_square_formula": "mean_n(x[n]^2)",
+            "db_formula": "20*log10(RMS_out/RMS_in) = 10*log10(MS_out/MS_in)",
+            "units": "signal_amplitude_ratio_db",
+        },
+        "optional_sample_rate_weighted_diagnostic": {
+            "formula": "sum_n(x[n]^2)/sample_rate_hz",
+            "interpretation": "discrete approximation to a continuous-time energy integral",
+            "formal_gate": False,
+        },
+        "same_quantity": False,
+        "formal_gate_uses_rms_calibration": False,
+        "conclusion": "RMS/mean-square resampler calibration cannot by itself exclude a RIR coefficient sum-square conversion or sample-rate convention effect.",
+    }
+
+
+def validate_energy_metric_convention(document: Mapping[str, Any]) -> Mapping[str, Any]:
+    required = {"schema_version", "formal_rir_metric", "resampler_calibration_metric", "optional_sample_rate_weighted_diagnostic", "same_quantity", "formal_gate_uses_rms_calibration", "conclusion"}
+    if set(document) != required or document["schema_version"] != ENERGY_METRIC_CONVENTION_SCHEMA_VERSION:
+        raise QualificationError("energy metric convention artifact schema is invalid")
+    if document["same_quantity"] is not False or document["formal_gate_uses_rms_calibration"] is not False:
+        raise QualificationError("energy metric convention artifact must keep formal and RMS metrics distinct")
+    return document
+
+
+def _db_ratio(first: float, second: float, power: bool = True) -> Optional[float]:
+    if first <= 1.0e-30 or second <= 1.0e-30:
+        return None
+    multiplier = 10.0 if power else 20.0
+    return float(multiplier * math.log10(first / second))
+
+
+def _signal_stats(signal: np.ndarray, sample_rate_hz: int, contract: Mapping[str, Any]) -> Dict[str, Any]:
+    array = np.asarray(signal, dtype=np.float64).reshape(-1)
+    if array.size == 0 or not np.isfinite(array).all():
+        raise QualificationError("calibration signal is empty or non-finite")
+    sum_square = float(np.sum(np.square(array)))
+    mean_square = float(np.mean(np.square(array)))
+    stats = {
+        "num_samples": int(array.size),
+        "sample_rate_hz": int(sample_rate_hz),
+        "peak_abs": float(np.max(np.abs(array))),
+        "rms": float(math.sqrt(mean_square)),
+        "mean_square": mean_square,
+        "sum_square": sum_square,
+        "sum_h2": sum_square,
+        "sample_rate_weighted_integral": float(sum_square / float(sample_rate_hz)),
+        "bands": {},
+    }
+    for band in contract["frequency_bands"]["bands"]:
+        band_id = str(band["id"])
+        power = _band_energy(array, int(sample_rate_hz), float(band["low_hz"]), float(band["high_hz"]))
+        stats["bands"][band_id] = {
+            "low_hz": float(band["low_hz"]),
+            "high_hz": float(band["high_hz"]),
+            "sum_square": float(power),
+            "mean_square": float(power / float(array.size)),
+            "power_db": _db_power(power, 1.0e-30),
+        }
+    return stats
+
+
+def _compact_signal_metric(signal: np.ndarray, sample_rate_hz: int, contract: Mapping[str, Any]) -> Dict[str, Any]:
+    metric = compute_direct_metrics(signal, int(sample_rate_hz), contract)
+    if metric.get("applicability") != "APPLICABLE":
+        return {"applicability": NA, "reason": metric.get("na_reason")}
+    return {
+        "applicability": "APPLICABLE",
+        "onset_samples": dict(metric["direct_window"]["channel_onset_samples"]),
+        "onset_seconds": {key: float(value / float(sample_rate_hz)) for key, value in metric["direct_window"]["channel_onset_samples"].items()},
+        "itd_samples": int(metric["itd_samples"]),
+        "itd_seconds": float(metric["itd_seconds"]),
+        "ild_db": None if metric.get("ild_db") is None else float(metric["ild_db"]),
+    }
+
+
+def _rate_matched_band_source(sample_rate_hz: int, duration_sec: float = 0.025) -> np.ndarray:
+    """Deterministic continuous-time multi-tone source used only for A/B/C."""
+
+    n = int(round(float(sample_rate_hz) * float(duration_sec)))
+    time = np.arange(n, dtype=np.float64) / float(sample_rate_hz)
+    frequencies = (250.0, 750.0, 1500.0, 3500.0, 4500.0, 7500.0)
+    amplitudes = (0.18, 0.16, 0.13, 0.11, 0.09, 0.07)
+    phases = (0.1, 0.7, 1.2, 2.0, 2.8, 0.4)
+    signal = np.zeros(n, dtype=np.float64)
+    for frequency, amplitude, phase in zip(frequencies, amplitudes, phases):
+        signal += amplitude * np.sin(2.0 * math.pi * frequency * time + phase)
+    return np.asarray(signal, dtype=np.float32)
+
+
+def _convolve_binaural(source: np.ndarray, rir: np.ndarray) -> np.ndarray:
+    return np.column_stack([fftconvolve(source, rir[:, channel], mode="full") for channel in range(2)]).astype(np.float32)
+
+
+def _compact_rir_stats(rir: np.ndarray, sample_rate_hz: int, contract: Mapping[str, Any]) -> Dict[str, Any]:
+    return {
+        "sample_rate_hz": int(sample_rate_hz),
+        "channels": {key: _signal_stats(rir[:, index], sample_rate_hz, contract) for index, key in enumerate(("L", "R"))},
+    }
+
+
+def _compare_output_stats(first: np.ndarray, second: np.ndarray, sample_rate_hz: int, contract: Mapping[str, Any]) -> Dict[str, Any]:
+    first_stats = [_signal_stats(first[:, index], sample_rate_hz, contract) for index in range(2)]
+    second_stats = [_signal_stats(second[:, index], sample_rate_hz, contract) for index in range(2)]
+    result: Dict[str, Any] = {"channels": {}, "metrics": {}}
+    for index, key in enumerate(("L", "R")):
+        result["channels"][key] = {
+            "rms_difference_db": _db_ratio(second_stats[index]["rms"], first_stats[index]["rms"], power=False),
+            "mean_square_difference_db": _db_ratio(second_stats[index]["mean_square"], first_stats[index]["mean_square"]),
+            "sum_square_difference_db": _db_ratio(second_stats[index]["sum_square"], first_stats[index]["sum_square"]),
+            "sample_rate_weighted_integral_difference_db": _db_ratio(second_stats[index]["sample_rate_weighted_integral"], first_stats[index]["sample_rate_weighted_integral"]),
+        }
+    for band in contract["frequency_bands"]["bands"]:
+        band_id = str(band["id"])
+        first_power = sum(item["bands"][band_id]["sum_square"] for item in first_stats)
+        second_power = sum(item["bands"][band_id]["sum_square"] for item in second_stats)
+        result["metrics"][band_id] = {"power_difference_db": _db_ratio(second_power, first_power)}
+    return result
+
+
+def _metric_difference(first: Mapping[str, Any], second: Mapping[str, Any]) -> Dict[str, Any]:
+    if first.get("applicability") != "APPLICABLE" or second.get("applicability") != "APPLICABLE":
+        return {"applicability": NA, "reason": "ONE_OR_BOTH_OUTPUT_METRICS_NA"}
+    return {
+        "applicability": "APPLICABLE",
+        "itd_difference_samples": abs(int(first["itd_samples"]) - int(second["itd_samples"])),
+        "itd_difference_seconds": abs(float(first["itd_seconds"]) - float(second["itd_seconds"])),
+        "ild_difference_db": None if first.get("ild_db") is None or second.get("ild_db") is None else abs(float(first["ild_db"]) - float(second["ild_db"])),
+    }
+
+
+def _formal_energy_offset_attribution(formal_sample_rate_path: Optional[str]) -> Dict[str, Any]:
+    """Summarize preserved v2 formal energy differences without rewriting them."""
+
+    result: Dict[str, Any] = {
+        "schema_version": "active-asr-a2-formal-energy-offset-attribution-v1",
+        "source_artifact": str(formal_sample_rate_path) if formal_sample_rate_path else None,
+        "source_available": False,
+        "bands": {},
+        "by_distance_angle": [],
+        "global_offset_assessment": {},
+    }
+    if not formal_sample_rate_path or not Path(formal_sample_rate_path).is_file():
+        result["status"] = "NOT_AVAILABLE"
+        return result
+    document = json.loads(Path(formal_sample_rate_path).read_text(encoding="utf-8"))
+    rows = document.get("comparisons", [])
+    values: Dict[str, List[float]] = {}
+    for row in rows:
+        comparison = row.get("comparison", {})
+        for band_id, band in comparison.get("bands", {}).items():
+            if band.get("energy_difference_db") is not None:
+                values.setdefault(str(band_id), []).append(float(band["energy_difference_db"]))
+        result["by_distance_angle"].append({
+            "distance_m": row.get("distance_m"),
+            "angle_deg": row.get("angle_deg"),
+            "band_energy_difference_db": {str(k): v.get("energy_difference_db") for k, v in comparison.get("bands", {}).items()},
+            "direct_energy_difference_db": comparison.get("direct_energy_difference_db"),
+        })
+    for band_id, band_values in sorted(values.items()):
+        result["bands"][band_id] = {
+            "count": len(band_values),
+            "mean_db": float(np.mean(band_values)),
+            "std_db": float(np.std(band_values)),
+            "min_db": float(np.min(band_values)),
+            "max_db": float(np.max(band_values)),
+            "spread_db": float(np.max(band_values) - np.min(band_values)),
+        }
+    all_values = [value for values_for_band in values.values() for value in values_for_band]
+    result["source_available"] = True
+    result["status"] = "ATTRIBUTION_RECORDED"
+    result["global_offset_assessment"] = {
+        "all_band_rows_mean_db": float(np.mean(all_values)) if all_values else None,
+        "all_band_rows_std_db": float(np.std(all_values)) if all_values else None,
+        "global_constant_candidate": bool(all_values and float(np.std(all_values)) <= 0.10),
+        "interpretation": "A global constant is only a descriptive test; no RIR gain correction is adopted from formal rows.",
+    }
+    return result
+
+
+def _fractional_delay_signal(sample_rate_hz: int, delay_sec: float, gain: float, duration_sec: float = 0.030) -> np.ndarray:
+    n = int(round(float(sample_rate_hz) * float(duration_sec)))
+    time = np.arange(n, dtype=np.float64) / float(sample_rate_hz)
+    sigma = 0.00016
+    pulse = np.exp(-0.5 * np.square((time - float(delay_sec)) / sigma))
+    return np.asarray(float(gain) * pulse, dtype=np.float32)
+
+
+def run_fractional_delay_estimator_calibration(contract: Mapping[str, Any]) -> Dict[str, Any]:
+    """Calibrate the existing 10%-peak onset estimator on rate-matched pulses."""
+
+    rows: List[Dict[str, Any]] = []
+    delays_l = (0.004125, 0.0041875, 0.00425, 0.0043125, 0.004375, 0.0044375, 0.0045)
+    itd_seconds = (-0.00028125, -0.00015625, 0.0000, 0.00015625, 0.00028125)
+    gains = ((1.0, 0.5), (0.5, 1.0), (1.75, 0.35))
+    max_channel_shift = 0.0
+    max_itd_shift = 0.0
+    max_absolute_channel_error = 0.0
+    for delay_l in delays_l:
+        for itd in itd_seconds:
+            for left_gain, right_gain in gains:
+                delay_r = float(delay_l + itd)
+                if delay_r <= 0.0:
+                    continue
+                native16 = np.column_stack([
+                    _fractional_delay_signal(16000, delay_l, left_gain),
+                    _fractional_delay_signal(16000, delay_r, right_gain),
+                ])
+                native24 = np.column_stack([
+                    _fractional_delay_signal(24000, delay_l, left_gain),
+                    _fractional_delay_signal(24000, delay_r, right_gain),
+                ])
+                resampled = resample_array(native24, 24000, 16000)
+                metric16 = _compact_signal_metric(native16, 16000, contract)
+                metric24_resampled = _compact_signal_metric(resampled, 16000, contract)
+                if metric16["applicability"] != "APPLICABLE" or metric24_resampled["applicability"] != "APPLICABLE":
+                    continue
+                true_onsets = {"L": delay_l * 16000.0, "R": delay_r * 16000.0}
+                rate_channel_shifts = {
+                    key: float(metric24_resampled["onset_samples"][key] - metric16["onset_samples"][key])
+                    for key in ("L", "R")
+                }
+                absolute_errors = {
+                    key: float(metric16["onset_samples"][key] - true_onsets[key])
+                    for key in ("L", "R")
+                }
+                itd_true = itd * 16000.0
+                row = {
+                    "delay_left_sec": float(delay_l),
+                    "delay_right_sec": delay_r,
+                    "gain_left": float(left_gain),
+                    "gain_right": float(right_gain),
+                    "true_onset_samples_at_16khz": true_onsets,
+                    "true_itd_samples_at_16khz": float(itd_true),
+                    "native16": metric16,
+                    "native24_to_16": metric24_resampled,
+                    "per_channel_onset_shift_samples_rate_comparison": rate_channel_shifts,
+                    "per_channel_absolute_estimator_error_samples_native16": absolute_errors,
+                    "itd_shift_samples_rate_comparison": float(metric24_resampled["itd_samples"] - metric16["itd_samples"]),
+                    "itd_absolute_error_samples_native16": float(metric16["itd_samples"] - itd_true),
+                }
+                rows.append(row)
+                max_channel_shift = max(max_channel_shift, *(abs(value) for value in rate_channel_shifts.values()))
+                max_itd_shift = max(max_itd_shift, abs(float(row["itd_shift_samples_rate_comparison"])))
+                max_absolute_channel_error = max(max_absolute_channel_error, *(abs(value) for value in absolute_errors.values()))
+    rate_stable = max(max_channel_shift, max_itd_shift) <= 2.0
+    return {
+        "schema_version": FRACTIONAL_DELAY_CALIBRATION_SCHEMA_VERSION,
+        "status": "PASS" if rate_stable else "METRIC_ESTIMATOR_NOT_RATE_STABLE",
+        "formal_denominator": False,
+        "estimator": {
+            "name": "frozen_direct_window_10_percent_peak_onset",
+            "threshold_fraction_of_channel_peak": 0.10,
+            "tolerance_under_test_samples": 2.0,
+        },
+        "fixture": {
+            "signal": "Gaussian continuous-time pulse sampled at native rate",
+            "rate_pair": [16000, 24000],
+            "resampler": "resample_poly_kaiser_5_no_gain_correction",
+            "independent_of_formal_ss2_cases": True,
+        },
+        "rows": rows,
+        "summary": {
+            "row_count": len(rows),
+            "max_per_channel_onset_shift_samples": float(max_channel_shift),
+            "max_itd_shift_samples": float(max_itd_shift),
+            "max_absolute_native16_channel_estimator_error_samples": float(max_absolute_channel_error),
+            "rate_stability_gate": rate_stable,
+            "interpretation": "Rate comparison is independent of formal SS2 rows; absolute threshold-crossing quantization error is reported separately.",
+        },
+        "v3_recommendation": None if rate_stable else "Consider a fractional-delay/interpolated onset estimator in metric-contract v3; do not alter the frozen v2 tolerance here.",
+    }
+
+
+def validate_fractional_delay_calibration(document: Mapping[str, Any]) -> Mapping[str, Any]:
+    required = {"schema_version", "status", "formal_denominator", "estimator", "fixture", "rows", "summary", "v3_recommendation"}
+    if set(document) != required or document["schema_version"] != FRACTIONAL_DELAY_CALIBRATION_SCHEMA_VERSION:
+        raise QualificationError("fractional-delay calibration schema is invalid")
+    if document["formal_denominator"] is not False or not isinstance(document["rows"], list):
+        raise QualificationError("fractional-delay calibration must be independent of the formal denominator")
+    return document
+
+
+def validate_rir_sample_rate_convention_calibration(document: Mapping[str, Any]) -> Mapping[str, Any]:
+    required = {"schema_version", "status", "formal_denominator", "energy_metric_convention", "candidate_conventions", "cases", "summary", "formal_energy_offset_attribution"}
+    if set(document) != required or document["schema_version"] != RIR_SAMPLE_RATE_CONVENTION_SCHEMA_VERSION:
+        raise QualificationError("RIR sample-rate convention calibration schema is invalid")
+    if document["formal_denominator"] is not False or not isinstance(document["cases"], list) or not isinstance(document["candidate_conventions"], Mapping):
+        raise QualificationError("RIR sample-rate convention calibration is malformed")
+    return document
+
+
+def run_rir_sample_rate_convention_calibration(
+    contract: Mapping[str, Any],
+    runtime_config: Mapping[str, Any],
+    registry: Mapping[str, Any],
+    a0_contract: Mapping[str, Any],
+    formal_sample_rate_path: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Run independent Path A/B/C convolution evidence on the shoebox."""
+
+    from active_audition.acoustics.rir import render_native_rir
+    from active_audition.receiver.audit import _runtime_fingerprint
+    from active_audition.scene.simulator import create_scene_simulator
+    from active_audition.types import ListenerPose
+
+    repo_root = Path(runtime_config["_repo_root"]).resolve()
+    primary = next(item for item in registry["geometries"] if item["kind"] == "symmetric_shoebox")
+    selected_angles = (0.0, -60.0, 60.0, -90.0, 90.0)
+    selected_distances = (1.0, 4.0)
+    candidate_conventions = {
+        "no_gain_correction": {"gain": 1.0, "mathematical_basis": "sample values represent the same continuous-time impulse response; sum(h^2)/fs is the comparable energy diagnostic"},
+        "fs_source_over_target": {"gain": 1.5, "mathematical_basis": "discrete convolution without an explicit dt factor; h_target = (fs_source/fs_target)*h_resampled preserves a sampled integral convention"},
+        "sqrt_fs_source_over_target": {"gain": math.sqrt(1.5), "mathematical_basis": "gain that equalizes unweighted coefficient sum(h^2) after the 24k-to-16k sample-count change"},
+    }
+    config_base = copy.deepcopy(dict(runtime_config))
+    cases: List[Dict[str, Any]] = []
+    errors: List[Dict[str, Any]] = []
+    fingerprint: Mapping[str, Any] = {}
+    for distance in selected_distances:
+        for angle in selected_angles:
+            source = source_position_world(primary["receiver"]["sensor_position_world"], primary["receiver"]["yaw_deg"], angle, distance)
+            receiver_sensor = tuple(primary["receiver"]["sensor_position_world"])
+            config16 = copy.deepcopy(config_base)
+            config16["acoustics"] = dict(config_base["acoustics"])
+            config16["acoustics"]["sample_rate_hz"] = 16000
+            config24 = copy.deepcopy(config_base)
+            config24["acoustics"] = dict(config_base["acoustics"])
+            config24["acoustics"]["sample_rate_hz"] = 24000
+            try:
+                rendered: Dict[int, np.ndarray] = {}
+                effective: Dict[int, Mapping[str, Any]] = {}
+                for rate, config in ((16000, config16), (24000, config24)):
+                    with create_scene_simulator(config, scene_id=primary["id"], require_navmesh=False, load_semantic_mesh=False, scene_override={"scene_asset": primary["mesh_path"]}) as context:
+                        fingerprint = _runtime_fingerprint(repo_root)
+                        offset = np.asarray(config["listener"]["sensor_offset_m"], dtype=np.float64)
+                        base = tuple((np.asarray(receiver_sensor, dtype=np.float64) - offset).tolist())
+                        pose = ListenerPose(base_position_world=base, sensor_position_world=receiver_sensor, yaw_deg=float(primary["receiver"]["yaw_deg"]))
+                        rendered[rate] = np.asarray(render_native_rir(context, source, pose), dtype=np.float32)
+                        effective[rate] = {"sample_rate_hz": rate}
+                h16 = rendered[16000]
+                h24 = rendered[24000]
+                h24_to_16 = resample_array(h24, 24000, 16000)
+                x16 = _rate_matched_band_source(16000)
+                x24 = _rate_matched_band_source(24000)
+                path_a = _convolve_binaural(x16, h16)
+                path_b_native = _convolve_binaural(x24, h24)
+                path_b = resample_array(path_b_native, 24000, 16000)
+                path_c_by_convention: Dict[str, Any] = {}
+                for name, convention in candidate_conventions.items():
+                    converted = h24_to_16 * float(convention["gain"])
+                    path_c = _convolve_binaural(x16, converted)
+                    path_c_by_convention[name] = {
+                        "rir_gain_applied": float(convention["gain"]),
+                        "rir_stats": _compact_rir_stats(converted, 16000, contract),
+                        "output_stats": {"L": _signal_stats(path_c[:, 0], 16000, contract), "R": _signal_stats(path_c[:, 1], 16000, contract)},
+                        "output_metric": _compact_signal_metric(path_c, 16000, contract),
+                        "vs_path_a": _compare_output_stats(path_a, path_c, 16000, contract),
+                        "metric_difference_vs_path_a": _metric_difference(_compact_signal_metric(path_a, 16000, contract), _compact_signal_metric(path_c, 16000, contract)),
+                    }
+                case = {
+                    "geometry_id": primary["id"],
+                    "geometry": {"mesh_path": primary["mesh_path"], "mesh_sha256": primary["mesh_sha256"], "registry_sha256": registry["registry_sha256"]},
+                    "distance_m": float(distance),
+                    "relative_angle_deg": float(angle),
+                    "line_of_sight": "LOS",
+                    "source_transform": {"position_world": list(source)},
+                    "receiver_transform": {"sensor_position_world": list(receiver_sensor), "yaw_deg": float(primary["receiver"]["yaw_deg"])},
+                    "source": {"description": "deterministic continuous-time multi-tone band-limited source", "sample_rates_hz": [16000, 24000]},
+                    "path_a_x16_convolve_h16": {"rir_stats": _compact_rir_stats(h16, 16000, contract), "output_stats": {"L": _signal_stats(path_a[:, 0], 16000, contract), "R": _signal_stats(path_a[:, 1], 16000, contract)}, "output_metric": _compact_signal_metric(path_a, 16000, contract)},
+                    "path_b_x24_convolve_h24_then_resample": {"rir_stats": _compact_rir_stats(h24, 24000, contract), "resampled_rir_stats": _compact_rir_stats(h24_to_16, 16000, contract), "output_stats": {"L": _signal_stats(path_b[:, 0], 16000, contract), "R": _signal_stats(path_b[:, 1], 16000, contract)}, "output_metric": _compact_signal_metric(path_b, 16000, contract), "vs_path_a": _compare_output_stats(path_a, path_b, 16000, contract), "metric_difference_vs_path_a": _metric_difference(_compact_signal_metric(path_a, 16000, contract), _compact_signal_metric(path_b, 16000, contract))},
+                    "path_c_x16_convolve_resampled_h24": path_c_by_convention,
+                    "native_metric_summary": {"native16": _compact_signal_metric(h16, 16000, contract), "native24": _compact_signal_metric(h24, 24000, contract), "resampled24_to_16": _compact_signal_metric(h24_to_16, 16000, contract)},
+                    "effective": effective,
+                    "runtime_sha256": _sha256_json(fingerprint),
+                    "contract_sha256": metric_contract_sha256(contract),
+                    "a0_contract_sha256": _sha256_json(a0_contract),
+                    "resource_hashes": {"geometry_registry": registry["registry_sha256"], "scene_asset": primary["mesh_sha256"]},
+                }
+                cases.append(case)
+            except Exception as exc:  # pragma: no cover - requires SS2 runtime
+                errors.append({"distance_m": distance, "relative_angle_deg": angle, "type": type(exc).__name__, "message": str(exc)})
+    summary: Dict[str, Any] = {"case_count": len(cases), "error_count": len(errors), "errors": errors, "path_b_vs_a": {}, "candidate_c_vs_a": {}}
+    for label, source_key in (("path_b", "path_b_x24_convolve_h24_then_resample"),):
+        values = []
+        for case in cases:
+            for channel in ("L", "R"):
+                value = case[source_key]["vs_path_a"]["channels"][channel]["mean_square_difference_db"]
+                if value is not None:
+                    values.append(float(value))
+        summary[label] = {"mean_mean_square_difference_db": float(np.mean(values)) if values else None, "std_mean_square_difference_db": float(np.std(values)) if values else None, "max_abs_mean_square_difference_db": float(max((abs(v) for v in values), default=0.0))}
+    for candidate in candidate_conventions:
+        values = []
+        for case in cases:
+            comparison = case["path_c_x16_convolve_resampled_h24"][candidate]["vs_path_a"]["channels"]
+            values.extend(float(comparison[channel]["mean_square_difference_db"]) for channel in ("L", "R") if comparison[channel]["mean_square_difference_db"] is not None)
+        summary["candidate_c_vs_a"][candidate] = {"mean_mean_square_difference_db": float(np.mean(values)) if values else None, "std_mean_square_difference_db": float(np.std(values)) if values else None, "max_abs_mean_square_difference_db": float(max((abs(v) for v in values), default=0.0))}
+    summary["deterministic_gain_convention_supported"] = False
+    summary["decision"] = "NO_AUTOMATIC_RIR_GAIN_CORRECTION; equivalence evidence is recorded for metric-contract review"
+    artifact = {
+        "schema_version": RIR_SAMPLE_RATE_CONVENTION_SCHEMA_VERSION,
+        "status": "CALIBRATION_COMPLETE" if cases and not errors else ("PARTIAL" if cases else BLOCKED),
+        "formal_denominator": False,
+        "energy_metric_convention": energy_metric_convention_audit(),
+        "candidate_conventions": candidate_conventions,
+        "cases": cases,
+        "summary": summary,
+        "formal_energy_offset_attribution": _formal_energy_offset_attribution(formal_sample_rate_path),
+    }
+    validate_rir_sample_rate_convention_calibration(artifact)
+    return artifact
+
+
+def run_a2_sample_rate_blocker_calibration(
+    metric_contract_path: str,
+    output_dir: str,
+    runtime_config_path: str = "configs/active_audition/v0_replica_debug.yaml",
+    formal_sample_rate_path: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Run only the non-formal A2 sample-rate attribution calibrations."""
+
+    contract = load_metric_contract(metric_contract_path)
+    from active_audition.config.loader import load_resolved_config as load_legacy_config
+
+    runtime_config = load_legacy_config(runtime_config_path)
+    repo_root = Path(runtime_config["_repo_root"]).resolve()
+    a0_contract = load_a0_contract_for_qualification(runtime_config)
+    geometry_path, geometry_reason = _load_geometry_registry(contract, repo_root)
+    energy_audit = energy_metric_convention_audit()
+    validate_energy_metric_convention(energy_audit)
+    fractional = run_fractional_delay_estimator_calibration(contract)
+    validate_fractional_delay_calibration(fractional)
+    if geometry_reason is not None:
+        rir_calibration = {
+            "schema_version": RIR_SAMPLE_RATE_CONVENTION_SCHEMA_VERSION,
+            "status": BLOCKED,
+            "formal_denominator": False,
+            "energy_metric_convention": energy_audit,
+            "candidate_conventions": {},
+            "cases": [],
+            "summary": {"case_count": 0, "error_count": 1, "errors": [{"reason": geometry_reason}], "decision": "BLOCKED_BEFORE_RUNTIME"},
+            "formal_energy_offset_attribution": _formal_energy_offset_attribution(formal_sample_rate_path),
+        }
+    else:
+        registry = load_geometry_registry(str(geometry_path), str(repo_root))
+        rir_calibration = run_rir_sample_rate_convention_calibration(contract, runtime_config, registry, a0_contract, formal_sample_rate_path)
+    validate_rir_sample_rate_convention_calibration(rir_calibration)
+
+    formal_offsets = rir_calibration["formal_energy_offset_attribution"]
+    summary = {
+        "schema_version": SAMPLE_RATE_ATTRIBUTION_SCHEMA_VERSION,
+        "gate": "A2",
+        "status": "OPEN_BLOCKER_ATTRIBUTION_COMPLETE",
+        "formal_a2_status": "OPEN/BLOCKED",
+        "metric_contract": {"path": str(Path(metric_contract_path).resolve()), "sha256": metric_contract_sha256(contract), "modified": False},
+        "a0_contract_sha256": _sha256_json(a0_contract),
+        "geometry": {"path": str(geometry_path), "status": "VALIDATED" if geometry_reason is None else BLOCKED, "reason": geometry_reason},
+        "energy_metric_convention_audit": energy_audit,
+        "rir_sample_rate_convention_calibration": {"status": rir_calibration["status"], "case_count": len(rir_calibration["cases"]), "formal_denominator": False},
+        "fractional_delay_estimator_calibration": fractional["summary"],
+        "formal_energy_offset_attribution": formal_offsets,
+        "attribution_conclusion": {
+            "deterministic_rir_gain_conversion_supported": bool(rir_calibration["summary"].get("deterministic_gain_convention_supported", False)),
+            "estimator_rate_stability": fractional["status"],
+            "formal_tolerances_changed": False,
+            "a2_closed": False,
+            "a3_entered": False,
+        },
+        "blocker": "SAMPLE_RATE_AB_FORMAL_ENERGY_AND_4M_ITD_FAILURE_REQUIRES_INDEPENDENT_CALIBRATION_REVIEW",
+    }
+    output_root = Path(output_dir).resolve()
+    storage = DatasetStorage(str(output_root))
+    storage.atomic_write_json(output_root / "energy_metric_convention_audit.json", energy_audit)
+    storage.atomic_write_json(output_root / "rir_sample_rate_convention_calibration.json", rir_calibration)
+    storage.atomic_write_json(output_root / "fractional_delay_estimator_calibration.json", fractional)
+    storage.atomic_write_json(output_root / "formal_energy_offset_attribution.json", formal_offsets)
+    summary["artifacts"] = {name: {"path": name, "sha256": _file_sha256(output_root / name)} for name in ("energy_metric_convention_audit.json", "rir_sample_rate_convention_calibration.json", "fractional_delay_estimator_calibration.json", "formal_energy_offset_attribution.json")}
+    storage.atomic_write_json(output_root / "a2_sample_rate_calibration_summary.json", summary)
+    summary["artifacts"]["a2_sample_rate_calibration_summary.json"] = {"path": "a2_sample_rate_calibration_summary.json", "sha256": _file_sha256(output_root / "a2_sample_rate_calibration_summary.json")}
+    report_lines = [
+        "# Active-ASR V1.1 A2 Sample-Rate Blocker Attribution",
+        "",
+        "- Status: **OPEN/BLOCKED; attribution only**",
+        "- Metric contract SHA256: `{}` (unchanged)".format(summary["metric_contract"]["sha256"]),
+        "- Formal v2 artifacts were read only and were not overwritten.",
+        "- Formal RIR energy is `sum(x^2)` / sample-squared; the earlier resampler calibration is RMS/mean-square. They are explicitly different quantities.",
+        "- RIR Path A/B/C calibration status: `{}`; cases: `{}`; deterministic gain convention supported: `{}`.".format(rir_calibration["status"], len(rir_calibration["cases"]), rir_calibration["summary"].get("deterministic_gain_convention_supported")),
+        "- Fractional-delay estimator status: `{}`; max rate-comparison channel shift: `{}` samples; max ITD shift: `{}` samples.".format(fractional["status"], fractional["summary"]["max_per_channel_onset_shift_samples"], fractional["summary"]["max_itd_shift_samples"]),
+        "- Formal energy offset attribution: `{}`; see `formal_energy_offset_attribution.json`.".format(formal_offsets.get("status")),
+        "- No tolerance was changed; A2 was not closed and A3 was not entered.",
+        "",
+    ]
+    storage.atomic_write_text(output_root / "a2_sample_rate_calibration_report.md", "\n".join(report_lines))
+    summary["artifacts"]["a2_sample_rate_calibration_report.md"] = {"path": "a2_sample_rate_calibration_report.md", "sha256": _file_sha256(output_root / "a2_sample_rate_calibration_report.md")}
+    return summary
 
 
 def _metric_onsets(metric: Optional[Mapping[str, Any]], sample_rate_hz: int) -> Dict[str, Any]:
@@ -1876,26 +2400,37 @@ def _render_report(summary: Mapping[str, Any], summary_sha256: str, smoke: Mappi
 __all__ = [
     "A2_RUNTIME_LOCK_SCHEMA_VERSION",
     "BLOCKED",
+    "ENERGY_METRIC_CONVENTION_SCHEMA_VERSION",
     "FAIL",
+    "FRACTIONAL_DELAY_CALIBRATION_SCHEMA_VERSION",
     "METRIC_CONTRACT_SCHEMA_VERSION",
     "NA",
     "PASS",
     "QUALIFICATION_CASE_SCHEMA_VERSION",
     "QualificationError",
+    "RIR_SAMPLE_RATE_CONVENTION_SCHEMA_VERSION",
+    "SAMPLE_RATE_ATTRIBUTION_SCHEMA_VERSION",
     "canonical_json",
     "compute_direct_metrics",
+    "energy_metric_convention_audit",
     "load_metric_contract",
     "make_probe",
     "metric_contract_sha256",
     "run_a2_qualification",
+    "run_a2_sample_rate_blocker_calibration",
     "run_probe_domain_diagnostics",
+    "run_fractional_delay_estimator_calibration",
+    "run_rir_sample_rate_convention_calibration",
     "run_resampler_band_calibration",
     "run_synthetic_metric_fixtures",
     "validate_a2_runtime_lock",
     "validate_direction_channel_calibration",
     "validate_failure_attribution",
+    "validate_energy_metric_convention",
+    "validate_fractional_delay_calibration",
     "validate_metric_contract",
     "validate_probe_domain_diagnostics",
     "validate_qualification_case",
+    "validate_rir_sample_rate_convention_calibration",
     "validate_sample_rate_ab",
 ]
