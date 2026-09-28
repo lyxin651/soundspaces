@@ -1,0 +1,217 @@
+contract:
+  namespace: active-asr
+  version: active-asr-a3-instrument-v2
+  gate: A3
+  state: FROZEN
+serialization:
+  version: canonical-json-v1
+  hash_algorithm: sha256
+parents:
+  a0_contract_sha256: d731393cda3ddb29f0bdf58249f104da59f29d012b976eeb2de1f160e1df8107
+  a2_v2_sha256: f1185d2c5fe81091199d5525f224822a3227c700c60bba9ab168e6d9ddc38f83
+  a2_v3_sha256: c8f3ff23c5dca6f6d18dcb25613e6df6e20663e552f5df76170077ca67b13e7c
+  a3_v1_contract_sha256: b972d3ca2354ead8a10d2954a60602896ebbc5204adb7e8692c22f2b340497e2
+production_acoustics:
+  renderer: SoundSpaces2_HabitatSim0.2.2_RLRAudioPropagation
+  sample_rate_hz: 16000
+  channel_layout: binaural
+  channel_order:
+  - L
+  - R
+  convolution: full
+  materials: 'OFF'
+  post_convolution_normalization: none
+  per_rir_normalization: none
+  per_utterance_normalization: none
+  primary_frontend: mean_lr
+  sensitivity_frontends:
+  - fixed_L
+  - fixed_R
+materials_policy:
+  production: 'OFF'
+  materials_on: DEFERRED_UNSUPPORTED_REALISM_EXTENSION
+  audit_status: MATERIALS_ON_PROVENANCE_RECOVERED_BUT_RUNTIME_UNSTABLE
+  audit_evidence:
+    provenance:
+      path: runs/active_asr_v1/historical_materials_recovery_v1/historical_materials_provenance.json
+      sha256: cdf9df0eef6e8d319c369f335a4184f1b119fd5d0a8433653c54e42aa55cb2be
+    capability:
+      path: runs/active_asr_v1/historical_materials_recovery_v1/historical_materials_capability.json
+      sha256: 644b4f356cb91229bceadf78920f7bd0bfe25354cca63e088bc487422ea337c6
+    report:
+      path: runs/active_asr_v1/historical_materials_recovery_v1/historical_materials_recovery_report.md
+      sha256: 78a9443b9262f02aeb111df18f68a1dd07bbbb18a9f70274e9d993bede651add
+historical_v1:
+  g6_status: FAIL
+  g6_wer_fraction: 0.548689
+  g6_threshold_fraction: 0.5
+  g6_manifest:
+    path: registries/active_asr_a3/ss2_domain_qualification_manifest.json
+    sha256: 7b7f9b79ebc8bed64881e5475180623333da94454f3838257dcc7b2372b190ba
+    schema_version: active-asr-a3-ss2-domain-qualification-v1
+    records: 18
+  attribution_evidence:
+    failure_attribution:
+      path: runs/active_asr_v1/a3_g6_failure_attribution_v1/g6_failure_attribution_summary.json
+      sha256: 838eab591435939eca678561a781f0a6bdc3243dfb5dc3d4040f76c0b0b73b1c
+    real_scene_attribution:
+      path: runs/active_asr_v1/a3_g6_failure_attribution_v1/real_scene_domain_attribution_v1/real_scene_domain_attribution_summary.json
+      sha256: cdd393f7af9ee932f606b71d49f88f0c15e8716499779a5bb62402b685adf805
+office0:
+  attribution_only: true
+  forbidden_for_v2_acceptance: true
+  manifest:
+    path: registries/active_asr_a3/replica_office0_domain_diagnostic_manifest_v1.json
+    sha256: ed534740b6d6b24898de4042906f173c6c26dd3ffd6cf73c0b07ec767ecb983d
+  summary:
+    path: runs/active_asr_v1/a3_g6_failure_attribution_v1/real_scene_domain_attribution_v1/real_scene_domain_attribution_summary.json
+    sha256: cdd393f7af9ee932f606b71d49f88f0c15e8716499779a5bb62402b685adf805
+realistic_domain:
+  scene_inventory:
+    path: registries/active_asr_a3_v2/replica_scene_inventory.json
+    sha256: 2d191a79be663e77c1bc2fe5dc914938a4d2cb76aad583c7da72639f9e6ab7d0
+    schema_version: active-asr-a3-v2-replica-scene-inventory-v1
+    records: 18
+  scene_manifest:
+    path: registries/active_asr_a3_v2/a3_v2_realistic_domain_scene_manifest.json
+    sha256: f87e4d4e23edf4585b9c03835d4dd880615b7e4a193060626ad7653056af1ded
+    schema_version: active-asr-a3-v2-realistic-domain-scene-manifest-v1
+    records: 8
+  speech_manifest:
+    path: registries/active_asr_a3_v2/a3_v2_realistic_domain_speech_manifest.json
+    sha256: 9f8fc5e4a62a9b2aee9af0b250517cfb85250fdb24b599d8c0dd818794755c99
+    schema_version: active-asr-a3-v2-realistic-domain-speech-manifest-v1
+    records: 24
+  selected_scene_count: 2
+  cases_per_scene: 4
+  expected_records: 192
+  selection_inputs_forbidden:
+  - RIR
+  - energy
+  - DRR
+  - ASR
+  - WER
+  - decoder_score
+  - Oracle
+model:
+  family: SpeechBrain_LibriSpeech_Transformer
+  repo_id: speechbrain/asr-transformer-transformerlm-librispeech
+  resolved_revision: bcf56f762f37877912578f8800bc2a4f5171e5e5
+  local_root: data/active_asr_a3/model/bcf56f762f37877912578f8800bc2a4f5171e5e5
+  loaded_files:
+    hyperparams:
+      path: hyperparams.yaml
+      sha256: 9c08563baed98e0072115c7d7c4d576369f164cac3c8170f512fdeabef7e8f42
+    asr_weights:
+      path: asr.ckpt
+      sha256: 5a04a1b364fe37769ed47904e0237c412e874321efeda55986f08a06822fe6ea
+    language_model:
+      path: lm.ckpt
+      sha256: 87f1398c0ed833631e487aedfbda32be4c9618565482f6fad78ca4e8dda03e5b
+    tokenizer:
+      path: tokenizer.ckpt
+      sha256: 3cdc063492725aa2809a5fbb1aa790eda0e58370c810ebb54a8f4c8b2c46ea68
+    normalizer:
+      path: normalizer.ckpt
+      sha256: 956e9c1751beac2f75bfff8253f9811b76a1d57bb52f28587d3b6d45bbce6315
+environment:
+  conda_env: active_asr_asr
+  python: 3.11.16
+  speechbrain: 1.1.1
+  torch: 2.5.1+cu121
+  torchaudio: 2.5.1+cu121
+  torch_cuda: '12.1'
+  cuda_available: true
+  device: cuda:0
+  precision: float32
+  dependency_lock_sha256: ca865d8115e6482904b978a2ff1f7e56d7eff8d434e81f5a3e197f44bd5f14ca
+decoder:
+  beam_size: 66
+  blank_index: 0
+  pad_index: 0
+  bos_index: 1
+  eos_index: 2
+  ctc_weight: 0.4
+  lm_weight: 0.6
+  min_decode_ratio: 0.0
+  max_decode_ratio: 1.0
+  temperature: 1.15
+  lm_scorer_temperature: 1.15
+  using_eos_threshold: false
+  eos_threshold: 1.5
+  length_normalization: true
+  return_topk: false
+  topk: 1
+  using_max_attn_shift: false
+  max_attn_shift: 60
+  minus_inf: -1.0e+20
+  tokenizer_type: sentencepiece_unigram
+  score_semantics: decoder_score_not_confidence
+input:
+  sample_rate_hz: 16000
+  channels: mono
+  dtype: float32
+  waveform_normalization: speechbrain_frozen_global_input_normalizer
+  utterance_unit: complete
+  batch_padding: zero_right_pad
+  length_semantics: relative_valid_length
+  post_convolution_normalization: none
+frontends:
+  primary: mean_lr
+  sensitivity:
+  - fixed_L
+  - fixed_R
+  best_ear_forbidden: true
+text:
+  normalization_version: librispeech-uppercase-apostrophe-v1
+  case: uppercase
+  whitespace: collapse_and_strip
+  punctuation: remove_except_apostrophe
+  apostrophe: preserve_internal
+  numbers: preserve_digit_tokens
+  cer_units: normalized_characters_excluding_spaces
+sources:
+  config_path: configs/active_audition/v1/sources.yaml
+  config_sha256: b7b69cf0295f8c2bf725219151af829abafbb15468dd85770dcdd0a1e1489d51
+  speech_registry:
+    path: registries/active_asr_a3/librispeech.jsonl
+    sha256: 2c8b00970592cfdfeede158de975708245346981b5d23827c5db2993dcd539e2
+  noise_registry:
+    path: registries/active_asr_a3/musan_noise.jsonl
+    sha256: c0e44f543b1bdbe490185699d322b2096945b3aa670434c3c80d5ea162cb173c
+  o1_splits:
+  - dev-clean
+  - dev-other
+  o2_splits:
+  - test-clean
+  - test-other
+  speaker_disjoint_required: true
+  duration_sec:
+    minimum: 4.0
+    maximum: 15.0
+  minimum_reference_words: 10
+  complete_utterance_required: true
+  noise_parent_split_required: true
+  noise_technical_audit:
+    minimum_duration_sec: 4.0
+    extreme_silence_rms_max: 1.0e-05
+    unreadable_policy: reject
+    speech_leakage_audit: explicit_manual_or_validated_audit_field
+    strong_reverberation_audit: explicit_manual_or_validated_audit_field
+    legal_slice_policy: whole_recording_if_technically_eligible
+qualification:
+  minimum_nonempty_fraction: 0.8
+  wer_max_fraction: 0.5
+  records_expected: 192
+  new_wer_allowed_after_freeze: true
+artifacts:
+  model_lock:
+    path: registries/active_asr_a3/model_lock.json
+    sha256: 5d038cc09584b99b8b8434fbe9979c40f5ddd51cc99a17c6964c5e0194249581
+  model_lock_sha256: 5d038cc09584b99b8b8434fbe9979c40f5ddd51cc99a17c6964c5e0194249581
+  historical_v1_summary:
+    path: runs/active_asr_v1/a3_qualification_07a7769/a3_qualification_summary.json
+    sha256: b3c9d7bb359a9849d675aa738969a64fe218de1f1ef6d631b3343a7c6e843c1a
+  historical_v1_report:
+    path: runs/active_asr_v1/a3_qualification_07a7769/a3_qualification_report.md
+    sha256: 26e7a8f3068800c0d000602cc6d36f7ae11ca529fae4c76179ba9f1bc81abd5b

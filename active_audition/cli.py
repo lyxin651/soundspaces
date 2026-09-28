@@ -129,6 +129,18 @@ def main() -> None:
     v1_asr_validate.add_argument("--require-frozen", action="store_true")
     v1_asr_hash = v1_subparsers.add_parser("hash-asr")
     v1_asr_hash.add_argument("--config", required=True)
+    v1_a3_v2_validate = v1_subparsers.add_parser("validate-a3-v2")
+    v1_a3_v2_validate.add_argument("--config", default="configs/active_audition/v1/asr_contract_v2.yaml")
+    v1_a3_v2_validate.add_argument("--require-frozen", action="store_true")
+    v1_a3_v2_hash = v1_subparsers.add_parser("hash-a3-v2")
+    v1_a3_v2_hash.add_argument("--config", default="configs/active_audition/v1/asr_contract_v2.yaml")
+    v1_a3_v2_freeze = v1_subparsers.add_parser("freeze-a3-v2")
+    v1_a3_v2_freeze.add_argument("--repo-root", default=".")
+    v1_a3_v2_freeze.add_argument(
+        "--skip-runtime-smoke",
+        action="store_true",
+        help="metadata-only preparation for tests; never use this for the server freeze",
+    )
     v1_asr_prepare = v1_subparsers.add_parser("prepare-asr-freeze")
     v1_asr_prepare.add_argument("--config", required=True)
     v1_asr_prepare.add_argument("--sources", default="configs/active_audition/v1/sources.yaml")
@@ -273,6 +285,27 @@ def main() -> None:
     qc_command.add_argument("--evidence", default="")
     args = parser.parse_args()
     if args.command == "v1":
+        if args.v1_command in ("validate-a3-v2", "hash-a3-v2", "freeze-a3-v2"):
+            from active_audition.asr.a3_v2_freeze import freeze_a3_v2
+            from active_audition.asr.contract_v2 import a3_v2_contract_sha256, load_a3_v2_contract
+
+            if args.v1_command == "freeze-a3-v2":
+                result = freeze_a3_v2(args.repo_root, run_smoke=not args.skip_runtime_smoke)
+            else:
+                contract = load_a3_v2_contract(
+                    args.config,
+                    require_frozen=bool(getattr(args, "require_frozen", False)),
+                    repo_root=".",
+                )
+                result = {
+                    "status": "PASS",
+                    "gate": contract["contract"]["gate"],
+                    "state": contract["contract"]["state"],
+                    "schema_version": contract["contract"]["version"],
+                    "a3_v2_contract_sha256": a3_v2_contract_sha256(contract),
+                }
+            print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+            return
         if args.v1_command in ("validate-asr", "hash-asr", "prepare-asr-freeze", "prepare-asr-rirs", "qualify-asr", "attribute-g6"):
             from active_audition.asr.contract import asr_contract_sha256, load_asr_contract
 
