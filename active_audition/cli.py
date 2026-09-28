@@ -141,6 +141,15 @@ def main() -> None:
         action="store_true",
         help="metadata-only preparation for tests; never use this for the server freeze",
     )
+    v1_a3_v2_render = v1_subparsers.add_parser("render-a3-v2-rirs")
+    v1_a3_v2_render.add_argument("--config", default="configs/active_audition/v1/asr_contract_v2.yaml")
+    v1_a3_v2_render.add_argument("--runtime-config", default="configs/active_audition/v0_replica_debug.yaml")
+    v1_a3_v2_render.add_argument("--output-dir", default="runs/active_asr_v1/a3_v2_qualification")
+    v1_a3_v2_qualify = v1_subparsers.add_parser("qualify-a3-v2")
+    v1_a3_v2_qualify.add_argument("--config", default="configs/active_audition/v1/asr_contract_v2.yaml")
+    v1_a3_v2_qualify.add_argument("--rir-lock", required=True)
+    v1_a3_v2_qualify.add_argument("--legacy-rir-lock", default="runs/active_asr_v1/a3_frozen_rirs_07a7769/rir_lock.json")
+    v1_a3_v2_qualify.add_argument("--output-dir", default="runs/active_asr_v1/a3_v2_qualification")
     v1_asr_prepare = v1_subparsers.add_parser("prepare-asr-freeze")
     v1_asr_prepare.add_argument("--config", required=True)
     v1_asr_prepare.add_argument("--sources", default="configs/active_audition/v1/sources.yaml")
@@ -285,12 +294,20 @@ def main() -> None:
     qc_command.add_argument("--evidence", default="")
     args = parser.parse_args()
     if args.command == "v1":
-        if args.v1_command in ("validate-a3-v2", "hash-a3-v2", "freeze-a3-v2"):
+        if args.v1_command in ("validate-a3-v2", "hash-a3-v2", "freeze-a3-v2", "render-a3-v2-rirs", "qualify-a3-v2"):
             from active_audition.asr.a3_v2_freeze import freeze_a3_v2
             from active_audition.asr.contract_v2 import a3_v2_contract_sha256, load_a3_v2_contract
 
             if args.v1_command == "freeze-a3-v2":
                 result = freeze_a3_v2(args.repo_root, run_smoke=not args.skip_runtime_smoke)
+            elif args.v1_command == "render-a3-v2-rirs":
+                from active_audition.asr.a3_v2_qualification import render_a3_v2_realistic_rirs
+
+                result = render_a3_v2_realistic_rirs(args.config, args.output_dir, args.runtime_config)
+            elif args.v1_command == "qualify-a3-v2":
+                from active_audition.asr.a3_v2_qualification import run_a3_v2_qualification
+
+                result = run_a3_v2_qualification(args.config, args.rir_lock, args.output_dir, args.legacy_rir_lock)
             else:
                 contract = load_a3_v2_contract(
                     args.config,
