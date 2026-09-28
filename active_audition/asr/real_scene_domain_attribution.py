@@ -34,8 +34,6 @@ from active_audition.data.catalog import load_scene_registry
 from active_audition.data.storage import DatasetStorage
 from active_audition.receiver.audit import _runtime_fingerprint
 from active_audition.receiver.qualification import load_metric_contract, metric_contract_sha256
-from active_audition.scene.pose import listener_sensor_position, relative_azimuth_deg
-from active_audition.types import ListenerPose
 
 
 MATERIAL_AUDIT_SCHEMA_VERSION = "active-asr-a3-real-scene-materials-audit-v1"
@@ -334,6 +332,7 @@ def _select_geometry_cases(
     grid_step_m: float = 0.20,
 ) -> List[Dict[str, Any]]:
     from active_audition.navigation.pathfinder import PathFinderAdapter
+    from active_audition.scene.pose import relative_azimuth_deg
 
     pathfinder = PathFinderAdapter(context.pathfinder)
     points = _grid_navigable_points(context, grid_step_m)
@@ -541,6 +540,7 @@ def render_real_scene_rirs(
     import quaternion  # noqa: F401  # import-order authority for Habitat-Sim
     from active_audition.acoustics.rir import render_native_rir
     from active_audition.receiver.audit import _runtime_fingerprint
+    from active_audition.types import ListenerPose
     from active_audition.scene.simulator import create_scene_simulator
 
     repo = Path.cwd().resolve()
