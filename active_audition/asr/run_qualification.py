@@ -378,24 +378,35 @@ def _snr_gate(
     }
 
 
-def _q4_bridge(
+def _q4_reference_plan(manifest: Mapping[str, Any]) -> Tuple[List[Mapping[str, Any]], List[Dict[str, Any]]]:
+    """Expand Q4 references in the same order as the waveform plan."""
+
+    if not manifest["records"]:
+        raise A3RunError("Q4 manifest is empty")
+    references = []
+    decode_meta = []
+    for record in manifest["records"]:
+        speech = record["speech"]
+        for frontend in ("mean_lr", "fixed_L", "fixed_R"):
+            references.append(dict(speech))
+            decode_meta.append({
+                "record_id": record["record_id"],
+                "utterance_id": speech["utterance_id"],
+                "case_id": str(record["rir_case"]["case_id"]),
+                "frontend": frontend,
+            })
+    return references, decode_meta
+
+
+def _q4_bridge_evidence(
     repo: Path,
     source_root: Path,
     manifest: Mapping[str, Any],
     rir: Mapping[Tuple[str, int], np.ndarray],
     adapter: SpeechBrainASRAdapter,
 ) -> Dict[str, Any]:
-    if not manifest["records"]:
-        raise A3RunError("Q4 manifest is empty")
-    provenance = manifest["records"][0]["a2_q2_q3_provenance"]
-    for name in ("q2_sample_rate_ab", "q3_rir_sample_rate_convention"):
-        identity = provenance[name]
-        path = repo / identity["path"]
-        if not path.is_file() or file_sha256(path) != identity["sha256"]:
-            raise A3RunError("Q4 {} provenance integrity failure".format(name))
+    references, decode_meta = _q4_reference_plan(manifest)
     path_waveforms = {"A_native16": [], "B_native24_to16": []}
-    decode_meta = []
-    references = []
     for record in manifest["records"]:
         speech = record["speech"]
         dry16 = _decode_speech(repo, source_root, speech)[0]
@@ -409,19 +420,18 @@ def _q4_bridge(
             path_b = apply_frontend(path_b_binaural, frontend)
             path_waveforms["A_native16"].append(path_a)
             path_waveforms["B_native24_to16"].append(path_b)
-            reference = dict(speech)
-            references.append(reference)
-            decode_meta.append({
-                "record_id": record["record_id"],
-                "utterance_id": speech["utterance_id"],
-                "case_id": case_id,
-                "frontend": frontend,
-                "path_a_waveform_sha256": waveform_identity(path_a),
-                "path_b_waveform_sha256": waveform_identity(path_b),
-                "path_a_samples": int(path_a.size),
-                "path_b_samples": int(path_b.size),
-                "separate_normalization": False,
-            })
+    for meta, path_a, path_b in zip(
+        decode_meta,
+        path_waveforms["A_native16"],
+        path_waveforms["B_native24_to16"],
+    ):
+        meta.update({
+            "path_a_waveform_sha256": waveform_identity(path_a),
+            "path_b_waveform_sha256": waveform_identity(path_b),
+            "path_a_samples": int(path_a.size),
+            "path_b_samples": int(path_b.size),
+            "separate_normalization": False,
+        })
     outputs_a: List[Any] = [None] * len(decode_meta)
     outputs_b: List[Any] = [None] * len(decode_meta)
     for frontend in ("mean_lr", "fixed_L", "fixed_R"):
@@ -472,6 +482,28 @@ def _q4_bridge(
         "path_b": {"description": "native_SS2_24khz_resample_poly_to_16khz", "aggregate": aggregate_b},
         "paired": paired,
         "pose_ordering": ordering,
+    }
+
+
+def _q4_bridge(
+    repo: Path,
+    source_root: Path,
+    manifest: Mapping[str, Any],
+    rir: Mapping[Tuple[str, int], np.ndarray],
+    adapter: SpeechBrainASRAdapter,
+) -> Dict[str, Any]:
+    provenance = manifest["records"][0]["a2_q2_q3_provenance"]
+    for name in ("q2_sample_rate_ab", "q3_rir_sample_rate_convention"):
+        identity = provenance[name]
+        path = repo / identity["path"]
+        if not path.is_file() or file_sha256(path) != identity["sha256"]:
+            raise A3RunError("Q4 {} provenance integrity failure".format(name))
+    return {
+        "schema_version": "active-asr-a3-q4-bridge-result-v1",
+        "status": "EVIDENCE_COMPLETE_REVIEW_REQUIRED",
+        "decision_authority": "reviewer",
+        "separate_normalization": False,
+        **_q4_bridge_evidence(repo, source_root, manifest, rir, adapter),
         "a2_provenance": provenance,
     }
 

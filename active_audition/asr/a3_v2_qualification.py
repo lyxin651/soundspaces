@@ -50,6 +50,7 @@ from active_audition.asr.run_qualification import (
     A3RunError,
     _decode_speech,
     _evaluate,
+    _q4_bridge,
     _rir_index,
     _transcribe_many,
 )
@@ -197,6 +198,40 @@ def _rir_diagnostics(rir: np.ndarray) -> Dict[str, Any]:
     }
 
 
+def _repeatability_summary(first: np.ndarray, second: np.ndarray) -> Dict[str, Any]:
+    """Apply the frozen exact-repeatability semantics to two RIR arrays."""
+
+    first_value = np.asarray(first)
+    second_value = np.asarray(second)
+    shape_equal = bool(first_value.shape == second_value.shape)
+    finite_both = bool(np.isfinite(first_value).all() and np.isfinite(second_value).all())
+    array_sha_equal = _array_sha(first_value) == _array_sha(second_value)
+    if shape_equal and finite_both:
+        difference = np.asarray(first_value, dtype=np.float64) - np.asarray(second_value, dtype=np.float64)
+        max_abs_difference = float(np.max(np.abs(difference)))
+        rms_difference = float(np.sqrt(np.mean(np.square(difference))))
+    else:
+        max_abs_difference = None
+        rms_difference = None
+    status = (
+        "PASS"
+        if shape_equal
+        and finite_both
+        and array_sha_equal
+        and max_abs_difference == 0.0
+        and rms_difference == 0.0
+        else "FAIL"
+    )
+    return {
+        "shape_equal": shape_equal,
+        "array_sha_equal": array_sha_equal,
+        "max_abs_difference": max_abs_difference,
+        "rms_difference": rms_difference,
+        "finite_both": finite_both,
+        "status": status,
+    }
+
+
 def _scene_case_lookup(scene_manifest: Mapping[str, Any]) -> List[Mapping[str, Any]]:
     cases = []
     for scene in scene_manifest["scenes"]:
@@ -277,15 +312,7 @@ def render_a3_v2_realistic_rirs(contract_path: str, output_dir: str, runtime_con
                 })
         first = np.load(str(output / repeats[0]["relative_path"]), allow_pickle=False)
         second = np.load(str(output / repeats[1]["relative_path"]), allow_pickle=False)
-        diff = np.asarray(first, dtype=np.float64) - np.asarray(second, dtype=np.float64)
-        repeatability = {
-            "shape_equal": bool(first.shape == second.shape),
-            "array_sha_equal": repeats[0]["array_sha256"] == repeats[1]["array_sha256"],
-            "max_abs_difference": float(np.max(np.abs(diff))),
-            "rms_difference": float(np.sqrt(np.mean(np.square(diff)))),
-            "finite_both": bool(np.isfinite(first).all() and np.isfinite(second).all()),
-            "status": "PASS" if first.shape == second.shape and np.isfinite(first).all() and np.isfinite(second).all() else "FAIL",
-        }
+        repeatability = _repeatability_summary(first, second)
         records.append({"case_id": case["case_id"], "scene_id": case["scene_id"], "category": case["category"], "distance_m": case["distance_m"], "relative_azimuth_deg": case["relative_azimuth_deg"], "line_of_sight": case["los_status"], "source_position_world": case["source_position_world"], "listener_base_position_world": case["listener_base_position_world"], "listener_sensor_position_world": case["listener_sensor_position_world"], "listener_yaw_deg": case["listener_yaw_deg"], "scene_asset_sha256": case["scene_asset_sha256"], "navmesh_sha256": case["navmesh_sha256"], "repeats": repeats, "repeatability": repeatability})
     lock = {
         "schema_version": RIR_LOCK_SCHEMA,
@@ -302,7 +329,8 @@ def render_a3_v2_realistic_rirs(contract_path: str, output_dir: str, runtime_con
     }
     lock_path = output / "realistic_rirs" / "a3_v2_realistic_rir_lock.json"
     lock_identity = _write_json(lock_path, lock)
-    return {"status": "PASS", "cases": len(records), "repeats_per_case": 2, "lock": lock_identity, "runtime_sha256": runtime_sha, "a3_v2_contract_sha256": contract_sha}
+    status = "PASS" if all(record["repeatability"]["status"] == "PASS" for record in records) else "FAIL"
+    return {"status": status, "cases": len(records), "repeats_per_case": 2, "lock": lock_identity, "runtime_sha256": runtime_sha, "a3_v2_contract_sha256": contract_sha}
 
 
 def _load_speech_records(repo: Path, source_root: Path, records: Sequence[Mapping[str, Any]]) -> List[Tuple[Mapping[str, Any], np.ndarray]]:
@@ -363,16 +391,25 @@ def _load_v2_rirs(repo: Path, path: str, contract_sha: str, expected_cases: Sequ
     for record in lock.get("records", []):
         if len(record.get("repeats", [])) != 2:
             raise A3V2QualificationError("v2 RIR lock repeat count is not 2")
-        repeat = record["repeats"][0]
-        # B1 records paths relative to the qualification output root, while
-        # the lock itself lives one directory below that root.
-        array_path = lock_path.parent.parent / repeat["relative_path"]
-        if not array_path.is_file() or file_sha256(array_path) != repeat["file_sha256"]:
-            raise A3V2QualificationError("v2 RIR array file identity mismatch")
-        array = np.load(str(array_path), allow_pickle=False)
-        if _array_sha(array) != repeat["array_sha256"] or array.shape[1] != 2 or not np.isfinite(array).all():
-            raise A3V2QualificationError("v2 RIR array invalid")
-        result[str(record["case_id"])] = np.asarray(array, dtype=np.float32)
+        arrays = []
+        for repeat in record["repeats"]:
+            # B1 records paths relative to the qualification output root, while
+            # the lock itself lives one directory below that root.
+            array_path = lock_path.parent.parent / repeat["relative_path"]
+            if not array_path.is_file() or file_sha256(array_path) != repeat["file_sha256"]:
+                raise A3V2QualificationError("v2 RIR array file identity mismatch")
+            array = np.load(str(array_path), allow_pickle=False)
+            if array.ndim != 2 or array.shape[1] != 2 or _array_sha(array) != repeat["array_sha256"] or not np.isfinite(array).all():
+                raise A3V2QualificationError("v2 RIR array invalid")
+            arrays.append(np.asarray(array, dtype=np.float32))
+        repeatability = _repeatability_summary(arrays[0], arrays[1])
+        locked_repeatability = record.get("repeatability", {})
+        if locked_repeatability.get("status") != "PASS" or repeatability["status"] != "PASS":
+            raise A3V2QualificationError("v2 RIR repeatability failed for {}".format(record["case_id"]))
+        for key in ("shape_equal", "array_sha_equal", "finite_both", "max_abs_difference", "rms_difference"):
+            if locked_repeatability.get(key) != repeatability[key]:
+                raise A3V2QualificationError("v2 RIR repeatability metadata mismatch for {}".format(record["case_id"]))
+        result[str(record["case_id"])] = arrays[0]
     if sorted(result) != sorted(expected_cases):
         raise A3V2QualificationError("v2 RIR lock cases do not match frozen scene manifest")
     return lock, result, file_sha256(lock_path)
@@ -462,27 +499,18 @@ def _g7(repo: Path, source_root: Path, adapter: SpeechBrainASRAdapter, v1_contra
 
 def _g8(repo: Path, source_root: Path, adapter: SpeechBrainASRAdapter, v1_contract: Mapping[str, Any], old_rirs: Mapping[Tuple[str, int], np.ndarray]) -> Dict[str, Any]:
     manifest = _manifest(repo, v1_contract["qualification"]["manifests"]["q4"]["path"], V1_Q4_MANIFEST_SHA)
-    records = list(manifest["records"])
-    refs = [record["speech"] for record in records]
-    path_a, path_b, meta = [], [], []
-    for record in records:
-        dry16 = _decode_speech(repo, source_root, record["speech"])[0]
-        case = str(record["rir_case"]["case_id"])
-        a = convolve_binaural(dry16, old_rirs[(case, 16000)])
-        dry24 = resample_array(dry16, 16000, 24000)
-        b = resample_array(convolve_binaural(dry24, old_rirs[(case, 24000)]), 24000, 16000)
-        for frontend in FRONTENDS:
-            aa, bb = apply_frontend(a, frontend), apply_frontend(b, frontend)
-            path_a.append(aa); path_b.append(bb)
-            meta.append({"record_id": record["record_id"], "utterance_id": record["speech"]["utterance_id"], "case_id": case, "frontend": frontend, "path_a_waveform_sha256": waveform_identity(aa), "path_b_waveform_sha256": waveform_identity(bb), "separate_normalization": False})
-    outputs_a = _transcribe_many(adapter, path_a, "q4_A")
-    outputs_b = _transcribe_many(adapter, path_b, "q4_B")
-    rows_a, aggregate_a = _evaluate(refs * 3, outputs_a)
-    rows_b, aggregate_b = _evaluate(refs * 3, outputs_b)
-    paired = []
-    for item, left, right in zip(meta, rows_a, rows_b):
-        paired.append({**item, "path_a": left, "path_b": right, "hypothesis_equal": left["hypothesis"] == right["hypothesis"]})
-    return {"schema_version": "active-asr-a3-v2-q4-sample-rate-bridge-v1", "status": "Q4_EVIDENCE_COMPLETE_REVIEW_REQUIRED", "decision_authority": "reviewer", "separate_normalization": False, "path_a": {"description": "native_SS2_16khz", "aggregate": aggregate_a}, "path_b": {"description": "native_SS2_24khz_resample_poly_to_16khz", "aggregate": aggregate_b}, "paired": paired, "provenance": {"manifest_sha256": V1_Q4_MANIFEST_SHA, "rir_lock_sha256": V1_RIR_LOCK_SHA}}
+    evidence = _q4_bridge(repo, source_root, manifest, old_rirs, adapter)
+    return {
+        "schema_version": "active-asr-a3-v2-q4-sample-rate-bridge-v1",
+        "status": "Q4_EVIDENCE_COMPLETE_REVIEW_REQUIRED",
+        "decision_authority": "reviewer",
+        "separate_normalization": False,
+        "path_a": evidence["path_a"],
+        "path_b": evidence["path_b"],
+        "paired": evidence["paired"],
+        "pose_ordering": evidence["pose_ordering"],
+        "provenance": {"manifest_sha256": V1_Q4_MANIFEST_SHA, "rir_lock_sha256": V1_RIR_LOCK_SHA},
+    }
 
 
 def run_a3_v2_qualification(contract_path: str, rir_lock_path: str, output_dir: str, legacy_rir_lock_path: str = "runs/active_asr_v1/a3_frozen_rirs_07a7769/rir_lock.json") -> Dict[str, Any]:
