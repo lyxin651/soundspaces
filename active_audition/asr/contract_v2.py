@@ -231,7 +231,10 @@ def validate_a3_v2_contract(contract: Mapping, require_frozen: bool = False, rep
     _identity(office["manifest"], "office0.manifest")
     _identity(office["summary"], "office0.summary")
 
-    realistic = _section(root, "realistic_domain", ("scene_inventory", "scene_manifest", "speech_manifest", "selected_scene_count", "cases_per_scene", "expected_records", "selection_inputs_forbidden"))
+    realistic = _section(root, "realistic_domain", (
+        "scene_inventory", "scene_manifest", "speech_manifest", "selected_scene_count", "cases_per_scene",
+        "expected_records", "selection_inputs_forbidden", "technical_scene_eligibility", "visibility_policy",
+    ))
     _manifest(realistic["scene_inventory"], "realistic_domain.scene_inventory")
     _manifest(realistic["scene_manifest"], "realistic_domain.scene_manifest")
     _manifest(realistic["speech_manifest"], "realistic_domain.speech_manifest")
@@ -241,6 +244,22 @@ def validate_a3_v2_contract(contract: Mapping, require_frozen: bool = False, rep
     forbidden = ["RIR", "energy", "DRR", "ASR", "WER", "decoder_score", "Oracle"]
     if realistic["selection_inputs_forbidden"] != forbidden:
         raise A3V2ContractError("realistic_domain.selection_inputs_forbidden is not frozen")
+    if realistic["technical_scene_eligibility"] != [
+        "file_completeness", "scene_load", "pathfinder", "audio_sensor_construction",
+        "native16", "binaural", "materials_off",
+    ]:
+        raise A3V2ContractError("realistic_domain.technical_scene_eligibility is not frozen")
+    visibility_policy = _mapping(realistic["visibility_policy"], "realistic_domain.visibility_policy")
+    _only(visibility_policy, ("required_status", "method", "navmesh_route_role", "coordinate_convention", "stage_transform_policy"), "realistic_domain.visibility_policy")
+    _require(visibility_policy, ("required_status", "method", "navmesh_route_role", "coordinate_convention", "stage_transform_policy"), "realistic_domain.visibility_policy")
+    if dict(visibility_policy) != {
+        "required_status": "VERIFIED_GEOMETRIC_LOS_STATIC_MESH",
+        "method": "STATIC_MESH_MOLLER_TRUMBORE_V1",
+        "navmesh_route_role": "navigation_legality_only",
+        "coordinate_convention": "replica_ply_xyz_to_habitat_xyz_x_z_neg_y",
+        "stage_transform_policy": "stage_node_identity_verified",
+    }:
+        raise A3V2ContractError("realistic_domain.visibility_policy is not frozen")
 
     identity_sections = _v1_identity_sections(Path(repo_root) if repo_root else None)
     for key, value in identity_sections.items():

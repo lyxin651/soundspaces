@@ -69,13 +69,13 @@ office0:
 realistic_domain:
   scene_inventory:
     path: registries/active_asr_a3_v2/replica_scene_inventory.json
-    sha256: 2d191a79be663e77c1bc2fe5dc914938a4d2cb76aad583c7da72639f9e6ab7d0
-    schema_version: active-asr-a3-v2-replica-scene-inventory-v1
+    sha256: 062535e44c66e61c4339b1e791f319ec7d15b320dfe38feaba93f94c6eba3f29
+    schema_version: active-asr-a3-v2-replica-scene-inventory-v2
     records: 18
   scene_manifest:
     path: registries/active_asr_a3_v2/a3_v2_realistic_domain_scene_manifest.json
-    sha256: f87e4d4e23edf4585b9c03835d4dd880615b7e4a193060626ad7653056af1ded
-    schema_version: active-asr-a3-v2-realistic-domain-scene-manifest-v1
+    sha256: 18cc31b13fb7b6410ad7eb548874fd56b69e1562e95c5e898b64b15efba0f477
+    schema_version: active-asr-a3-v2-realistic-domain-scene-manifest-v2
     records: 8
   speech_manifest:
     path: registries/active_asr_a3_v2/a3_v2_realistic_domain_speech_manifest.json
@@ -93,6 +93,20 @@ realistic_domain:
   - WER
   - decoder_score
   - Oracle
+  technical_scene_eligibility:
+  - file_completeness
+  - scene_load
+  - pathfinder
+  - audio_sensor_construction
+  - native16
+  - binaural
+  - materials_off
+  visibility_policy:
+    required_status: VERIFIED_GEOMETRIC_LOS_STATIC_MESH
+    method: STATIC_MESH_MOLLER_TRUMBORE_V1
+    navmesh_route_role: navigation_legality_only
+    coordinate_convention: replica_ply_xyz_to_habitat_xyz_x_z_neg_y
+    stage_transform_policy: stage_node_identity_verified
 model:
   family: SpeechBrain_LibriSpeech_Transformer
   repo_id: speechbrain/asr-transformer-transformerlm-librispeech

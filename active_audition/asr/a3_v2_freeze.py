@@ -31,15 +31,36 @@ from active_audition.asr.contract_v2 import (
     a3_v2_contract_sha256,
     validate_a3_v2_contract,
 )
+from active_audition.asr.static_mesh_los import (
+    STATIC_MESH_EPSILON_M,
+    STATIC_MESH_LOS_METHOD,
+    StaticPlyMesh,
+    synthetic_sanity_results,
+)
 from active_audition.receiver.geometry import relative_azimuth_deg, source_position_world
 
 
-INVENTORY_SCHEMA = "active-asr-a3-v2-replica-scene-inventory-v1"
-SCENE_MANIFEST_SCHEMA = "active-asr-a3-v2-realistic-domain-scene-manifest-v1"
+INVENTORY_SCHEMA = "active-asr-a3-v2-replica-scene-inventory-v2"
+SCENE_MANIFEST_SCHEMA = "active-asr-a3-v2-realistic-domain-scene-manifest-v2"
 SPEECH_MANIFEST_SCHEMA = "active-asr-a3-v2-realistic-domain-speech-manifest-v1"
 SELECTION_SEED = 20260928
 SMOKE_TIMEOUT_SEC = 180
 SENSOR_OFFSET = (0.0, 1.5, 0.0)
+# Replica's binary mesh_semantic.ply stores coordinates as (x, depth, height),
+# while the Habitat world convention is (x, height, -depth).  This is an
+# asset-format conversion, not a stage transform.  The stage node is still
+# audited and must be identity.
+REPLICA_PLY_TO_HABITAT = (
+    (1.0, 0.0, 0.0),
+    (0.0, 0.0, 1.0),
+    (0.0, -1.0, 0.0),
+)
+HABITAT_TO_REPLICA_PLY = (
+    (1.0, 0.0, 0.0),
+    (0.0, 0.0, -1.0),
+    (0.0, 1.0, 0.0),
+)
+STATIC_MESH_SANITY_CASE_COUNT = 3
 REPLICA_ROOT = "data/scene_datasets/replica"
 INVENTORY_PATH = "registries/active_asr_a3_v2/replica_scene_inventory.json"
 SCENE_MANIFEST_PATH = "registries/active_asr_a3_v2/a3_v2_realistic_domain_scene_manifest.json"
@@ -99,6 +120,16 @@ def validate_scene_inventory(value: Mapping[str, Any]) -> Mapping[str, Any]:
     if value["schema_version"] != INVENTORY_SCHEMA or value["discovery_root"] != REPLICA_ROOT:
         raise A3V2FreezeError("scene inventory identity is invalid")
     _strict_keys(value["selection_policy"], ("technical_eligibility_inputs", "forbidden_inputs", "prior_asr_scene_exclusions", "selection_rule"), "scene_inventory.selection_policy")
+    if value["selection_policy"]["technical_eligibility_inputs"] != [
+        "file_completeness",
+        "scene_load",
+        "pathfinder",
+        "audio_sensor_construction",
+        "native16",
+        "binaural",
+        "materials_off",
+    ]:
+        raise A3V2FreezeError("scene inventory technical eligibility inputs are invalid")
     if value["selection_policy"]["forbidden_inputs"] != ["RIR", "energy", "DRR", "ASR", "WER", "decoder_score", "Oracle"]:
         raise A3V2FreezeError("scene inventory forbiddens are invalid")
     if value["asr_run_before_inventory"] is not False or value["wer_run_before_inventory"] is not False:
@@ -112,23 +143,56 @@ def validate_scene_inventory(value: Mapping[str, Any]) -> Mapping[str, Any]:
         _strict_keys(row["assets"], ("scene_asset", "navmesh", "semantic_info", "stage_config"), "scene_inventory.assets")
         for key in row["assets"]:
             _validate_file_identity(row["assets"][key], "scene_inventory.assets." + key)
-        smoke_keys = ("status", "scene_created", "pathfinder_loaded", "pathfinder_loaded_before_explicit_load", "explicit_navmesh_load_requested", "process_returncode", "timeout_sec", "stdout_tail", "stderr_tail", "audio_sensor_created", "rir_rendered", "asr_run", "wer_run")
+        smoke_keys = (
+            "status", "scene_created", "pathfinder_loaded", "pathfinder_loaded_before_explicit_load",
+            "explicit_navmesh_load_requested", "process_returncode", "timeout_sec", "stdout_tail",
+            "stderr_tail", "audio_sensor_created", "requested_sample_rate_hz",
+            "effective_sample_rate_hz", "requested_channel_layout", "effective_channel_layout",
+            "requested_channel_count", "effective_channel_count", "materials_requested",
+            "materials_effective", "renderer_construction_status", "rir_rendered", "asr_run", "wer_run",
+        )
         unknown_smoke = sorted(set(row["runtime_scene_load_smoke"]) - set(smoke_keys))
         if unknown_smoke:
             raise A3V2FreezeError("invalid scene_inventory.runtime_scene_load_smoke keys: unknown={}".format(unknown_smoke))
         smoke = row["runtime_scene_load_smoke"]
-        for key in ("scene_created", "pathfinder_loaded", "audio_sensor_created", "rir_rendered", "asr_run", "wer_run"):
+        for key in ("scene_created", "pathfinder_loaded", "audio_sensor_created", "materials_requested", "rir_rendered", "asr_run", "wer_run"):
             if key in smoke and not isinstance(smoke[key], bool):
                 raise A3V2FreezeError("scene smoke {} must be boolean".format(key))
-        if smoke.get("audio_sensor_created") is not False or smoke.get("rir_rendered") is not False or smoke.get("asr_run") is not False or smoke.get("wer_run") is not False:
+        if smoke.get("materials_effective") not in (None, True, False):
+            raise A3V2FreezeError("scene smoke materials_effective must be boolean or null")
+        if smoke.get("rir_rendered") is not False or smoke.get("asr_run") is not False or smoke.get("wer_run") is not False:
             raise A3V2FreezeError("scene smoke contains a forbidden operation")
+        if smoke.get("requested_sample_rate_hz") not in (None, 16000) or smoke.get("effective_sample_rate_hz") not in (None, 16000):
+            raise A3V2FreezeError("scene smoke sample rate is invalid")
+        if smoke.get("requested_channel_layout") not in (None, "binaural") or smoke.get("effective_channel_layout") not in (None, "binaural"):
+            raise A3V2FreezeError("scene smoke channel layout is invalid")
+        if smoke.get("requested_channel_count") not in (None, 2) or smoke.get("effective_channel_count") not in (None, 2):
+            raise A3V2FreezeError("scene smoke channel count is invalid")
+        if smoke.get("materials_requested") not in (None, False) or smoke.get("materials_effective") not in (None, False):
+            raise A3V2FreezeError("scene smoke materials state is invalid")
+        if smoke.get("renderer_construction_status") not in (None, "PASS", "FAIL", "NOT_RUN"):
+            raise A3V2FreezeError("scene smoke renderer construction status is invalid")
         if not isinstance(row["technical_eligibility"], bool) or not isinstance(row["exclusion_reason"], str):
             raise A3V2FreezeError("scene inventory eligibility fields are invalid")
+        if row["technical_eligibility"] and not (
+            row["file_completeness"] == "PASS"
+            and smoke.get("status") == "PASS"
+            and smoke.get("scene_created") is True
+            and smoke.get("pathfinder_loaded") is True
+            and smoke.get("audio_sensor_created") is True
+            and smoke.get("renderer_construction_status") == "PASS"
+            and smoke.get("effective_sample_rate_hz") == 16000
+            and smoke.get("effective_channel_layout") == "binaural"
+            and smoke.get("effective_channel_count") == 2
+            and smoke.get("materials_requested") is False
+            and smoke.get("materials_effective") is False
+        ):
+            raise A3V2FreezeError("technical eligibility is not backed by effective renderer construction evidence")
     return value
 
 
 def validate_scene_manifest(value: Mapping[str, Any]) -> Mapping[str, Any]:
-    _strict_keys(value, ("schema_version", "scene_inventory", "selected_scene_ids", "selection_policy", "scenes", "asr_run_before_freeze", "wer_run_before_freeze"), "scene_manifest")
+    _strict_keys(value, ("schema_version", "scene_inventory", "selected_scene_ids", "selection_policy", "visibility_sanity", "scenes", "asr_run_before_freeze", "wer_run_before_freeze"), "scene_manifest")
     if value["schema_version"] != SCENE_MANIFEST_SCHEMA:
         raise A3V2FreezeError("scene manifest identity is invalid")
     _strict_keys(value["scene_inventory"], ("path", "sha256", "schema_version"), "scene_manifest.scene_inventory")
@@ -136,7 +200,15 @@ def validate_scene_manifest(value: Mapping[str, Any]) -> Mapping[str, Any]:
         raise A3V2FreezeError("scene manifest inventory schema mismatch")
     if len(value["scene_inventory"]["sha256"]) != 64:
         raise A3V2FreezeError("scene manifest inventory hash is invalid")
-    _strict_keys(value["selection_policy"], ("selection_rule", "case_categories", "geometry_inputs", "forbidden_inputs", "grid_step_m", "listener_yaw_deg", "sensor_offset_m"), "scene_manifest.selection_policy")
+    _strict_keys(
+        value["selection_policy"],
+        (
+            "selection_rule", "case_categories", "geometry_inputs", "forbidden_inputs", "grid_step_m",
+            "listener_yaw_deg", "sensor_offset_m", "visibility_method", "visibility_epsilon_m",
+            "coordinate_convention", "stage_transform_policy",
+        ),
+        "scene_manifest.selection_policy",
+    )
     if value["selection_policy"]["case_categories"] != ["near_front_like", "moderate_front_like", "far_front_like", "far_off_axis"]:
         raise A3V2FreezeError("scene manifest categories are not frozen")
     if value["selection_policy"]["forbidden_inputs"] != ["RIR", "energy", "DRR", "ASR", "WER", "decoder_score", "Oracle"]:
@@ -147,14 +219,37 @@ def validate_scene_manifest(value: Mapping[str, Any]) -> Mapping[str, Any]:
         raise A3V2FreezeError("scene selection must contain two lexical scene IDs")
     if len(value["scenes"]) != 2 or [row["scene_id"] for row in value["scenes"]] != value["selected_scene_ids"]:
         raise A3V2FreezeError("scene manifest selected scene rows are inconsistent")
-    case_keys = ("category", "listener_base_position_world", "listener_sensor_position_world", "listener_yaw_deg", "source_base_position_world", "source_position_world", "distance_m", "relative_azimuth_deg", "los_status", "route_evidence", "selection_score", "fallback_used", "selection_rule", "scene_id", "case_id", "scene_asset_sha256", "navmesh_sha256", "semantic_info_sha256", "stage_config_sha256")
+    if value["selection_policy"]["visibility_method"] != STATIC_MESH_LOS_METHOD:
+        raise A3V2FreezeError("scene manifest visibility method is not the static mesh verifier")
+    if float(value["selection_policy"]["visibility_epsilon_m"]) != STATIC_MESH_EPSILON_M:
+        raise A3V2FreezeError("scene manifest visibility epsilon is not frozen")
+    if value["selection_policy"]["coordinate_convention"] != "replica_ply_xyz_to_habitat_xyz_x_z_neg_y":
+        raise A3V2FreezeError("scene manifest coordinate convention is invalid")
+    if value["selection_policy"]["stage_transform_policy"] != "stage_node_identity_verified":
+        raise A3V2FreezeError("scene manifest stage transform policy is invalid")
+    if not isinstance(value.get("visibility_sanity"), Mapping):
+        raise A3V2FreezeError("scene manifest visibility sanity is missing")
+    _strict_keys(value["visibility_sanity"], ("synthetic", "mesh_provenance", "floor_checks", "determinism"), "scene_manifest.visibility_sanity")
+    if value["visibility_sanity"]["synthetic"].get("passed") is not True or value["visibility_sanity"]["determinism"].get("passed") is not True:
+        raise A3V2FreezeError("static mesh synthetic/determinism sanity failed")
+    if not value["visibility_sanity"]["floor_checks"] or not all(item.get("passed") is True for item in value["visibility_sanity"]["floor_checks"]):
+        raise A3V2FreezeError("static mesh floor sanity failed")
+    if len(value["visibility_sanity"]["mesh_provenance"]) != 2:
+        raise A3V2FreezeError("static mesh provenance must cover two selected scenes")
+    case_keys = (
+        "category", "listener_base_position_world", "listener_sensor_position_world", "listener_yaw_deg",
+        "source_base_position_world", "source_position_world", "distance_m", "relative_azimuth_deg",
+        "los_status", "route_evidence", "visibility_evidence", "coordinate_provenance", "selection_score",
+        "fallback_used", "selection_rule", "scene_id", "case_id", "scene_asset_sha256", "navmesh_sha256",
+        "semantic_info_sha256", "stage_config_sha256",
+    )
     for scene in value["scenes"]:
         _strict_keys(scene, ("scene_id", "cases"), "scene_manifest.scenes[]")
         if len(scene["cases"]) != 4:
             raise A3V2FreezeError("each held-out scene must have four cases")
         for case in scene["cases"]:
             _strict_keys(case, case_keys, "scene_manifest.cases[]")
-            if case["scene_id"] != scene["scene_id"] or case["fallback_used"] is not False or case["los_status"] != "LOS_GEOMETRY_ONLY_NAVMESH_ROUTE":
+            if case["scene_id"] != scene["scene_id"] or case["fallback_used"] is not False or case["los_status"] != "VERIFIED_GEOMETRIC_LOS_STATIC_MESH":
                 raise A3V2FreezeError("scene case provenance is invalid")
             for key in ("scene_asset_sha256", "navmesh_sha256", "semantic_info_sha256", "stage_config_sha256"):
                 if not isinstance(case[key], str) or len(case[key]) != 64:
@@ -162,6 +257,44 @@ def validate_scene_manifest(value: Mapping[str, Any]) -> Mapping[str, Any]:
             if not isinstance(case["route_evidence"], Mapping):
                 raise A3V2FreezeError("scene case route evidence is invalid")
             _strict_keys(case["route_evidence"], ("found", "geodesic_distance_m", "euclidean_distance_m", "route_delta_m", "route_point_count"), "scene_manifest.route_evidence")
+            visibility = case["visibility_evidence"]
+            if not isinstance(visibility, Mapping):
+                raise A3V2FreezeError("scene case visibility evidence is invalid")
+            _strict_keys(
+                visibility,
+                (
+                    "visibility_method", "mesh_sha256", "origin", "target", "mesh_origin", "mesh_target",
+                    "segment_length_m", "intersection_count", "first_intersection_distance_m",
+                    "clear_line_of_sight", "epsilon_m", "runtime_provenance",
+                ),
+                "scene_manifest.visibility_evidence",
+            )
+            if visibility["visibility_method"] != STATIC_MESH_LOS_METHOD or visibility["mesh_sha256"] != case["scene_asset_sha256"]:
+                raise A3V2FreezeError("scene case mesh visibility binding is invalid")
+            if visibility["clear_line_of_sight"] is not True or visibility["intersection_count"] != 0:
+                raise A3V2FreezeError("scene case is not verified geometric LOS")
+            if float(visibility["epsilon_m"]) != STATIC_MESH_EPSILON_M:
+                raise A3V2FreezeError("scene case visibility epsilon is invalid")
+            _strict_keys(
+                visibility["runtime_provenance"],
+                ("geometry_library", "geometry_library_version", "backend", "backend_version", "python", "coordinate_convention", "stage_transform"),
+                "scene_manifest.visibility_evidence.runtime_provenance",
+            )
+            if visibility["runtime_provenance"]["backend"] != STATIC_MESH_LOS_METHOD or visibility["runtime_provenance"]["stage_transform"] != "identity":
+                raise A3V2FreezeError("scene case visibility runtime provenance is invalid")
+            coordinate = case["coordinate_provenance"]
+            if not isinstance(coordinate, Mapping):
+                raise A3V2FreezeError("scene case coordinate provenance is invalid")
+            _strict_keys(
+                coordinate,
+                (
+                    "mesh_to_habitat_matrix", "habitat_to_mesh_matrix", "stage_transform", "runtime_scene_asset",
+                    "runtime_scene_asset_sha256", "transform_source",
+                ),
+                "scene_manifest.coordinate_provenance",
+            )
+            if coordinate["runtime_scene_asset_sha256"] != case["scene_asset_sha256"] or coordinate["stage_transform"] != "identity":
+                raise A3V2FreezeError("scene case coordinate binding is invalid")
     return value
 
 
@@ -231,7 +364,7 @@ def _scene_paths(repo: Path, scene_dir: Path) -> Dict[str, Path]:
 
 
 def _smoke_child(scene_asset: str, navmesh: str) -> None:
-    """Run an isolated renderer/navmesh load; never create an audio sensor."""
+    """Run isolated scene/navmesh/audio-sensor construction only."""
 
     # This import order is required by the SS2 Habitat-Sim installation.
     import quaternion  # noqa: F401
@@ -250,13 +383,45 @@ def _smoke_child(scene_asset: str, navmesh: str) -> None:
             explicit_navmesh_load = True
             if not simulator.pathfinder.load_nav_mesh(str(Path(navmesh).resolve())):
                 raise A3V2FreezeError("PathFinder.load_nav_mesh returned false")
+        audio_spec = habitat_sim.AudioSensorSpec()
+        audio_spec.uuid = "audio_sensor"
+        audio_spec.enableMaterials = False
+        audio_spec.position = list(SENSOR_OFFSET)
+        audio_spec.acousticsConfig.sampleRate = 16000
+        audio_spec.channelLayout.type = habitat_sim.sensor.RLRAudioPropagationChannelLayoutType.Binaural
+        audio_spec.channelLayout.channelCount = 2
+        simulator.add_sensor(audio_spec)
+        sensor = simulator.get_agent(0)._sensors["audio_sensor"]
+        effective_spec = sensor.specification()
+        effective_layout = effective_spec.channelLayout.type
+        layout_is_binaural = effective_layout == habitat_sim.sensor.RLRAudioPropagationChannelLayoutType.Binaural
+        effective_sample_rate = float(effective_spec.acousticsConfig.sampleRate)
+        effective_sample_rate = int(effective_sample_rate) if effective_sample_rate.is_integer() else effective_sample_rate
+        effective_channel_count = int(effective_spec.channelLayout.channelCount)
+        effective_materials = bool(effective_spec.enableMaterials)
+        effective_state_verified = (
+            effective_sample_rate == 16000
+            and layout_is_binaural
+            and effective_channel_count == 2
+            and effective_materials is False
+            and list(effective_spec.position) == list(SENSOR_OFFSET)
+        )
         result = {
             "status": "PASS",
             "scene_created": True,
             "pathfinder_loaded": bool(simulator.pathfinder.is_loaded),
             "pathfinder_loaded_before_explicit_load": pathfinder_loaded_before,
             "explicit_navmesh_load_requested": explicit_navmesh_load,
-            "audio_sensor_created": False,
+            "audio_sensor_created": True,
+            "requested_sample_rate_hz": 16000,
+            "effective_sample_rate_hz": effective_sample_rate,
+            "requested_channel_layout": "binaural",
+            "effective_channel_layout": "binaural" if layout_is_binaural else str(effective_layout),
+            "requested_channel_count": 2,
+            "effective_channel_count": effective_channel_count,
+            "materials_requested": False,
+            "materials_effective": effective_materials,
+            "renderer_construction_status": "PASS" if effective_state_verified else "FAIL",
             "rir_rendered": False,
             "asr_run": False,
             "wer_run": False,
@@ -299,6 +464,15 @@ def _run_scene_smoke(repo: Path, paths: Mapping[str, Path]) -> Dict[str, Any]:
             "timeout_sec": SMOKE_TIMEOUT_SEC,
             "stderr_tail": str(error)[:2000],
             "audio_sensor_created": False,
+            "requested_sample_rate_hz": 16000,
+            "effective_sample_rate_hz": None,
+            "requested_channel_layout": "binaural",
+            "effective_channel_layout": None,
+            "requested_channel_count": 2,
+            "effective_channel_count": None,
+            "materials_requested": False,
+            "materials_effective": None,
+            "renderer_construction_status": "FAIL",
             "rir_rendered": False,
             "asr_run": False,
             "wer_run": False,
@@ -315,6 +489,19 @@ def _run_scene_smoke(repo: Path, paths: Mapping[str, Path]) -> Dict[str, Any]:
             parsed = {"status": "FAIL", "scene_created": False, "pathfinder_loaded": False}
     else:
         parsed = {"status": "FAIL", "scene_created": False, "pathfinder_loaded": False}
+    parsed.setdefault("audio_sensor_created", False)
+    parsed.setdefault("requested_sample_rate_hz", 16000)
+    parsed.setdefault("effective_sample_rate_hz", None)
+    parsed.setdefault("requested_channel_layout", "binaural")
+    parsed.setdefault("effective_channel_layout", None)
+    parsed.setdefault("requested_channel_count", 2)
+    parsed.setdefault("effective_channel_count", None)
+    parsed.setdefault("materials_requested", False)
+    parsed.setdefault("materials_effective", None)
+    parsed.setdefault("renderer_construction_status", "FAIL")
+    parsed.setdefault("rir_rendered", False)
+    parsed.setdefault("asr_run", False)
+    parsed.setdefault("wer_run", False)
     # Habitat-Sim diagnostics contain wall-clock timestamps.  They are useful
     # while debugging a failed child, but must not enter the frozen inventory
     # hash.  Keep only stable process/effective-state fields in the artifact.
@@ -344,6 +531,15 @@ def scan_replica_inventory(repo_root: str, run_smoke: bool = True) -> Dict[str, 
                 "pathfinder_loaded": False,
                 "process_returncode": None,
                 "audio_sensor_created": False,
+                "requested_sample_rate_hz": 16000,
+                "effective_sample_rate_hz": None,
+                "requested_channel_layout": "binaural",
+                "effective_channel_layout": None,
+                "requested_channel_count": 2,
+                "effective_channel_count": None,
+                "materials_requested": False,
+                "materials_effective": None,
+                "renderer_construction_status": "NOT_RUN",
                 "rir_rendered": False,
                 "asr_run": False,
                 "wer_run": False,
@@ -357,6 +553,15 @@ def scan_replica_inventory(repo_root: str, run_smoke: bool = True) -> Dict[str, 
                 "pathfinder_loaded": False,
                 "process_returncode": None,
                 "audio_sensor_created": False,
+                "requested_sample_rate_hz": 16000,
+                "effective_sample_rate_hz": None,
+                "requested_channel_layout": "binaural",
+                "effective_channel_layout": None,
+                "requested_channel_count": 2,
+                "effective_channel_count": None,
+                "materials_requested": False,
+                "materials_effective": None,
+                "renderer_construction_status": "NOT_RUN",
                 "rir_rendered": False,
                 "asr_run": False,
                 "wer_run": False,
@@ -368,11 +573,30 @@ def scan_replica_inventory(repo_root: str, run_smoke: bool = True) -> Dict[str, 
                 "pathfinder_loaded": False,
                 "process_returncode": None,
                 "audio_sensor_created": False,
+                "requested_sample_rate_hz": 16000,
+                "effective_sample_rate_hz": None,
+                "requested_channel_layout": "binaural",
+                "effective_channel_layout": None,
+                "requested_channel_count": 2,
+                "effective_channel_count": None,
+                "materials_requested": False,
+                "materials_effective": None,
+                "renderer_construction_status": "NOT_RUN",
                 "rir_rendered": False,
                 "asr_run": False,
                 "wer_run": False,
             }
-        eligible = bool(completeness and smoke["status"] == "PASS" and not prior_exclusion)
+        renderer_effective = (
+            smoke.get("scene_created") is True
+            and smoke.get("pathfinder_loaded") is True
+            and smoke.get("audio_sensor_created") is True
+            and smoke.get("renderer_construction_status") == "PASS"
+            and smoke.get("effective_sample_rate_hz") == 16000
+            and smoke.get("effective_channel_layout") == "binaural"
+            and smoke.get("effective_channel_count") == 2
+            and smoke.get("materials_effective") is False
+        )
+        eligible = bool(completeness and smoke["status"] == "PASS" and renderer_effective and not prior_exclusion)
         exclusion_reason = ""
         if prior_exclusion:
             exclusion_reason = "PRIOR_ASR_DOMAIN_SCENE_OFFICE_0"
@@ -380,6 +604,8 @@ def scan_replica_inventory(repo_root: str, run_smoke: bool = True) -> Dict[str, 
             exclusion_reason = "REQUIRED_REPLICA_ASSET_MISSING"
         elif smoke["status"] != "PASS":
             exclusion_reason = "RUNTIME_SCENE_LOAD_SMOKE_FAILED"
+        elif not renderer_effective:
+            exclusion_reason = "NATIVE16_BINAURAL_MATERIALS_OFF_AUDIO_SENSOR_EFFECTIVE_STATE_UNVERIFIED"
         rows.append({
             "scene_id": scene_id,
             "assets": file_identities,
@@ -394,7 +620,10 @@ def scan_replica_inventory(repo_root: str, run_smoke: bool = True) -> Dict[str, 
         "schema_version": INVENTORY_SCHEMA,
         "discovery_root": REPLICA_ROOT,
         "selection_policy": {
-            "technical_eligibility_inputs": ["file_completeness", "runtime_scene_load_smoke"],
+            "technical_eligibility_inputs": [
+                "file_completeness", "scene_load", "pathfinder", "audio_sensor_construction",
+                "native16", "binaural", "materials_off",
+            ],
             "forbidden_inputs": ["RIR", "energy", "DRR", "ASR", "WER", "decoder_score", "Oracle"],
             "prior_asr_scene_exclusions": ["replica.office_0"],
             "selection_rule": "lexical_scene_id_after_technical_eligibility",
@@ -461,6 +690,103 @@ def _route(pathfinder: Any, start: Sequence[float], end: Sequence[float]) -> Opt
     }
 
 
+def _coordinate_provenance(repo: Path, paths: Mapping[str, Path], scene_asset_sha256: str) -> Dict[str, Any]:
+    """Bind the Replica asset frame and prove the stage transform is identity."""
+
+    stage = json.loads(paths["stage_config"].read_text(encoding="utf-8"))
+    if not isinstance(stage, Mapping):
+        raise A3V2FreezeError("stage config is not a mapping: {}".format(paths["stage_config"]))
+    # The Replica stage config contains asset references but no transform
+    # fields.  An unexpected transform-bearing field is a hard stop rather
+    # than an implicit identity assumption.
+    transform_fields = {"transform", "translation", "rotation", "scale", "position", "orientation"}
+    if transform_fields.intersection(stage):
+        raise A3V2FreezeError("stage config has an unhandled transform: {}".format(paths["stage_config"]))
+    runtime_asset = _relative(paths["scene_asset"], repo)
+    return {
+        "mesh_to_habitat_matrix": [list(row) for row in REPLICA_PLY_TO_HABITAT],
+        "habitat_to_mesh_matrix": [list(row) for row in HABITAT_TO_REPLICA_PLY],
+        "stage_transform": "identity",
+        "runtime_scene_asset": runtime_asset,
+        "runtime_scene_asset_sha256": scene_asset_sha256,
+        "transform_source": "Replica mesh_semantic.ply asset frame (x,depth,height)->Habitat (x,height,-depth); stage config has no transform fields",
+    }
+
+
+def _world_to_mesh(point: Sequence[float]) -> List[float]:
+    import numpy as np
+
+    matrix = np.asarray(HABITAT_TO_REPLICA_PLY, dtype=np.float64)
+    result = matrix.dot(np.asarray(point, dtype=np.float64))
+    return [float(value) for value in result]
+
+
+def _mesh_world_aabb(mesh: StaticPlyMesh) -> Tuple[List[float], List[float]]:
+    import itertools
+    import numpy as np
+
+    matrix = np.asarray(REPLICA_PLY_TO_HABITAT, dtype=np.float64)
+    corners = np.asarray(
+        list(itertools.product(*zip(mesh.aabb_min.tolist(), mesh.aabb_max.tolist()))), dtype=np.float64
+    )
+    world = corners.dot(matrix.T)
+    return [float(value) for value in np.min(world, axis=0)], [float(value) for value in np.max(world, axis=0)]
+
+
+def _assert_world_points_consistent(mesh: StaticPlyMesh, points: Iterable[Sequence[float]], scene_id: str) -> None:
+    minimum, maximum = _mesh_world_aabb(mesh)
+    for point in points:
+        values = [float(value) for value in point]
+        if len(values) != 3 or not all(math.isfinite(value) for value in values):
+            raise A3V2FreezeError("non-finite frozen coordinate in {}".format(scene_id))
+        if any(value < minimum[index] - 1.0e-4 or value > maximum[index] + 1.0e-4 for index, value in enumerate(values)):
+            raise A3V2FreezeError(
+                "frozen coordinate is outside transformed mesh AABB in {}: point={} aabb=({}, {})".format(
+                    scene_id, values, minimum, maximum
+                )
+            )
+
+
+def _static_visibility(mesh: StaticPlyMesh, origin_world: Sequence[float], target_world: Sequence[float]) -> Dict[str, Any]:
+    evidence = mesh.intersect_segment(_world_to_mesh(origin_world), _world_to_mesh(target_world), STATIC_MESH_EPSILON_M)
+    provenance = mesh.provenance()
+    evidence["origin"] = [float(value) for value in origin_world]
+    evidence["target"] = [float(value) for value in target_world]
+    evidence["mesh_origin"] = _world_to_mesh(origin_world)
+    evidence["mesh_target"] = _world_to_mesh(target_world)
+    evidence["runtime_provenance"] = {
+        "geometry_library": provenance["geometry_library"],
+        "geometry_library_version": provenance["geometry_library_version"],
+        "backend": STATIC_MESH_LOS_METHOD,
+        "backend_version": "1",
+        "python": provenance["python"],
+        "coordinate_convention": "replica_ply_xyz_to_habitat_xyz_x_z_neg_y",
+    }
+    return evidence
+
+
+def _floor_sanity(repo: Path, scene_id: str, paths: Mapping[str, Path], scene_asset_sha256: str, simulator: Any, mesh: StaticPlyMesh) -> List[Dict[str, Any]]:
+    points = _grid_points(simulator.pathfinder)
+    if len(points) < STATIC_MESH_SANITY_CASE_COUNT:
+        raise A3V2FreezeError("not enough deterministic navigable points for floor sanity: {}".format(scene_id))
+    checks = []
+    for index, base in enumerate(points[:STATIC_MESH_SANITY_CASE_COUNT]):
+        origin = [float(base[i] + SENSOR_OFFSET[i]) for i in range(3)]
+        target = [origin[0], origin[1] - 3.0, origin[2]]
+        evidence = _static_visibility(mesh, origin, target)
+        checks.append({
+            "scene_id": scene_id,
+            "check_id": "{}_floor_{}".format(scene_id.replace(".", "_"), index + 1),
+            "listener_base_position_world": [float(value) for value in base],
+            "origin": origin,
+            "target": target,
+            "mesh_sha256": scene_asset_sha256,
+            "passed": evidence["intersection_count"] >= 1 and evidence["first_intersection_distance_m"] is not None,
+            "evidence": evidence,
+        })
+    return checks
+
+
 def _category_spec(category: str) -> Tuple[float, float, float, float, float]:
     if category == "near_front_like":
         return 1.5, 1.0, 2.0, 0.0, 15.0
@@ -473,7 +799,7 @@ def _category_spec(category: str) -> Tuple[float, float, float, float, float]:
     raise A3V2FreezeError("unknown geometry category: {}".format(category))
 
 
-def _find_case(pathfinder: Any, category: str) -> Dict[str, Any]:
+def _find_case(pathfinder: Any, mesh: StaticPlyMesh, category: str) -> Dict[str, Any]:
     target_distance, minimum_distance, maximum_distance, target_angle, angle_tolerance = _category_spec(category)
     points = _grid_points(pathfinder)
     yaw = 0.0
@@ -503,7 +829,21 @@ def _find_case(pathfinder: Any, category: str) -> Dict[str, Any]:
         })
     if not candidates:
         raise A3V2FreezeError("no geometry-only {} case satisfies the frozen deterministic rule".format(category))
-    chosen = sorted(candidates, key=lambda item: tuple(item["listener_base"]) + tuple(item["source_base"]))[0]
+    ordered_candidates = sorted(candidates, key=lambda item: tuple(item["listener_base"]) + tuple(item["source_base"]))
+    chosen = None
+    visibility = None
+    for candidate in ordered_candidates:
+        listener_sensor = [candidate["listener_base"][i] + SENSOR_OFFSET[i] for i in range(3)]
+        source_sensor = [candidate["source_base"][i] + SENSOR_OFFSET[i] for i in range(3)]
+        candidate_visibility = _static_visibility(mesh, listener_sensor, source_sensor)
+        if candidate_visibility["clear_line_of_sight"] is True:
+            chosen = candidate
+            visibility = candidate_visibility
+            break
+    if chosen is None or visibility is None:
+        raise A3V2FreezeError(
+            "no static-mesh VERIFIED_GEOMETRIC_LOS {} case satisfies the frozen deterministic rule".format(category)
+        )
     listener_base = chosen["listener_base"]
     source_base = chosen["source_base"]
     listener_sensor = [listener_base[i] + SENSOR_OFFSET[i] for i in range(3)]
@@ -517,8 +857,9 @@ def _find_case(pathfinder: Any, category: str) -> Dict[str, Any]:
         "source_position_world": source_sensor,
         "distance_m": chosen["distance"],
         "relative_azimuth_deg": chosen["angle"],
-        "los_status": "LOS_GEOMETRY_ONLY_NAVMESH_ROUTE",
+        "los_status": "VERIFIED_GEOMETRIC_LOS_STATIC_MESH",
         "route_evidence": chosen["route"],
+        "visibility_evidence": visibility,
         "selection_score": chosen["selection_score"],
         "fallback_used": False,
         "selection_rule": "lexical_first_legal_grid_candidate_within_predeclared_distance_angle_bands",
@@ -536,20 +877,66 @@ def build_scene_manifest(repo_root: str, inventory: Mapping[str, Any], inventory
     by_id = {row["scene_id"]: row for row in inventory["scenes"]}
     scenes: List[Dict[str, Any]] = []
     categories = ("near_front_like", "moderate_front_like", "far_front_like", "far_off_axis")
+    synthetic_details = synthetic_sanity_results()
+    synthetic_passed = all(item["passed"] for key, item in synthetic_details.items() if isinstance(item, Mapping) and "passed" in item)
+    if not synthetic_passed:
+        raise A3V2FreezeError("STATIC_MESH_COORDINATE_OR_INTERSECTION_INVALID: synthetic sanity failed")
+    floor_checks: List[Dict[str, Any]] = []
+    mesh_provenance: List[Dict[str, Any]] = []
+    determinism_checks: List[Dict[str, Any]] = []
     for scene_id in selected:
         row = by_id[scene_id]
         paths = _scene_paths(repo, repo / REPLICA_ROOT / scene_id.split(".", 1)[1])
         simulator = _load_pathfinder(paths["scene_asset"], paths["navmesh"])
+        mesh = StaticPlyMesh(paths["scene_asset"], expected_sha256=row["assets"]["scene_asset"]["sha256"])
         try:
+            provenance = _coordinate_provenance(repo, paths, row["assets"]["scene_asset"]["sha256"])
+            mesh_info = mesh.provenance()
+            mesh_info["scene_id"] = scene_id
+            mesh_info["stage_transform"] = provenance["stage_transform"]
+            mesh_info["runtime_scene_asset"] = provenance["runtime_scene_asset"]
+            mesh_provenance.append(mesh_info)
+            floor_checks.extend(_floor_sanity(repo, scene_id, paths, row["assets"]["scene_asset"]["sha256"], simulator, mesh))
+            points = _grid_points(simulator.pathfinder)
+            if not points:
+                raise A3V2FreezeError("no deterministic navigable points for static mesh determinism: {}".format(scene_id))
+            deterministic_origin = [float(points[0][i] + SENSOR_OFFSET[i]) for i in range(3)]
+            deterministic_target = [deterministic_origin[0], deterministic_origin[1] - 3.0, deterministic_origin[2]]
+            first = _static_visibility(mesh, deterministic_origin, deterministic_target)
+            second = _static_visibility(mesh, deterministic_origin, deterministic_target)
+            first_distance = first["first_intersection_distance_m"]
+            second_distance = second["first_intersection_distance_m"]
+            deterministic_passed = (
+                first["intersection_count"] == second["intersection_count"]
+                and ((first_distance is None and second_distance is None) or abs(first_distance - second_distance) <= 1.0e-9)
+            )
+            determinism_checks.append({
+                "scene_id": scene_id,
+                "origin": deterministic_origin,
+                "target": deterministic_target,
+                "first_intersection_count": first["intersection_count"],
+                "second_intersection_count": second["intersection_count"],
+                "first_intersection_distance_m": first_distance,
+                "second_intersection_distance_m": second_distance,
+                "tolerance_m": 1.0e-9,
+                "passed": deterministic_passed,
+            })
             cases = []
             for index, category in enumerate(categories, 1):
-                case = _find_case(simulator.pathfinder, category)
+                case = _find_case(simulator.pathfinder, mesh, category)
                 case["scene_id"] = scene_id
                 case["case_id"] = "{}__R{}".format(scene_id.replace(".", "_"), index)
                 case["scene_asset_sha256"] = row["assets"]["scene_asset"]["sha256"]
                 case["navmesh_sha256"] = row["assets"]["navmesh"]["sha256"]
                 case["semantic_info_sha256"] = row["assets"]["semantic_info"]["sha256"]
                 case["stage_config_sha256"] = row["assets"]["stage_config"]["sha256"]
+                case["coordinate_provenance"] = provenance
+                case["visibility_evidence"]["runtime_provenance"]["stage_transform"] = provenance["stage_transform"]
+                _assert_world_points_consistent(
+                    mesh,
+                    (case["listener_sensor_position_world"], case["source_position_world"]),
+                    scene_id,
+                )
                 cases.append(case)
         finally:
             simulator.close()
@@ -561,11 +948,21 @@ def build_scene_manifest(repo_root: str, inventory: Mapping[str, Any], inventory
         "selection_policy": {
             "selection_rule": "lexical_scene_id_after_technical_eligibility",
             "case_categories": list(categories),
-            "geometry_inputs": ["navmesh_legality", "euclidean_distance", "relative_azimuth", "route_legality"],
+            "geometry_inputs": ["navmesh_legality", "euclidean_distance", "relative_azimuth", "route_legality", "static_mesh_segment"],
             "forbidden_inputs": ["RIR", "energy", "DRR", "ASR", "WER", "decoder_score", "Oracle"],
             "grid_step_m": 0.5,
             "listener_yaw_deg": 0.0,
             "sensor_offset_m": list(SENSOR_OFFSET),
+            "visibility_method": STATIC_MESH_LOS_METHOD,
+            "visibility_epsilon_m": STATIC_MESH_EPSILON_M,
+            "coordinate_convention": "replica_ply_xyz_to_habitat_xyz_x_z_neg_y",
+            "stage_transform_policy": "stage_node_identity_verified",
+        },
+        "visibility_sanity": {
+            "synthetic": {"passed": synthetic_passed, "details": synthetic_details},
+            "mesh_provenance": mesh_provenance,
+            "floor_checks": floor_checks,
+            "determinism": {"passed": all(item["passed"] for item in determinism_checks), "checks": determinism_checks},
         },
         "scenes": scenes,
         "asr_run_before_freeze": False,
@@ -773,6 +1170,17 @@ def build_v2_contract(repo_root: str, inventory_sha: str, inventory_records: int
             "cases_per_scene": 4,
             "expected_records": 192,
             "selection_inputs_forbidden": ["RIR", "energy", "DRR", "ASR", "WER", "decoder_score", "Oracle"],
+            "technical_scene_eligibility": [
+                "file_completeness", "scene_load", "pathfinder", "audio_sensor_construction",
+                "native16", "binaural", "materials_off",
+            ],
+            "visibility_policy": {
+                "required_status": "VERIFIED_GEOMETRIC_LOS_STATIC_MESH",
+                "method": STATIC_MESH_LOS_METHOD,
+                "navmesh_route_role": "navigation_legality_only",
+                "coordinate_convention": "replica_ply_xyz_to_habitat_xyz_x_z_neg_y",
+                "stage_transform_policy": "stage_node_identity_verified",
+            },
         },
         "model": deepcopy(v1["model"]),
         "environment": deepcopy(v1["environment"]),
