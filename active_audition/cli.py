@@ -200,6 +200,10 @@ def main() -> None:
     v1_materials_audit.add_argument(
         "--output-dir", default="runs/active_asr_v1/a3_real_scene_domain_attribution_v1"
     )
+    v1_historical_materials = v1_subparsers.add_parser("audit-historical-materials")
+    v1_historical_materials.add_argument(
+        "--output-dir", default="runs/active_asr_v1/historical_materials_recovery_v1"
+    )
     v1_freeze_real_scene = v1_subparsers.add_parser("freeze-real-scene-manifest")
     v1_freeze_real_scene.add_argument(
         "--runtime-config", default="configs/active_audition/v0_replica_debug.yaml"
@@ -321,7 +325,13 @@ def main() -> None:
                 }
             print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
             return
-        if args.v1_command in ("audit-real-scene-materials", "freeze-real-scene-manifest", "render-real-scene-rirs", "attribute-real-scene-g6", "revise-real-scene-g6-summary"):
+        if args.v1_command in ("audit-real-scene-materials", "audit-historical-materials", "freeze-real-scene-manifest", "render-real-scene-rirs", "attribute-real-scene-g6", "revise-real-scene-g6-summary"):
+            if args.v1_command == "audit-historical-materials":
+                from active_audition.asr.historical_materials_audit import run_historical_materials_audit
+
+                result = run_historical_materials_audit(args.output_dir)
+                print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+                return
             from active_audition.asr.real_scene_domain_attribution import (
                 freeze_domain_manifest,
                 render_real_scene_rirs,
