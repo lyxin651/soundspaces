@@ -142,6 +142,12 @@ def main() -> None:
     v1_asr_qualify.add_argument("--config", required=True)
     v1_asr_qualify.add_argument("--rir-lock", required=True)
     v1_asr_qualify.add_argument("--output-dir", default="runs/active_asr_v1/a3_qualification")
+    v1_g6_attribute = v1_subparsers.add_parser("attribute-g6")
+    v1_g6_attribute.add_argument("--config", required=True)
+    v1_g6_attribute.add_argument("--metric-contract", default="configs/active_audition/v1/metric_contract.yaml")
+    v1_g6_attribute.add_argument("--rir-lock", required=True)
+    v1_g6_attribute.add_argument("--g6-artifact", required=True)
+    v1_g6_attribute.add_argument("--output-dir", default="runs/active_asr_v1/a3_g6_failure_attribution_v1")
     v1_oracle_qualify = v1_subparsers.add_parser("qualify-oracle-alignment")
     v1_oracle_qualify.add_argument("--config", required=True)
     v1_oracle_qualify.add_argument(
@@ -214,7 +220,7 @@ def main() -> None:
     qc_command.add_argument("--evidence", default="")
     args = parser.parse_args()
     if args.command == "v1":
-        if args.v1_command in ("validate-asr", "hash-asr", "prepare-asr-freeze", "prepare-asr-rirs", "qualify-asr"):
+        if args.v1_command in ("validate-asr", "hash-asr", "prepare-asr-freeze", "prepare-asr-rirs", "qualify-asr", "attribute-g6"):
             from active_audition.asr.contract import asr_contract_sha256, load_asr_contract
 
             if args.v1_command == "qualify-asr":
@@ -223,6 +229,16 @@ def main() -> None:
                 result = run_a3_qualification(
                     args.config,
                     args.rir_lock,
+                    args.output_dir,
+                )
+            elif args.v1_command == "attribute-g6":
+                from active_audition.asr.g6_failure_attribution import run_g6_failure_attribution
+
+                result = run_g6_failure_attribution(
+                    args.config,
+                    args.metric_contract,
+                    args.rir_lock,
+                    args.g6_artifact,
                     args.output_dir,
                 )
             elif args.v1_command == "prepare-asr-rirs":
