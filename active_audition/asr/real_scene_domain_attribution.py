@@ -7,6 +7,7 @@ contract, RIR, utterance set, model, decoder, or production frontend.
 """
 
 import hashlib
+import io
 import json
 import math
 from pathlib import Path
@@ -15,7 +16,6 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 import numpy as np
 
 from active_audition.acoustics.renderer import convolve_binaural
-from active_audition.acoustics.rir import render_native_rir
 from active_audition.asr.contract import asr_contract_sha256, load_asr_contract
 from active_audition.asr.frontends import apply_frontend
 from active_audition.asr.g6_failure_attribution import (
@@ -35,7 +35,6 @@ from active_audition.data.storage import DatasetStorage
 from active_audition.receiver.audit import _runtime_fingerprint
 from active_audition.receiver.qualification import load_metric_contract, metric_contract_sha256
 from active_audition.scene.pose import listener_sensor_position, relative_azimuth_deg
-from active_audition.scene.simulator import create_scene_simulator
 from active_audition.types import ListenerPose
 
 
@@ -519,6 +518,120 @@ def freeze_domain_manifest(
     return {"status": "PASS", "manifest": identity, "cases": cases, "asr_not_run": True}
 
 
+def _save_array(path: Path, value: np.ndarray) -> Dict[str, str]:
+    buffer = io.BytesIO()
+    np.save(buffer, np.asarray(value, dtype=np.float32), allow_pickle=False)
+    DatasetStorage(str(path.parent)).atomic_write_bytes(path, buffer.getvalue())
+    return {"path": str(path), "sha256": file_sha256(path)}
+
+
+def render_real_scene_rirs(
+    contract_path: str,
+    manifest_path: str,
+    materials_audit_path: str,
+    output_dir: str,
+    runtime_config_path: str = "configs/active_audition/v0_replica_debug.yaml",
+) -> Dict[str, Any]:
+    """Render only Replica materials-OFF RIRs in the legacy ``ss`` env.
+
+    This phase must not import SpeechBrain.  The resulting lock is consumed by
+    ``run_real_scene_domain_attribution`` in the independent ASR environment.
+    """
+
+    import quaternion  # noqa: F401  # import-order authority for Habitat-Sim
+    from active_audition.acoustics.rir import render_native_rir
+    from active_audition.receiver.audit import _runtime_fingerprint
+    from active_audition.scene.simulator import create_scene_simulator
+
+    repo = Path.cwd().resolve()
+    output = Path(output_dir).resolve()
+    _ensure_clean_output(output)
+    contract = load_asr_contract(str(repo / contract_path) if not Path(contract_path).is_absolute() else contract_path, require_frozen=True)
+    contract_sha = asr_contract_sha256(contract)
+    if contract_sha != EXPECTED_A3_CONTRACT_SHA:
+        raise RealSceneAttributionError("frozen A3 contract SHA mismatch")
+    manifest = load_domain_manifest(str(repo / manifest_path) if not Path(manifest_path).is_absolute() else manifest_path, str(repo))
+    audit_path = Path(materials_audit_path)
+    if not audit_path.is_absolute():
+        audit_path = repo / audit_path
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    if audit.get("schema_version") != MATERIAL_AUDIT_SCHEMA_VERSION or audit.get("status") != "BLOCKED":
+        raise RealSceneAttributionError("materials audit status does not authorize materials-OFF render")
+    runtime_config = load_resolved_config(runtime_config_path)
+    runtime_fp = _runtime_fingerprint(repo)
+    runtime_sha = _sha_bytes(canonical_json_bytes(runtime_fp))
+    records = []
+    with create_scene_simulator(runtime_config, scene_id=SCENE_ID, require_navmesh=True, load_semantic_mesh=True) as context:
+        effective = _effective_acoustics(context)
+        for case in manifest["geometry_cases"]:
+            pose = ListenerPose(
+                base_position_world=tuple(case["listener_base_position_world"]),
+                sensor_position_world=tuple(case["listener_sensor_position_world"]),
+                yaw_deg=float(case["listener_yaw_deg"]),
+            )
+            rir = np.asarray(render_native_rir(context, case["source_position_world"], pose), dtype=np.float32)
+            if rir.ndim != 2 or rir.shape[1] != 2 or not np.isfinite(rir).all():
+                raise RealSceneAttributionError("invalid Replica RIR for {}".format(case["case_id"]))
+            filename = "{}__16000hz.npy".format(case["case_id"])
+            identity = _save_array(output / filename, rir)
+            records.append({
+                "case_id": case["case_id"],
+                "relative_path": filename,
+                "file_sha256": identity["sha256"],
+                "array_sha256": _array_sha(rir),
+                "shape": list(rir.shape),
+                "dtype": "float32",
+                "channel_order": ["L", "R"],
+                "effective_acoustics": effective,
+                "case": case,
+            })
+    lock = {
+        "schema_version": "active-asr-a3-replica-office0-rir-lock-v1",
+        "gate": "A3",
+        "purpose": "Replica office_0 materials-OFF G6 domain diagnostic RIR handoff",
+        "materials": "off",
+        "asr_not_run": True,
+        "contract_sha256": contract_sha,
+        "manifest": {"path": _relative_or_absolute(repo, Path(manifest_path)), "sha256": file_sha256(Path(manifest_path))},
+        "materials_audit": {"path": _relative_or_absolute(repo, audit_path), "sha256": file_sha256(audit_path)},
+        "runtime_config": {"path": _relative_or_absolute(repo, Path(runtime_config["_config_path"])), "sha256": file_sha256(Path(runtime_config["_config_path"]))},
+        "runtime_fingerprint": runtime_fp,
+        "runtime_sha256": runtime_sha,
+        "records": sorted(records, key=lambda item: item["case_id"]),
+    }
+    lock_identity = _write_json(output / "replica_office0_materials_off_rir_lock.json", lock)
+    return {"status": "PASS", "output_dir": str(output), "records": len(records), "rir_lock": lock_identity, "runtime_sha256": runtime_sha}
+
+
+def _load_rir_lock(repo: Path, path: str, manifest_sha256: str, expected_case_ids: Sequence[str], contract_sha: str) -> Tuple[Mapping[str, Any], Dict[str, np.ndarray]]:
+    lock_path = Path(path)
+    if not lock_path.is_absolute():
+        lock_path = repo / lock_path
+    if not lock_path.is_file():
+        raise RealSceneAttributionError("Replica RIR lock missing: {}".format(lock_path))
+    lock = json.loads(lock_path.read_text(encoding="utf-8"))
+    required = {"schema_version", "gate", "purpose", "materials", "asr_not_run", "contract_sha256", "manifest", "materials_audit", "runtime_config", "runtime_fingerprint", "runtime_sha256", "records"}
+    if set(lock) != required or lock["schema_version"] != "active-asr-a3-replica-office0-rir-lock-v1":
+        raise RealSceneAttributionError("Replica RIR lock schema mismatch")
+    if lock["contract_sha256"] != contract_sha or lock["materials"] != "off" or lock["asr_not_run"] is not True:
+        raise RealSceneAttributionError("Replica RIR lock contract/material state mismatch")
+    if lock["manifest"]["sha256"] != manifest_sha256:
+        raise RealSceneAttributionError("Replica RIR lock manifest hash mismatch")
+    arrays: Dict[str, np.ndarray] = {}
+    expected_ids = set(expected_case_ids)
+    if {record["case_id"] for record in lock["records"]} != expected_ids:
+        raise RealSceneAttributionError("Replica RIR lock case set mismatch")
+    for record in lock["records"]:
+        array_path = lock_path.parent / record["relative_path"]
+        if not array_path.is_file() or file_sha256(array_path) != record["file_sha256"]:
+            raise RealSceneAttributionError("Replica RIR file identity mismatch: {}".format(array_path))
+        array = np.asarray(np.load(str(array_path), allow_pickle=False), dtype=np.float32)
+        if list(array.shape) != record["shape"] or _array_sha(array) != record["array_sha256"]:
+            raise RealSceneAttributionError("Replica RIR array identity mismatch: {}".format(array_path))
+        arrays[record["case_id"]] = array
+    return lock, arrays
+
+
 def _simple_aggregate(value: Mapping[str, Any]) -> Dict[str, Any]:
     aggregate = value["aggregate"]
     return {key: aggregate[key] for key in ("S", "D", "I", "N", "WER", "CER")}
@@ -578,6 +691,7 @@ def run_real_scene_domain_attribution(
     metric_contract_path: str,
     manifest_path: str,
     materials_audit_path: str,
+    rir_lock_path: str,
     output_dir: str,
     runtime_config_path: str = "configs/active_audition/v0_replica_debug.yaml",
 ) -> Dict[str, Any]:
@@ -592,7 +706,10 @@ def run_real_scene_domain_attribution(
         raise RealSceneAttributionError("frozen A3 contract SHA mismatch")
     if contract["parents"]["a0_contract_sha256"] != EXPECTED_A0_SHA or contract["parents"]["a2_oracle_v3_sha256"] != EXPECTED_A2_V3_SHA:
         raise RealSceneAttributionError("A0/A2 frozen parent identity mismatch")
-    manifest = load_domain_manifest(str(repo / manifest_path) if not Path(manifest_path).is_absolute() else manifest_path, str(repo))
+    manifest_file = Path(manifest_path)
+    if not manifest_file.is_absolute():
+        manifest_file = repo / manifest_file
+    manifest = load_domain_manifest(str(manifest_file), str(repo))
     audit_path = Path(materials_audit_path)
     if not audit_path.is_absolute():
         audit_path = repo / audit_path
@@ -608,26 +725,16 @@ def run_real_scene_domain_attribution(
     sources = yaml.safe_load((repo / contract["sources"]["config_path"]).read_text(encoding="utf-8"))
     source_root = repo / sources["librispeech"]["root"]
     dry = [_decode_speech(repo, source_root, record)[0] for record in clean_manifest["records"]]
-    runtime_config = load_resolved_config(runtime_config_path)
-    runtime_fp = _runtime_fingerprint(repo)
-    runtime_sha = _sha_bytes(canonical_json_bytes(runtime_fp))
-    scene = load_scene_registry(runtime_config["registries"]["scenes_path"], str(repo))[SCENE_ID]
-
-    rir_by_case: Dict[str, np.ndarray] = {}
-    effective_by_case: Dict[str, Any] = {}
-    with create_scene_simulator(runtime_config, scene_id=SCENE_ID, require_navmesh=True, load_semantic_mesh=True) as context:
-        effective = _effective_acoustics(context)
-        for case in manifest["geometry_cases"]:
-            pose = ListenerPose(
-                base_position_world=tuple(case["listener_base_position_world"]),
-                sensor_position_world=tuple(case["listener_sensor_position_world"]),
-                yaw_deg=float(case["listener_yaw_deg"]),
-            )
-            rir = np.asarray(render_native_rir(context, case["source_position_world"], pose), dtype=np.float32)
-            if rir.ndim != 2 or rir.shape[1] != 2 or not np.isfinite(rir).all():
-                raise RealSceneAttributionError("invalid Replica RIR for {}".format(case["case_id"]))
-            rir_by_case[case["case_id"]] = rir
-            effective_by_case[case["case_id"]] = dict(effective)
+    lock, rir_by_case = _load_rir_lock(
+        repo,
+        rir_lock_path,
+        file_sha256(manifest_file),
+        [case["case_id"] for case in manifest["geometry_cases"]],
+        contract_sha,
+    )
+    runtime_fp = lock["runtime_fingerprint"]
+    runtime_sha = lock["runtime_sha256"]
+    effective_by_case = {record["case_id"]: record["effective_acoustics"] for record in lock["records"]}
 
     acoustic_cases: Dict[str, Any] = {}
     asr_cases: Dict[str, Any] = {}
@@ -728,7 +835,15 @@ def run_real_scene_domain_attribution(
         "clean_manifest": {"path": contract["qualification"]["manifests"]["clean"]["path"], "sha256": contract["qualification"]["manifests"]["clean"]["sha256"]},
         "domain_manifest": {"path": _relative_or_absolute(repo, Path(manifest_path)), "sha256": file_sha256(Path(manifest_path))},
         "materials_audit": {"path": _relative_or_absolute(repo, audit_path), "sha256": file_sha256(audit_path)},
-        "scene_registry": {"path": runtime_config["registries"]["scenes_path"], "sha256": file_sha256(repo / runtime_config["registries"]["scenes_path"])},
+        "runtime_config": {
+            "path": _relative_or_absolute(repo, repo / runtime_config_path),
+            "sha256": file_sha256(repo / runtime_config_path),
+        },
+        "scene_registry": {
+            "path": lock["records"][0]["case"].get("scene_registry_path", "registries/scenes.yaml"),
+            "sha256": file_sha256(repo / "registries/scenes.yaml"),
+        },
+        "rir_lock": {"path": _relative_or_absolute(repo, Path(rir_lock_path)), "sha256": file_sha256(Path(rir_lock_path))},
     }
     artifacts: Dict[str, Any] = {
         "replica_office0_materials_off_acoustics.json": {

@@ -217,7 +217,11 @@ def main() -> None:
         "--manifest", default="registries/active_asr_a3/replica_office0_domain_diagnostic_manifest_v1.json"
     )
     v1_real_scene.add_argument(
-        "--materials-audit", default="runs/active_asr_v1/a3_real_scene_domain_attribution_v1/real_scene_materials_audit.json"
+        "--materials-audit", default="runs/active_asr_v1/a3_g6_failure_attribution_v1/real_scene_materials_audit/real_scene_materials_audit.json"
+    )
+    v1_real_scene.add_argument(
+        "--rir-lock", required=True,
+        help="Renderer-only Replica RIR lock produced in the ss environment",
     )
     v1_real_scene.add_argument(
         "--runtime-config", default="configs/active_audition/v0_replica_debug.yaml"
@@ -225,6 +229,16 @@ def main() -> None:
     v1_real_scene.add_argument(
         "--output-dir", default="runs/active_asr_v1/a3_real_scene_domain_attribution_v1"
     )
+    v1_render_real_scene = v1_subparsers.add_parser("render-real-scene-rirs")
+    v1_render_real_scene.add_argument("--config", required=True)
+    v1_render_real_scene.add_argument(
+        "--manifest", default="registries/active_asr_a3/replica_office0_domain_diagnostic_manifest_v1.json"
+    )
+    v1_render_real_scene.add_argument("--materials-audit", required=True)
+    v1_render_real_scene.add_argument(
+        "--runtime-config", default="configs/active_audition/v0_replica_debug.yaml"
+    )
+    v1_render_real_scene.add_argument("--output-dir", required=True)
     command = subparsers.add_parser("precheck")
     command.add_argument("--config", required=True)
     plan_command = subparsers.add_parser("plan")
@@ -305,9 +319,10 @@ def main() -> None:
                 }
             print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
             return
-        if args.v1_command in ("audit-real-scene-materials", "freeze-real-scene-manifest", "attribute-real-scene-g6"):
+        if args.v1_command in ("audit-real-scene-materials", "freeze-real-scene-manifest", "render-real-scene-rirs", "attribute-real-scene-g6"):
             from active_audition.asr.real_scene_domain_attribution import (
                 freeze_domain_manifest,
+                render_real_scene_rirs,
                 run_materials_audit,
                 run_real_scene_domain_attribution,
             )
@@ -320,11 +335,22 @@ def main() -> None:
                 result = freeze_domain_manifest(args.manifest, args.runtime_config, args.scene_id)
                 print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
                 return
+            if args.v1_command == "render-real-scene-rirs":
+                result = render_real_scene_rirs(
+                    args.config,
+                    args.manifest,
+                    args.materials_audit,
+                    args.output_dir,
+                    args.runtime_config,
+                )
+                print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+                return
             result = run_real_scene_domain_attribution(
                 args.config,
                 args.metric_contract,
                 args.manifest,
                 args.materials_audit,
+                args.rir_lock,
                 args.output_dir,
                 args.runtime_config,
             )
