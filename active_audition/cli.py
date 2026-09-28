@@ -192,6 +192,39 @@ def main() -> None:
     )
     v1_audit.add_argument("--scene-id", default="replica.office_0")
     v1_audit.add_argument("--output-dir", default="runs/active_asr_v1/a1_runtime_audit")
+    v1_materials_audit = v1_subparsers.add_parser("audit-real-scene-materials")
+    v1_materials_audit.add_argument(
+        "--runtime-config", default="configs/active_audition/v0_replica_debug.yaml"
+    )
+    v1_materials_audit.add_argument("--scene-id", default="replica.office_0")
+    v1_materials_audit.add_argument(
+        "--output-dir", default="runs/active_asr_v1/a3_real_scene_domain_attribution_v1"
+    )
+    v1_freeze_real_scene = v1_subparsers.add_parser("freeze-real-scene-manifest")
+    v1_freeze_real_scene.add_argument(
+        "--runtime-config", default="configs/active_audition/v0_replica_debug.yaml"
+    )
+    v1_freeze_real_scene.add_argument("--scene-id", default="replica.office_0")
+    v1_freeze_real_scene.add_argument(
+        "--manifest", default="registries/active_asr_a3/replica_office0_domain_diagnostic_manifest_v1.json"
+    )
+    v1_real_scene = v1_subparsers.add_parser("attribute-real-scene-g6")
+    v1_real_scene.add_argument("--config", required=True)
+    v1_real_scene.add_argument(
+        "--metric-contract", default="configs/active_audition/v1/metric_contract.yaml"
+    )
+    v1_real_scene.add_argument(
+        "--manifest", default="registries/active_asr_a3/replica_office0_domain_diagnostic_manifest_v1.json"
+    )
+    v1_real_scene.add_argument(
+        "--materials-audit", default="runs/active_asr_v1/a3_real_scene_domain_attribution_v1/real_scene_materials_audit.json"
+    )
+    v1_real_scene.add_argument(
+        "--runtime-config", default="configs/active_audition/v0_replica_debug.yaml"
+    )
+    v1_real_scene.add_argument(
+        "--output-dir", default="runs/active_asr_v1/a3_real_scene_domain_attribution_v1"
+    )
     command = subparsers.add_parser("precheck")
     command.add_argument("--config", required=True)
     plan_command = subparsers.add_parser("plan")
@@ -270,6 +303,31 @@ def main() -> None:
                     "schema_version": contract["contract"]["version"],
                     "asr_contract_sha256": asr_contract_sha256(contract),
                 }
+            print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+            return
+        if args.v1_command in ("audit-real-scene-materials", "freeze-real-scene-manifest", "attribute-real-scene-g6"):
+            from active_audition.asr.real_scene_domain_attribution import (
+                freeze_domain_manifest,
+                run_materials_audit,
+                run_real_scene_domain_attribution,
+            )
+
+            if args.v1_command == "audit-real-scene-materials":
+                result = run_materials_audit(args.output_dir, args.runtime_config, args.scene_id)
+                print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+                return
+            if args.v1_command == "freeze-real-scene-manifest":
+                result = freeze_domain_manifest(args.manifest, args.runtime_config, args.scene_id)
+                print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+                return
+            result = run_real_scene_domain_attribution(
+                args.config,
+                args.metric_contract,
+                args.manifest,
+                args.materials_audit,
+                args.output_dir,
+                args.runtime_config,
+            )
             print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
             return
         if args.v1_command in ("validate-oracle", "hash-oracle", "qualify-oracle-alignment"):
