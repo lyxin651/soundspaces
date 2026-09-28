@@ -936,9 +936,15 @@ def run_real_scene_domain_attribution(
 
     all_shoebox_drr = [shoebox[case]["acoustic"]["mean_drr_proxy_db"] for case in shoebox]
     all_real_drr = [real[case]["acoustic"]["mean_drr_proxy_db"] for case in real if real[case]["acoustic"]["mean_drr_proxy_db"] is not None]
+    far_replica_drr = [real[case]["acoustic"]["mean_drr_proxy_db"] for case in ("R3_far_front_like", "R5_far_off_axis")]
     shoebox_far_wer = float(np.mean([shoebox[case]["asr_mean_lr_24"]["WER"] for case in ("front_far", "side_left_far")]))
     real_wer = float(np.mean([item["asr_mean_lr_24"]["WER"] for item in real.values()]))
-    q1_reproduced = bool(all_real_drr and min(all_real_drr) <= max(all_shoebox_drr) + 3.0)
+    # The prior shoebox far cases are late-dominant (direct/late proxy <= 0
+    # dB).  Use the predeclared far-like Replica cases for a like-for-like
+    # diagnostic comparison; do not call a positive-D/R proxy "extreme
+    # reverberation" merely because it is numerically near the shoebox near
+    # case.
+    q1_reproduced = bool(far_replica_drr and all(value <= 0.0 for value in far_replica_drr))
     q2_recovered = bool(real_wer <= 0.50)
     summary = {
         "schema_version": DOMAIN_OUTPUT_SCHEMA_VERSION,
@@ -954,8 +960,14 @@ def run_real_scene_domain_attribution(
         "questions": {
             "Q1_shoebox_far_extreme_reverberation_reproduced_in_replica": {
                 "answer": "YES" if q1_reproduced else "NO_OR_NOT_REPRODUCED",
-                "observable_evidence": {"shoebox_drr_proxy_db": all_shoebox_drr, "replica_drr_proxy_db": all_real_drr},
-                "rule": "compare raw direct-over-late proxy distributions; no normalization",
+                "observable_evidence": {
+                    "shoebox_drr_proxy_db": all_shoebox_drr,
+                    "shoebox_far_cases_are_late_dominant": all(value <= 0.0 for value in all_shoebox_drr[1:]),
+                    "replica_far_like_drr_proxy_db": far_replica_drr,
+                    "replica_far_like_cases_are_late_dominant": bool(far_replica_drr and all(value <= 0.0 for value in far_replica_drr)),
+                    "replica_all_case_drr_proxy_db": all_real_drr,
+                },
+                "rule": "far-like cases must retain the observed shoebox late-dominant direct/late proxy <= 0 dB; raw, unnormalized metrics",
             },
             "Q2_replica_geometry_alone_recovers_ASR": {
                 "answer": "RECOVERED" if q2_recovered else "NOT_RECOVERED",
@@ -1035,3 +1047,53 @@ def run_real_scene_domain_attribution(
     report_identity = _write_text(output / "real_scene_domain_attribution_report.md", "\n".join(report_lines))
     identities["real_scene_domain_attribution_report.md"] = report_identity
     return {"status": summary["status"], "output_dir": str(output), "summary_sha256": summary_identity["sha256"], "artifacts": identities, "questions": summary["questions"]}
+
+
+def revise_real_scene_domain_attribution_summary(output_dir: str) -> Dict[str, Any]:
+    """Recompute only the deterministic Q1/Q4 comparison from a completed run.
+
+    This is useful when a report interpretation rule is corrected after a
+    completed diagnostic.  It never reruns ASR and never changes raw case,
+    waveform, or intervention artifacts.
+    """
+
+    output = Path(output_dir).resolve()
+    summary_path = output / "real_scene_domain_attribution_summary.json"
+    report_path = output / "real_scene_domain_attribution_report.md"
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    real = summary["replica_materials_off"]
+    far_replica_drr = [real[case]["acoustic"]["mean_drr_proxy_db"] for case in ("R3_far_front_like", "R5_far_off_axis")]
+    q1 = bool(far_replica_drr and all(value <= 0.0 for value in far_replica_drr))
+    q2 = float(summary["questions"]["Q2_replica_geometry_alone_recovers_ASR"]["observable_evidence"]["replica_materials_off_mean_wer"]) <= 0.50
+    q1_key = "Q1_shoebox_far_extreme_reverberation_reproduced_in_replica"
+    q4_key = "Q4_failure_attribution"
+    summary["questions"][q1_key]["answer"] = "YES" if q1 else "NO_OR_NOT_REPRODUCED"
+    evidence = summary["questions"][q1_key]["observable_evidence"]
+    evidence["replica_far_like_drr_proxy_db"] = far_replica_drr
+    evidence["replica_far_like_cases_are_late_dominant"] = bool(far_replica_drr and all(value <= 0.0 for value in far_replica_drr))
+    summary["questions"][q4_key]["answer"] = (
+        "MIXED" if (not q1 and not q2) else
+        "REALISTIC_REVERB_DOMAIN_MISMATCH" if q1 and not q2 else
+        "SHOEBOX_FIXTURE_MISMATCH"
+    )
+    _write_json(summary_path, summary)
+    report = report_path.read_text(encoding="utf-8")
+    for value in ("YES", "NO_OR_NOT_REPRODUCED"):
+        report = report.replace("- Q1 shoebox far reverberation reproduced in Replica: **{}**.".format(value), "")
+    for value in ("MIXED", "REALISTIC_REVERB_DOMAIN_MISMATCH", "SHOEBOX_FIXTURE_MISMATCH"):
+        report = report.replace("- Q4 current attribution: **{}** (materials effect unassessed).".format(value), "")
+    lines = report.splitlines()
+    insertion = [
+        "- Q1 shoebox far reverberation reproduced in Replica: **{}**.".format(summary["questions"][q1_key]["answer"]),
+        "- Q4 current attribution: **{}** (materials effect unassessed).".format(summary["questions"][q4_key]["answer"]),
+    ]
+    anchor = next((index for index, line in enumerate(lines) if line.startswith("- Q2 Replica geometry alone")), len(lines))
+    lines[anchor:anchor] = insertion
+    report_identity = _write_text(report_path, "\n".join(lines) + "\n")
+    return {
+        "status": summary["status"],
+        "summary_sha256": file_sha256(summary_path),
+        "report_sha256": report_identity["sha256"],
+        "Q1": summary["questions"][q1_key],
+        "Q4": summary["questions"][q4_key],
+    }

@@ -239,6 +239,8 @@ def main() -> None:
         "--runtime-config", default="configs/active_audition/v0_replica_debug.yaml"
     )
     v1_render_real_scene.add_argument("--output-dir", required=True)
+    v1_revise_real_scene = v1_subparsers.add_parser("revise-real-scene-g6-summary")
+    v1_revise_real_scene.add_argument("--output-dir", required=True)
     command = subparsers.add_parser("precheck")
     command.add_argument("--config", required=True)
     plan_command = subparsers.add_parser("plan")
@@ -319,10 +321,11 @@ def main() -> None:
                 }
             print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
             return
-        if args.v1_command in ("audit-real-scene-materials", "freeze-real-scene-manifest", "render-real-scene-rirs", "attribute-real-scene-g6"):
+        if args.v1_command in ("audit-real-scene-materials", "freeze-real-scene-manifest", "render-real-scene-rirs", "attribute-real-scene-g6", "revise-real-scene-g6-summary"):
             from active_audition.asr.real_scene_domain_attribution import (
                 freeze_domain_manifest,
                 render_real_scene_rirs,
+                revise_real_scene_domain_attribution_summary,
                 run_materials_audit,
                 run_real_scene_domain_attribution,
             )
@@ -343,6 +346,10 @@ def main() -> None:
                     args.output_dir,
                     args.runtime_config,
                 )
+                print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+                return
+            if args.v1_command == "revise-real-scene-g6-summary":
+                result = revise_real_scene_domain_attribution_summary(args.output_dir)
                 print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
                 return
             result = run_real_scene_domain_attribution(
