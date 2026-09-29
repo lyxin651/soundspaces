@@ -7,10 +7,9 @@ an alpha; calibration is represented by a separate immutable artifact.
 """
 
 from dataclasses import dataclass
-from collections.abc import Mapping
 import math
 from types import MappingProxyType
-from typing import Any, Dict, Iterable, Optional, Tuple
+from typing import Any, Dict, Iterable, Mapping, Optional, Tuple
 
 from active_audition.a4.identity import (
     A4IdentityError,
@@ -27,6 +26,12 @@ POSE_SCHEMA_VERSION = "active-asr-a4-pose-v2"
 BLOCK_SCHEMA_VERSION = "active-asr-a4-block-v1"
 EPISODE_SCHEMA_VERSION = "active-asr-a4-episode-v1"
 CALIBRATION_SCHEMA_VERSION = "active-asr-a4-calibration-v1"
+CALIBRATION_ALGORITHM_IDENTITY = "active-asr-a4-selection-initial-snr-calibration-v1"
+CALIBRATION_POWER_IDENTITY = "active-asr-a4-two-ear-mean-square-v1"
+CALIBRATION_SCOPE_IDENTITY = "selection_only_initial_pose_once_v1"
+CALIBRATION_MASK_IDENTITY = "active-asr-a4-receiver-mask-shared-target-noise-v1"
+CALIBRATION_MEASURED_SNR_TOLERANCE_DB = 0.1
+INITIAL_POSE_SCOPE_IDENTITY = "initial_pose_only_v1"
 RESULT_DEPENDENT_KEYS = frozenset(
     {
         "wer",
@@ -169,6 +174,20 @@ def _ids(value: Any, path: str, count: Optional[int] = None) -> Tuple[str, ...]:
     result = tuple(_string(item, "{}[{}]".format(path, index)) for index, item in enumerate(value))
     if len(set(result)) != len(result):
         _error("{} must not contain duplicate IDs".format(path))
+    return result
+
+
+def _stable_identity_values(value: Any, path: str, namespace: str, count: int, unique: bool) -> Tuple[str, ...]:
+    if not isinstance(value, (list, tuple)) or len(value) != count:
+        _error("{} must contain {} values".format(path, count))
+    result = tuple(_string(item, "{}[{}]".format(path, index)) for index, item in enumerate(value))
+    if unique and len(set(result)) != len(result):
+        _error("{} must not contain duplicate IDs".format(path))
+    for index, item in enumerate(result):
+        try:
+            validate_stable_id(item, namespace, "{}[{}]".format(path, index))
+        except A4IdentityError as exc:
+            _error(str(exc))
     return result
 
 
@@ -683,9 +702,37 @@ def validate_calibration_artifact(record: CalibrationArtifact) -> CalibrationArt
         validate_stable_id(record.block_id, "block", "calibration.block_id")
     except A4IdentityError as exc:
         _error(str(exc))
-    _identity_string(record.calibration_contract_identity, "calibration.calibration_contract_identity")
-    _ids(record.selection_episode_ids, "calibration.selection_episode_ids", 2)
-    _mapping(record.input_component_identities, "calibration.input_component_identities")
+    try:
+        validate_stable_id(
+            record.calibration_contract_identity,
+            "calibration-contract",
+            "calibration.calibration_contract_identity",
+        )
+    except A4IdentityError as exc:
+        _error(str(exc))
+    selection_ids = _ids(record.selection_episode_ids, "calibration.selection_episode_ids", 2)
+    for index, episode_id in enumerate(selection_ids):
+        try:
+            validate_stable_id(episode_id, "episode", "calibration.selection_episode_ids[{}]".format(index))
+        except A4IdentityError as exc:
+            _error(str(exc))
+    component_fields = {
+        "target_component_identities": "target-component",
+        "noise_component_identities": "noise-component",
+        "timeline_identities": "receiver-timeline",
+        "dry_mask_identities": "active-mask",
+        "receiver_mask_identities": "receiver-mask",
+    }
+    input_identities = record.input_component_identities
+    _validate_top_level(input_identities, component_fields, "calibration.input_component_identities")
+    for field, namespace in component_fields.items():
+        _stable_identity_values(
+            input_identities[field],
+            "calibration.input_component_identities." + field,
+            namespace,
+            2,
+            unique=field in ("target_component_identities", "noise_component_identities"),
+        )
     for field in ("ps", "pn", "alpha"):
         if _finite(getattr(record, field), "calibration." + field) <= 0.0:
             _error("calibration.{} must be positive".format(field))
@@ -694,7 +741,100 @@ def validate_calibration_artifact(record: CalibrationArtifact) -> CalibrationArt
     _finite(record.measured_snr_db, "calibration.measured_snr_db")
     if record.status not in ("CALIBRATED", "FAILED", "INVALID"):
         _error("calibration.status is invalid")
-    _mapping(record.provenance, "calibration.provenance")
+    provenance = _mapping(record.provenance, "calibration.provenance")
+    provenance_fields = (
+        "algorithm_identity",
+        "power_identity",
+        "scope_identity",
+        "mask_identity",
+        "pose_scope_identity",
+        "sample_rate_hz",
+        "measurement_tolerance_db",
+        "timeline_identities",
+        "dry_mask_identities",
+        "target_direct_onset_samples",
+        "receiver_mask_records",
+        "total_active_sample_count",
+    )
+    _validate_top_level(provenance, provenance_fields, "calibration.provenance")
+    if provenance["algorithm_identity"] != CALIBRATION_ALGORITHM_IDENTITY:
+        _error("calibration.provenance.algorithm_identity is invalid")
+    if provenance["power_identity"] != CALIBRATION_POWER_IDENTITY:
+        _error("calibration.provenance.power_identity is invalid")
+    if provenance["scope_identity"] != CALIBRATION_SCOPE_IDENTITY:
+        _error("calibration.provenance.scope_identity is invalid")
+    if provenance["mask_identity"] != CALIBRATION_MASK_IDENTITY:
+        _error("calibration.provenance.mask_identity is invalid")
+    if provenance["pose_scope_identity"] != INITIAL_POSE_SCOPE_IDENTITY:
+        _error("calibration.provenance.pose_scope_identity is invalid")
+    if provenance["sample_rate_hz"] != 16000:
+        _error("calibration.provenance.sample_rate_hz must be 16000")
+    tolerance = _finite(provenance["measurement_tolerance_db"], "calibration.provenance.measurement_tolerance_db")
+    if tolerance != CALIBRATION_MEASURED_SNR_TOLERANCE_DB:
+        _error("calibration.provenance.measurement_tolerance_db is invalid")
+    if tuple(provenance["timeline_identities"]) != tuple(input_identities["timeline_identities"]):
+        _error("calibration.provenance.timeline_identities do not match inputs")
+    if tuple(provenance["dry_mask_identities"]) != tuple(input_identities["dry_mask_identities"]):
+        _error("calibration.provenance.dry_mask_identities do not match inputs")
+    _stable_identity_values(
+        provenance["timeline_identities"], "calibration.provenance.timeline_identities", "receiver-timeline", 2, unique=False
+    )
+    _stable_identity_values(
+        provenance["dry_mask_identities"], "calibration.provenance.dry_mask_identities", "active-mask", 2, unique=False
+    )
+    onset_records = provenance["target_direct_onset_samples"]
+    if not isinstance(onset_records, (list, tuple)) or len(onset_records) != 2:
+        _error("calibration.provenance.target_direct_onset_samples must contain two records")
+    for index, onset in enumerate(onset_records):
+        _validate_top_level(onset, ("L", "R"), "calibration.provenance.target_direct_onset_samples[{}]".format(index))
+        for channel in ("L", "R"):
+            _positive_int(onset[channel] + 1, "calibration.provenance.target_direct_onset_samples[{}].{}".format(index, channel))
+    mask_records = provenance["receiver_mask_records"]
+    if not isinstance(mask_records, (list, tuple)) or len(mask_records) != 2:
+        _error("calibration.provenance.receiver_mask_records must contain two records")
+    mask_fields = (
+        "timeline_identity", "dry_mask_identity", "receiver_mask_identity",
+        "receiver_start_sample", "receiver_end_sample_exclusive",
+        "active_start_sample", "active_end_sample_exclusive",
+        "active_sample_count", "sample_count",
+    )
+    for index, mask_record in enumerate(mask_records):
+        path = "calibration.provenance.receiver_mask_records[{}]".format(index)
+        _validate_top_level(mask_record, mask_fields, path)
+        try:
+            validate_stable_id(mask_record["timeline_identity"], "receiver-timeline", path + ".timeline_identity")
+            validate_stable_id(mask_record["dry_mask_identity"], "active-mask", path + ".dry_mask_identity")
+            validate_stable_id(mask_record["receiver_mask_identity"], "receiver-mask", path + ".receiver_mask_identity")
+        except A4IdentityError as exc:
+            _error(str(exc))
+        start = _finite(mask_record["receiver_start_sample"], path + ".receiver_start_sample")
+        end = _finite(mask_record["receiver_end_sample_exclusive"], path + ".receiver_end_sample_exclusive")
+        active_start = _finite(mask_record["active_start_sample"], path + ".active_start_sample")
+        active_end = _finite(mask_record["active_end_sample_exclusive"], path + ".active_end_sample_exclusive")
+        sample_count = _positive_int(mask_record["sample_count"], path + ".sample_count")
+        active_count = _positive_int(mask_record["active_sample_count"], path + ".active_sample_count")
+        if end <= start or end - start != sample_count or not (start <= active_start < active_end <= end):
+            _error(path + " has inconsistent receiver bounds")
+        if mask_record["timeline_identity"] != input_identities["timeline_identities"][index]:
+            _error(path + ".timeline_identity does not match inputs")
+        if mask_record["dry_mask_identity"] != input_identities["dry_mask_identities"][index]:
+            _error(path + ".dry_mask_identity does not match inputs")
+        if mask_record["receiver_mask_identity"] != input_identities["receiver_mask_identities"][index]:
+            _error(path + ".receiver_mask_identity does not match inputs")
+        if active_count <= 0 or active_count > sample_count:
+            _error(path + ".active_sample_count is invalid")
+    total_active = _positive_int(provenance["total_active_sample_count"], "calibration.provenance.total_active_sample_count")
+    if total_active != record.active_sample_count:
+        _error("calibration.provenance.total_active_sample_count does not match artifact")
+    if record.status == "CALIBRATED":
+        expected_alpha = math.sqrt(record.ps / (record.pn * (10.0 ** (record.nominal_snr_db / 10.0))))
+        expected_measured = 10.0 * math.log10(record.ps / (record.alpha * record.alpha * record.pn))
+        if not math.isclose(record.alpha, expected_alpha, rel_tol=1.0e-12, abs_tol=1.0e-12):
+            _error("calibration.alpha does not match Ps/Pn/nominal SNR")
+        if not math.isclose(record.measured_snr_db, expected_measured, rel_tol=1.0e-12, abs_tol=1.0e-12):
+            _error("calibration.measured_snr_db does not match Ps/Pn/alpha")
+        if abs(record.measured_snr_db - record.nominal_snr_db) > tolerance:
+            _error("calibration.measured_snr_db exceeds contract tolerance")
     _check_id(record.calibration_artifact_id, "calibration", record.identity_payload(), "calibration.calibration_artifact_id")
     return record
 
@@ -703,6 +843,12 @@ __all__ = [
     "BLOCK_SCHEMA_VERSION",
     "BlockRecord",
     "CALIBRATION_SCHEMA_VERSION",
+    "CALIBRATION_ALGORITHM_IDENTITY",
+    "CALIBRATION_POWER_IDENTITY",
+    "CALIBRATION_SCOPE_IDENTITY",
+    "CALIBRATION_MASK_IDENTITY",
+    "CALIBRATION_MEASURED_SNR_TOLERANCE_DB",
+    "INITIAL_POSE_SCOPE_IDENTITY",
     "CalibrationArtifact",
     "EPISODE_SCHEMA_VERSION",
     "EpisodeRecord",

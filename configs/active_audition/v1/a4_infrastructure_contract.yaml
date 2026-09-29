@@ -112,12 +112,18 @@ calibration_boundary:
   scope: selection_only_initial_pose_once
   active_mask: active-asr-a4-dry-speech-active-mask-v1
   selection_episode_count: 2
-  algorithm: DEFERRED_TO_A4_2
+  algorithm: active-asr-a4-selection-initial-snr-calibration-v1
+  power_definition: active-asr-a4-two-ear-mean-square-v1
+  receiver_mask_mapping: active-asr-a4-dry-mask-to-receiver-time-v1
+  measured_snr_tolerance_db: 0.1
   artifact_schema: active-asr-a4-calibration-v1
 mixture_boundary:
   target_noise_propagation: independent_rirs
   calibration_input: calibration_artifact_identity_only
-  timeline: DEFERRED_TO_A4_2
+  timeline: active-asr-a4-common-receiver-timeline-v1
+  timeline_schema: active-asr-a4-receiver-timeline-v1
+  timeline_source_time_convention: active-asr-a4-target-dry-onset-zero-v1
+  timeline_direct_onset_convention: active-asr-a2-direct-window-first-absolute-sample-10-percent-peak-v1
   reconstruction: DEFERRED_TO_A4_2
   algorithm: DEFERRED_TO_A4_2
 cache_resume:

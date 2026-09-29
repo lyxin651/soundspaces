@@ -5,6 +5,7 @@ or modifies the waveform and has no RIR, ASR, WER, or speech-model input.
 """
 
 import math
+import numbers
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence, Tuple
 
@@ -32,7 +33,7 @@ def _string(value: Any, path: str) -> str:
 
 
 def _finite(value: Any, path: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
+    if isinstance(value, bool) or not isinstance(value, numbers.Real):
         raise ActiveMaskError("{} must be numeric".format(path))
     result = float(value)
     if not math.isfinite(result):

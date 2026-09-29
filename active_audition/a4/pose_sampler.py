@@ -9,9 +9,8 @@ This module imports no Habitat, quaternion, NumPy, renderer, or ASR code.
 from dataclasses import dataclass, replace
 import math
 from collections import Counter
-from collections.abc import Mapping
 from types import MappingProxyType
-from typing import Any, Iterable, Optional, Protocol, Sequence, Tuple
+from typing import Any, Iterable, Mapping, Optional, Protocol, Sequence, Tuple
 
 from active_audition.a4.budget import (
     MOTION_COST_ALGORITHM_IDENTITY,

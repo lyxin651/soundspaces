@@ -2,16 +2,16 @@
 
 The contract freezes long-lived interfaces and points back to the already
 closed A0--A3 contracts.  A4-1 supplies the sampler and motion algorithm
-identities, while A4-2A supplies source-time segment planning and dry-speech
-mask semantics.  Exact smoke sources/geometries and later calibration,
-timeline, mixer, and cache execution remain versioned in later A4 slices.
+identities, A4-2A supplies source-time segment planning and dry-speech mask
+semantics, and A4-2B1 supplies the common timeline and selection-only
+calibration semantics.  Exact smoke sources/geometries and later reconstruction,
+mixer, and cache execution remain versioned in later A4 slices.
 """
 
 import hashlib
 import math
-from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, Mapping, Optional
 
 import yaml
 
@@ -284,7 +284,10 @@ def _acoustic(value: Mapping) -> None:
 
 def _calibration(value: Mapping, state: str) -> None:
     path = "calibration_boundary"
-    keys = ("scope", "active_mask", "selection_episode_count", "algorithm", "artifact_schema")
+    keys = (
+        "scope", "active_mask", "selection_episode_count", "algorithm", "power_definition",
+        "receiver_mask_mapping", "measured_snr_tolerance_db", "artifact_schema",
+    )
     _only(value, keys, path)
     _require(value, keys, path)
     _string(value["scope"], _path(path, "scope"), "selection_only_initial_pose_once")
@@ -294,18 +297,50 @@ def _calibration(value: Mapping, state: str) -> None:
     )
     if value["selection_episode_count"] != 2:
         raise A4ContractError("calibration_boundary.selection_episode_count must be 2")
-    _lifecycle_identity(value["algorithm"], _path(path, "algorithm"), "DEFERRED_TO_A4_2", state)
+    _string(
+        value["algorithm"], _path(path, "algorithm"),
+        "active-asr-a4-selection-initial-snr-calibration-v1",
+    )
+    _string(
+        value["power_definition"], _path(path, "power_definition"),
+        "active-asr-a4-two-ear-mean-square-v1",
+    )
+    _string(
+        value["receiver_mask_mapping"], _path(path, "receiver_mask_mapping"),
+        "active-asr-a4-dry-mask-to-receiver-time-v1",
+    )
+    if _number(value["measured_snr_tolerance_db"], _path(path, "measured_snr_tolerance_db")) != 0.1:
+        raise A4ContractError("calibration_boundary.measured_snr_tolerance_db must be 0.1")
     _string(value["artifact_schema"], _path(path, "artifact_schema"), "active-asr-a4-calibration-v1")
 
 
 def _mixture(value: Mapping, state: str) -> None:
     path = "mixture_boundary"
-    keys = ("target_noise_propagation", "calibration_input", "timeline", "reconstruction", "algorithm")
+    keys = (
+        "target_noise_propagation", "calibration_input", "timeline", "timeline_schema",
+        "timeline_source_time_convention", "timeline_direct_onset_convention",
+        "reconstruction", "algorithm",
+    )
     _only(value, keys, path)
     _require(value, keys, path)
     _string(value["target_noise_propagation"], _path(path, "target_noise_propagation"), "independent_rirs")
     _string(value["calibration_input"], _path(path, "calibration_input"), "calibration_artifact_identity_only")
-    _lifecycle_identity(value["timeline"], _path(path, "timeline"), "DEFERRED_TO_A4_2", state)
+    _string(
+        value["timeline"], _path(path, "timeline"),
+        "active-asr-a4-common-receiver-timeline-v1",
+    )
+    _string(
+        value["timeline_schema"], _path(path, "timeline_schema"),
+        "active-asr-a4-receiver-timeline-v1",
+    )
+    _string(
+        value["timeline_source_time_convention"], _path(path, "timeline_source_time_convention"),
+        "active-asr-a4-target-dry-onset-zero-v1",
+    )
+    _string(
+        value["timeline_direct_onset_convention"], _path(path, "timeline_direct_onset_convention"),
+        "active-asr-a2-direct-window-first-absolute-sample-10-percent-peak-v1",
+    )
     _lifecycle_identity(value["reconstruction"], _path(path, "reconstruction"), "DEFERRED_TO_A4_2", state)
     _lifecycle_identity(value["algorithm"], _path(path, "algorithm"), "DEFERRED_TO_A4_2", state)
 

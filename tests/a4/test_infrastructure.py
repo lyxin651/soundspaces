@@ -126,8 +126,6 @@ def _concrete_frozen_contract():
     contract = copy.deepcopy(load_contract(str(CONTRACT_PATH)))
     contract["contract"]["state"] = "FROZEN"
     contract["calibration_boundary"]["active_mask"] = ACTIVE_MASK_ALGORITHM_IDENTITY
-    contract["calibration_boundary"]["algorithm"] = "selection-calibration-v1"
-    contract["mixture_boundary"]["timeline"] = "source-time-timeline-v1"
     contract["mixture_boundary"]["reconstruction"] = "dual-source-reconstruction-v1"
     contract["mixture_boundary"]["algorithm"] = "synthetic-mixer-v1"
     contract["cache_resume"]["algorithm"] = "cache-resume-v1"
@@ -177,13 +175,16 @@ class A4ContractTests(unittest.TestCase):
 
     def test_all_deferred_later_slice_draft_validates(self):
         contract = copy.deepcopy(load_contract(str(CONTRACT_PATH)))
-        contract["calibration_boundary"]["active_mask"] = "DEFERRED_TO_A4_2"
+        contract["mixture_boundary"]["reconstruction"] = "DEFERRED_TO_A4_2"
+        contract["mixture_boundary"]["algorithm"] = "DEFERRED_TO_A4_2"
+        contract["cache_resume"]["algorithm"] = "DEFERRED_TO_A4_3"
         validate_contract(contract)
 
     def test_partially_concrete_draft_validates(self):
         contract = copy.deepcopy(load_contract(str(CONTRACT_PATH)))
         self.assertEqual(contract["calibration_boundary"]["active_mask"], ACTIVE_MASK_ALGORITHM_IDENTITY)
-        self.assertEqual(contract["calibration_boundary"]["algorithm"], "DEFERRED_TO_A4_2")
+        self.assertEqual(contract["calibration_boundary"]["algorithm"], "active-asr-a4-selection-initial-snr-calibration-v1")
+        self.assertEqual(contract["mixture_boundary"]["timeline"], "active-asr-a4-common-receiver-timeline-v1")
         validate_contract(contract)
 
     def test_fully_concrete_draft_validates(self):
@@ -391,20 +392,60 @@ class A4RecordTests(unittest.TestCase):
 
     def test_calibration_artifact_has_independent_identity_and_block_reference(self):
         block = _block(_geometry())
+        episode_ids = [stable_id("episode", {"slot": "selection-{}".format(index)}) for index in (0, 1)]
+        target_ids = [stable_id("target-component", {"slot": index}) for index in (0, 1)]
+        noise_ids = [stable_id("noise-component", {"slot": index}) for index in (0, 1)]
+        timeline_ids = [stable_id("receiver-timeline", {"slot": index}) for index in (0, 1)]
+        dry_mask_ids = [stable_id("active-mask", {"slot": index}) for index in (0, 1)]
+        receiver_mask_ids = [stable_id("receiver-mask", {"slot": index}) for index in (0, 1)]
+        contract_id = stable_id("calibration-contract", {"fixture": "test"})
+        receiver_masks = [
+            {
+                "timeline_identity": timeline_ids[index],
+                "dry_mask_identity": dry_mask_ids[index],
+                "receiver_mask_identity": receiver_mask_ids[index],
+                "receiver_start_sample": 0,
+                "receiver_end_sample_exclusive": 10,
+                "active_start_sample": 2,
+                "active_end_sample_exclusive": 5,
+                "active_sample_count": 3,
+                "sample_count": 10,
+            }
+            for index in (0, 1)
+        ]
         payload = {
             "schema_version": "active-asr-a4-calibration-v1",
             "block_id": block.block_id,
-            "calibration_contract_identity": "calibration-contract-v1",
-            "selection_episode_ids": ["episode-selection-1", "episode-selection-2"],
-            "input_component_identities": {"target_sha256": "9" * 64, "noise_sha256": "a" * 64},
-            "ps": 1.0,
-            "pn": 0.5,
-            "active_sample_count": 100,
-            "alpha": 2.0,
-            "nominal_snr_db": 3.0,
-            "measured_snr_db": 3.01,
+            "calibration_contract_identity": contract_id,
+            "selection_episode_ids": episode_ids,
+            "input_component_identities": {
+                "target_component_identities": target_ids,
+                "noise_component_identities": noise_ids,
+                "timeline_identities": timeline_ids,
+                "dry_mask_identities": dry_mask_ids,
+                "receiver_mask_identities": receiver_mask_ids,
+            },
+            "ps": 5.0,
+            "pn": 1.0,
+            "active_sample_count": 6,
+            "alpha": 5.0 ** 0.5,
+            "nominal_snr_db": 0.0,
+            "measured_snr_db": 0.0,
             "status": "CALIBRATED",
-            "provenance": {"algorithm_version": "future-a4-2"},
+            "provenance": {
+                "algorithm_identity": "active-asr-a4-selection-initial-snr-calibration-v1",
+                "power_identity": "active-asr-a4-two-ear-mean-square-v1",
+                "scope_identity": "selection_only_initial_pose_once_v1",
+                "mask_identity": "active-asr-a4-receiver-mask-shared-target-noise-v1",
+                "pose_scope_identity": "initial_pose_only_v1",
+                "sample_rate_hz": 16000,
+                "measurement_tolerance_db": 0.1,
+                "timeline_identities": timeline_ids,
+                "dry_mask_identities": dry_mask_ids,
+                "target_direct_onset_samples": [{"L": 1, "R": 2}, {"L": 1, "R": 2}],
+                "receiver_mask_records": receiver_masks,
+                "total_active_sample_count": 6,
+            },
         }
         artifact = CalibrationArtifact(calibration_artifact_id=stable_id("calibration", payload), **payload)
         self.assertEqual(artifact.block_id, block.block_id)
