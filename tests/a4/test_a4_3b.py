@@ -25,12 +25,14 @@ from active_audition.a4.cache_resume import (
     CACHE_COMPLETION_MARKER_SCHEMA_VERSION,
     CACHE_EXPECTED_MANIFEST_SCHEMA_VERSION,
     COMPLETION_MARKER_VALID,
+    INVALID_COMPLETION_MARKER,
     REBUILD_CORRUPT,
     REBUILD_MISSING,
     REUSE_VALID,
     STALE_COMPLETION_MARKER,
     CacheExpectedManifest,
     CacheResumeError,
+    completion_marker_path,
     read_completion_marker,
     reconcile_cache_manifest,
     write_completion_marker,
@@ -169,16 +171,16 @@ class CacheResumeTests(unittest.TestCase):
         self.assertTrue(all(entry.status == REBUILD_MISSING for entry in record.entries))
         self.assertTrue(all(entry.reason == MISSING_METADATA for entry in record.entries))
         with self.assertRaises(CacheResumeError):
-            write_completion_marker(self.store, record)
+            write_completion_marker(self.store, self.manifest)
 
     def test_clean_cache_reuses_all_and_marker_round_trips(self):
         self._populate_all()
         first = reconcile_cache_manifest(self.manifest, self.store)
         self.assertTrue(first.complete)
         self.assertTrue(all(entry.status == REUSE_VALID for entry in first.entries))
-        marker = write_completion_marker(self.store, first)
+        marker = write_completion_marker(self.store, self.manifest)
         self.assertEqual(marker.schema_version, CACHE_COMPLETION_MARKER_SCHEMA_VERSION)
-        self.assertEqual(read_completion_marker(self.store).to_payload(), marker.to_payload())
+        self.assertEqual(read_completion_marker(self.store, self.manifest).to_payload(), marker.to_payload())
         second = reconcile_cache_manifest(self.manifest, self.store)
         self.assertTrue(second.complete)
         self.assertEqual(second.completion_marker_status, COMPLETION_MARKER_VALID)
@@ -196,7 +198,7 @@ class CacheResumeTests(unittest.TestCase):
 
     def test_missing_and_corrupt_entries_preserve_exact_reasons(self):
         self._populate_all()
-        write_completion_marker(self.store, reconcile_cache_manifest(self.manifest, self.store))
+        write_completion_marker(self.store, self.manifest)
         (self.store.entry_dir(self.rir) / "payload.npy").unlink()
         result = reconcile_cache_manifest(self.manifest, self.store)
         rir_entry = next(entry for entry in result.entries if entry.layer == "rir")
@@ -223,7 +225,7 @@ class CacheResumeTests(unittest.TestCase):
     def test_marker_never_bypasses_revalidation(self):
         self._populate_all()
         first = reconcile_cache_manifest(self.manifest, self.store)
-        write_completion_marker(self.store, first)
+        write_completion_marker(self.store, self.manifest)
         (self.store.entry_dir(self.asr) / "payload.json").unlink()
         result = reconcile_cache_manifest(self.manifest, self.store)
         self.assertFalse(result.complete)
@@ -236,7 +238,7 @@ class CacheResumeTests(unittest.TestCase):
     def test_manifest_or_contract_mutation_invalidates_old_marker(self):
         self._populate_all(include_extra=True)
         first = reconcile_cache_manifest(self.manifest, self.store)
-        write_completion_marker(self.store, first)
+        write_completion_marker(self.store, self.manifest)
 
         changed_manifest = CacheExpectedManifest(
             infrastructure_contract_sha256=self.manifest.infrastructure_contract_sha256,
@@ -245,8 +247,8 @@ class CacheResumeTests(unittest.TestCase):
             expected_asr_keys=(self.asr,),
         )
         changed = reconcile_cache_manifest(changed_manifest, self.store)
-        self.assertFalse(changed.complete)
-        self.assertEqual(changed.completion_marker_status, STALE_COMPLETION_MARKER)
+        self.assertTrue(changed.complete)
+        self.assertEqual(changed.completion_marker_status, "ABSENT")
         self.assertEqual(dict(changed.reuse_counts), {"rir": 2, "mixture": 1, "asr": 1})
         self.assertEqual(dict(changed.rebuild_counts), {"rir": 0, "mixture": 0, "asr": 0})
 
@@ -257,8 +259,8 @@ class CacheResumeTests(unittest.TestCase):
             expected_asr_keys=(self.asr,),
         )
         changed_contract_record = reconcile_cache_manifest(changed_contract, self.store)
-        self.assertFalse(changed_contract_record.complete)
-        self.assertEqual(changed_contract_record.completion_marker_status, STALE_COMPLETION_MARKER)
+        self.assertTrue(changed_contract_record.complete)
+        self.assertEqual(changed_contract_record.completion_marker_status, "ABSENT")
 
     def test_extra_shared_cache_entries_are_harmless(self):
         self._populate_all(include_extra=True)
@@ -280,10 +282,10 @@ class CacheResumeTests(unittest.TestCase):
         with self.assertRaises(CacheResumeError):
             type(first).from_payload(raw)
 
-    def test_marker_payload_is_strict_and_contract_remains_draft(self):
+    def test_marker_payload_is_strict_and_contract_scope_is_manifest_scoped(self):
         self._populate_all()
         record = reconcile_cache_manifest(self.manifest, self.store)
-        marker = write_completion_marker(self.store, record)
+        marker = write_completion_marker(self.store, self.manifest)
         raw = marker.to_payload()
         raw["expected_counts"]["asr"] = 99
         with self.assertRaises(CacheResumeError):
@@ -303,6 +305,53 @@ class CacheResumeTests(unittest.TestCase):
                 imported.append(node.module or "")
         self.assertFalse(any(name.startswith("habitat") for name in imported))
         self.assertFalse(any(name.startswith("speechbrain") for name in imported))
+
+    def test_stale_marker_can_be_replaced_when_entries_are_currently_valid(self):
+        self._populate_all(include_extra=True)
+        write_completion_marker(self.store, self.manifest)
+        changed = CacheExpectedManifest(
+            infrastructure_contract_sha256=self.manifest.infrastructure_contract_sha256,
+            expected_rir_keys=(self.rir, self.rir_extra),
+            expected_mixture_keys=(self.mixture,),
+            expected_asr_keys=(self.asr,),
+        )
+        current = reconcile_cache_manifest(changed, self.store)
+        self.assertTrue(current.complete)
+        self.assertEqual(current.completion_marker_status, "ABSENT")
+        write_completion_marker(self.store, changed)
+        self.assertEqual(reconcile_cache_manifest(changed, self.store).completion_marker_status, COMPLETION_MARKER_VALID)
+
+    def test_invalid_marker_can_be_recovered(self):
+        self._populate_all()
+        write_completion_marker(self.store, self.manifest)
+        path = completion_marker_path(self.store, self.manifest)
+        path.write_text("{not-json", encoding="utf-8")
+        current = reconcile_cache_manifest(self.manifest, self.store)
+        self.assertTrue(current.complete)
+        self.assertEqual(current.completion_marker_status, INVALID_COMPLETION_MARKER)
+        write_completion_marker(self.store, self.manifest)
+        self.assertEqual(reconcile_cache_manifest(self.manifest, self.store).completion_marker_status, COMPLETION_MARKER_VALID)
+
+    def test_fresh_marker_write_revalidates_after_prior_reconcile(self):
+        self._populate_all()
+        self.assertTrue(reconcile_cache_manifest(self.manifest, self.store).complete)
+        (self.store.entry_dir(self.rir) / "payload.npy").unlink()
+        with self.assertRaises(CacheResumeError):
+            write_completion_marker(self.store, self.manifest)
+
+    def test_manifest_scoped_markers_do_not_interfere(self):
+        self._populate_all(include_extra=True)
+        changed = CacheExpectedManifest(
+            infrastructure_contract_sha256=self.manifest.infrastructure_contract_sha256,
+            expected_rir_keys=(self.rir, self.rir_extra),
+            expected_mixture_keys=(self.mixture,),
+            expected_asr_keys=(self.asr,),
+        )
+        first_marker = write_completion_marker(self.store, self.manifest)
+        second_marker = write_completion_marker(self.store, changed)
+        self.assertNotEqual(completion_marker_path(self.store, self.manifest), completion_marker_path(self.store, changed))
+        self.assertEqual(read_completion_marker(self.store, self.manifest).marker_id, first_marker.marker_id)
+        self.assertEqual(read_completion_marker(self.store, changed).marker_id, second_marker.marker_id)
 
 
 if __name__ == "__main__":

@@ -38,7 +38,8 @@ CACHE_COMPLETION_MARKER_SCHEMA_VERSION = "active-asr-a4-cache-completion-marker-
 RESUME_ALGORITHM_IDENTITY = "active-asr-a4-deterministic-resume-reconciliation-v1"
 RECONCILIATION_ALGORITHM_IDENTITY = "active-asr-a4-cache-reconciliation-v1"
 COMPLETION_ALGORITHM_IDENTITY = "active-asr-a4-strict-completion-marker-v1"
-COMPLETION_MARKER_FILENAME = "_a4_completion_marker.json"
+COMPLETION_MARKER_FILENAME = "completion.json"
+COMPLETION_MARKER_SCOPE_IDENTITY = "manifest_scoped_resume_v1"
 
 LAYER_RIR = "rir"
 LAYER_MIXTURE = "mixture"
@@ -413,10 +414,10 @@ class CacheReconciliationRecord:
                 raise CacheResumeError("reconciliation.{} do not match entries".format(name))
             object.__setattr__(self, name, MappingProxyType(dict(value)))
         object.__setattr__(self, "expected_counts", MappingProxyType(dict(expected)))
-        expected_complete = all(value == 0 for value in self.rebuild_counts.values()) and self.completion_marker_status in (
-            COMPLETION_MARKER_ABSENT,
-            COMPLETION_MARKER_VALID,
-        )
+        # Entry completeness is authoritative.  Marker currency is only
+        # metadata about the last completion attempt; a stale/invalid marker
+        # must never deadlock a currently valid cache set.
+        expected_complete = all(value == 0 for value in self.rebuild_counts.values())
         if not isinstance(self.complete, bool) or self.complete != expected_complete:
             raise CacheResumeError("reconciliation.complete is inconsistent with entries/marker")
         expected_id = stable_id("cache-reconciliation", self.identity_payload())
@@ -589,12 +590,18 @@ class CacheCompletionMarker:
         return cls(**dict(payload))
 
 
-def _marker_path(store: CacheStore) -> Path:
-    return store.root / COMPLETION_MARKER_FILENAME
+def completion_marker_path(store: CacheStore, manifest: CacheExpectedManifest) -> Path:
+    """Return the manifest-scoped marker path for one expected cache set."""
+
+    if not isinstance(store, CacheStore):
+        raise CacheResumeError("store must be CacheStore")
+    if not isinstance(manifest, CacheExpectedManifest):
+        raise CacheResumeError("manifest must be CacheExpectedManifest")
+    return store.root / "resume" / manifest.manifest_id / COMPLETION_MARKER_FILENAME
 
 
-def _load_marker(store: CacheStore) -> Tuple[str, Optional[CacheCompletionMarker]]:
-    path = _marker_path(store)
+def _load_marker(store: CacheStore, manifest: CacheExpectedManifest) -> Tuple[str, Optional[CacheCompletionMarker]]:
+    path = completion_marker_path(store, manifest)
     if not path.exists():
         return COMPLETION_MARKER_ABSENT, None
     try:
@@ -648,7 +655,7 @@ def reconcile_cache_manifest(
         complete=entry_complete,
         completion_marker_status=COMPLETION_MARKER_ABSENT,
     )
-    marker_status, marker = _load_marker(store)
+    marker_status, marker = _load_marker(store, manifest)
     if marker_status == INVALID_COMPLETION_MARKER:
         marker_status = INVALID_COMPLETION_MARKER
     elif marker is not None and (
@@ -661,7 +668,7 @@ def reconcile_cache_manifest(
         marker_status = STALE_COMPLETION_MARKER
     elif marker is not None:
         marker_status = COMPLETION_MARKER_VALID
-    complete = entry_complete and marker_status in (COMPLETION_MARKER_ABSENT, COMPLETION_MARKER_VALID)
+    complete = entry_complete
     return CacheReconciliationRecord(
         expected_manifest_id=manifest.manifest_id,
         infrastructure_contract_sha256=manifest.infrastructure_contract_sha256,
@@ -678,25 +685,37 @@ def reconcile_cache_manifest(
 
 def write_completion_marker(
     store: CacheStore,
-    reconciliation: CacheReconciliationRecord,
+    manifest: CacheExpectedManifest,
 ) -> CacheCompletionMarker:
-    """Atomically write a marker only for a fully revalidated cache set."""
+    """Freshly revalidate and atomically write the current manifest marker.
+
+    The caller cannot reuse an earlier reconciliation record: this closes the
+    reconcile-then-corrupt-before-write race and permits stale marker repair.
+    """
 
     if not isinstance(store, CacheStore):
         raise CacheResumeError("store must be CacheStore")
-    if not isinstance(reconciliation, CacheReconciliationRecord):
-        raise CacheResumeError("reconciliation must be CacheReconciliationRecord")
+    if not isinstance(manifest, CacheExpectedManifest):
+        raise CacheResumeError("manifest must be CacheExpectedManifest")
+    reconciliation = reconcile_cache_manifest(manifest, store)
+    if not reconciliation.complete:
+        raise CacheResumeError("cannot write a completion marker for an incomplete reconciliation")
     marker = CacheCompletionMarker.from_reconciliation(reconciliation)
-    store.storage.atomic_write_json(_marker_path(store), marker.to_payload())
+    store.storage.atomic_write_json(completion_marker_path(store, manifest), marker.to_payload())
     return marker
 
 
-def read_completion_marker(store: CacheStore) -> Optional[CacheCompletionMarker]:
+def read_completion_marker(
+    store: CacheStore,
+    manifest: CacheExpectedManifest,
+) -> Optional[CacheCompletionMarker]:
     """Read a marker strictly; malformed existing markers fail closed."""
 
     if not isinstance(store, CacheStore):
         raise CacheResumeError("store must be CacheStore")
-    status, marker = _load_marker(store)
+    if not isinstance(manifest, CacheExpectedManifest):
+        raise CacheResumeError("manifest must be CacheExpectedManifest")
+    status, marker = _load_marker(store, manifest)
     if status == INVALID_COMPLETION_MARKER:
         raise CacheResumeError("completion marker is invalid")
     return marker
@@ -710,12 +729,14 @@ __all__ = [
     "COMPLETION_ALGORITHM_IDENTITY",
     "COMPLETION_MARKER_ABSENT",
     "COMPLETION_MARKER_FILENAME",
+    "COMPLETION_MARKER_SCOPE_IDENTITY",
     "COMPLETION_MARKER_VALID",
     "CacheCompletionMarker",
     "CacheEntryResult",
     "CacheExpectedManifest",
     "CacheReconciliationRecord",
     "CacheResumeError",
+    "completion_marker_path",
     "INVALID_COMPLETION_MARKER",
     "REBUILD_CORRUPT",
     "REBUILD_MISSING",

@@ -381,6 +381,7 @@ def _cache(value: Mapping, state: str) -> None:
         "reconciliation_algorithm",
         "completion_marker_schema",
         "completion_algorithm",
+        "completion_marker_scope",
         "algorithm",
     )
     _only(value, keys, path)
@@ -410,6 +411,7 @@ def _cache(value: Mapping, state: str) -> None:
     _string(value["reconciliation_algorithm"], _path(path, "reconciliation_algorithm"), "active-asr-a4-cache-reconciliation-v1")
     _string(value["completion_marker_schema"], _path(path, "completion_marker_schema"), "active-asr-a4-cache-completion-marker-v1")
     _string(value["completion_algorithm"], _path(path, "completion_algorithm"), "active-asr-a4-strict-completion-marker-v1")
+    _string(value["completion_marker_scope"], _path(path, "completion_marker_scope"), "manifest_scoped_resume_v1")
     _string(value["algorithm"], _path(path, "algorithm"), "active-asr-a4-content-addressed-cache-v1")
 
 

@@ -353,7 +353,7 @@ class A4CacheContractTests(unittest.TestCase):
         self.assertEqual(cache["expected_manifest_schema"], "active-asr-a4-cache-expected-manifest-v1")
         self.assertEqual(cache["reconciliation_record_schema"], "active-asr-a4-cache-reconciliation-record-v1")
         self.assertEqual(cache["completion_marker_schema"], "active-asr-a4-cache-completion-marker-v1")
-        self.assertEqual(contract["contract"]["state"], "DRAFT")
+        self.assertEqual(contract["contract"]["state"], "FROZEN")
         self.assertEqual(len(contract_sha256(contract)), 64)
 
     def test_cache_module_is_pure_import(self):

@@ -2,7 +2,7 @@ contract:
   namespace: active-asr-a4
   version: active-asr-a4-infrastructure-v1
   gate: A4
-  state: DRAFT
+  state: FROZEN
 serialization:
   version: canonical-json-v1
   encoding: utf-8
@@ -156,6 +156,7 @@ cache_resume:
   reconciliation_algorithm: active-asr-a4-cache-reconciliation-v1
   completion_marker_schema: active-asr-a4-cache-completion-marker-v1
   completion_algorithm: active-asr-a4-strict-completion-marker-v1
+  completion_marker_scope: manifest_scoped_resume_v1
   algorithm: active-asr-a4-content-addressed-cache-v1
 access_boundary:
   selection: selection_only_for_calibration_and_pose_choice

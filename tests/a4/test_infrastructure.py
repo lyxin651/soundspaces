@@ -153,9 +153,9 @@ class A4IdentityTests(unittest.TestCase):
 
 
 class A4ContractTests(unittest.TestCase):
-    def test_draft_contract_validates_and_hash_is_stable(self):
+    def test_frozen_contract_validates_and_hash_is_stable(self):
         contract = load_contract(str(CONTRACT_PATH))
-        self.assertEqual(contract["contract"]["state"], "DRAFT")
+        self.assertEqual(contract["contract"]["state"], "FROZEN")
         self.assertEqual(contract["contract"]["gate"], "A4")
         self.assertEqual(contract_sha256(contract), contract_sha256(copy.deepcopy(contract)))
         reordered = {key: contract[key] for key in reversed(list(contract))}
@@ -163,6 +163,7 @@ class A4ContractTests(unittest.TestCase):
 
     def test_require_frozen_rejects_draft_and_unresolved_semantics(self):
         contract = copy.deepcopy(load_contract(str(CONTRACT_PATH)))
+        contract["contract"]["state"] = "DRAFT"
         with self.assertRaises(A4ContractError):
             validate_contract(contract, require_frozen=True)
         contract["contract"]["state"] = "FROZEN"
@@ -177,12 +178,14 @@ class A4ContractTests(unittest.TestCase):
 
     def test_all_deferred_later_slice_draft_validates(self):
         contract = copy.deepcopy(load_contract(str(CONTRACT_PATH)))
+        contract["contract"]["state"] = "DRAFT"
         contract["mixture_boundary"]["reconstruction"] = "DEFERRED_TO_A4_2"
         contract["mixture_boundary"]["algorithm"] = "DEFERRED_TO_A4_2"
         validate_contract(contract)
 
     def test_partially_concrete_draft_validates(self):
         contract = copy.deepcopy(load_contract(str(CONTRACT_PATH)))
+        contract["contract"]["state"] = "DRAFT"
         self.assertEqual(contract["calibration_boundary"]["active_mask"], ACTIVE_MASK_ALGORITHM_IDENTITY)
         self.assertEqual(contract["calibration_boundary"]["algorithm"], "active-asr-a4-selection-initial-snr-calibration-v1")
         self.assertEqual(contract["mixture_boundary"]["timeline"], "active-asr-a4-common-receiver-timeline-v1")
@@ -207,6 +210,7 @@ class A4ContractTests(unittest.TestCase):
         self.assertEqual(contract["cache_resume"]["resume"], "active-asr-a4-deterministic-resume-reconciliation-v1")
         self.assertEqual(contract["cache_resume"]["expected_manifest_schema"], "active-asr-a4-cache-expected-manifest-v1")
         self.assertEqual(contract["cache_resume"]["completion_marker_schema"], "active-asr-a4-cache-completion-marker-v1")
+        self.assertEqual(contract["cache_resume"]["completion_marker_scope"], "manifest_scoped_resume_v1")
         self.assertEqual(contract["cache_resume"]["key_schemas"]["rir"], "active-asr-a4-rir-cache-key-v1")
         validate_contract(contract)
 

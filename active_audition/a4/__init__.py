@@ -185,12 +185,14 @@ from active_audition.a4.cache_resume import (
     COMPLETION_ALGORITHM_IDENTITY,
     COMPLETION_MARKER_ABSENT,
     COMPLETION_MARKER_FILENAME,
+    COMPLETION_MARKER_SCOPE_IDENTITY,
     COMPLETION_MARKER_VALID,
     CacheCompletionMarker,
     CacheEntryResult,
     CacheExpectedManifest,
     CacheReconciliationRecord,
     CacheResumeError,
+    completion_marker_path,
     INVALID_COMPLETION_MARKER,
     REBUILD_CORRUPT,
     REBUILD_MISSING,
@@ -201,6 +203,12 @@ from active_audition.a4.cache_resume import (
     read_completion_marker,
     reconcile_cache_manifest,
     write_completion_marker,
+)
+from active_audition.a4.smoke_manifest import (
+    ENGINEERING_SMOKE_MANIFEST_SCHEMA_VERSION,
+    ENGINEERING_SMOKE_MANIFEST_STATE,
+    EngineeringSmokeManifest,
+    EngineeringSmokeManifestError,
 )
 
 __all__ = [
@@ -359,12 +367,14 @@ __all__ = [
     "COMPLETION_ALGORITHM_IDENTITY",
     "COMPLETION_MARKER_ABSENT",
     "COMPLETION_MARKER_FILENAME",
+    "COMPLETION_MARKER_SCOPE_IDENTITY",
     "COMPLETION_MARKER_VALID",
     "CacheCompletionMarker",
     "CacheEntryResult",
     "CacheExpectedManifest",
     "CacheReconciliationRecord",
     "CacheResumeError",
+    "completion_marker_path",
     "INVALID_COMPLETION_MARKER",
     "REBUILD_CORRUPT",
     "REBUILD_MISSING",
@@ -375,4 +385,8 @@ __all__ = [
     "read_completion_marker",
     "reconcile_cache_manifest",
     "write_completion_marker",
+    "ENGINEERING_SMOKE_MANIFEST_SCHEMA_VERSION",
+    "ENGINEERING_SMOKE_MANIFEST_STATE",
+    "EngineeringSmokeManifest",
+    "EngineeringSmokeManifestError",
 ]
