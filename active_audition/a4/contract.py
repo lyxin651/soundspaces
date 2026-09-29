@@ -114,7 +114,7 @@ def _schema(value: Mapping) -> None:
         "block": "active-asr-a4-block-v1",
         "episode": "active-asr-a4-episode-v1",
         "calibration": "active-asr-a4-calibration-v1",
-        "noise_segment": "active-asr-a4-noise-segment-v1",
+        "noise_segment": "active-asr-a4-noise-segment-v2",
         "active_mask": "active-asr-a4-active-mask-v1",
     }
     _only(value, expected, path)
@@ -216,21 +216,26 @@ def _noise_segment_planner(value: Mapping) -> None:
     path = "noise_segment_planner"
     keys = (
         "algorithm_identity", "schema_version", "source_time_convention",
-        "sample_index_convention", "episode_order_identity",
+        "sample_index_convention", "episode_order_identity", "sample_rounding_identity",
+        "target_sample_authority", "range_layout", "guard_semantics",
         "selection_evaluation_nonoverlap", "parent_ranges_nonoverlap",
         "no_looping", "no_provenance_free_concat", "parameter_schema",
     )
     _only(value, keys, path)
     _require(value, keys, path)
-    _string(value["algorithm_identity"], _path(path, "algorithm_identity"), "active-asr-a4-noise-segment-planner-v1")
-    _string(value["schema_version"], _path(path, "schema_version"), "active-asr-a4-noise-segment-plan-v1")
+    _string(value["algorithm_identity"], _path(path, "algorithm_identity"), "active-asr-a4-noise-segment-planner-v2")
+    _string(value["schema_version"], _path(path, "schema_version"), "active-asr-a4-noise-segment-plan-v2")
     _string(value["source_time_convention"], _path(path, "source_time_convention"), "active-asr-a4-target-dry-onset-zero-v1")
     _string(value["sample_index_convention"], _path(path, "sample_index_convention"), "active-asr-a4-half-open-sample-range-v1")
     _string(value["episode_order_identity"], _path(path, "episode_order_identity"), "active-asr-a4-stable-episode-order-v1")
+    _string(value["sample_rounding_identity"], _path(path, "sample_rounding_identity"), "active-asr-a4-seconds-to-samples-nearest-half-up-v1")
+    _string(value["target_sample_authority"], _path(path, "target_sample_authority"), "episode_request.target_sample_count")
+    _string(value["range_layout"], _path(path, "range_layout"), "pre_target_post_half_open_samples_v1")
+    _string(value["guard_semantics"], _path(path, "guard_semantics"), "intermediate_guard_final_zero_v1")
     for key in ("selection_evaluation_nonoverlap", "parent_ranges_nonoverlap", "no_looping", "no_provenance_free_concat"):
         _bool(value[key], _path(path, key), True)
     schema = _mapping(value["parameter_schema"], _path(path, "parameter_schema"))
-    schema_keys = ("sample_rate_hz", "pre_roll_sec", "post_roll_sec", "guard_interval_sec", "episode_count")
+    schema_keys = ("sample_rate_hz", "pre_roll_sec", "post_roll_sec", "guard_interval_sec", "episode_count", "target_sample_count")
     _only(schema, schema_keys, _path(path, "parameter_schema"))
     _require(schema, schema_keys, _path(path, "parameter_schema"))
     for key in schema_keys:

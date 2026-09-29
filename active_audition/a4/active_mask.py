@@ -151,6 +151,11 @@ class ActiveMaskRecord:
             value = getattr(self, field)
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
                 raise ActiveMaskError("{} must be a positive integer".format(field))
+        if self.sample_count < self.frame_samples:
+            raise ActiveMaskError("sample_count has no complete no-padding analysis frame")
+        expected_frame_count = ((self.sample_count - self.frame_samples) // self.hop_samples) + 1
+        if self.frame_count != expected_frame_count:
+            raise ActiveMaskError("frame_count does not match no-padding frame definition")
         for field in ("reference_percentile", "reference_rms", "threshold_db", "threshold_rms"):
             object.__setattr__(self, field, _finite(getattr(self, field), field))
         if not 0.0 <= self.reference_percentile <= 100.0:
@@ -171,6 +176,13 @@ class ActiveMaskRecord:
             raise ActiveMaskError("active_frame_indices are invalid")
         if tuple(sorted(set(self.active_frame_indices))) != self.active_frame_indices:
             raise ActiveMaskError("active_frame_indices must be sorted and unique")
+        expected_mask = [False] * self.sample_count
+        for index in self.active_frame_indices:
+            start = index * self.hop_samples
+            for sample_index in range(start, min(start + self.frame_samples, self.sample_count)):
+                expected_mask[sample_index] = True
+        if tuple(expected_mask) != self.mask:
+            raise ActiveMaskError("mask is not the exact active-frame half-open union")
         if self.active_sample_count != sum(self.mask):
             raise ActiveMaskError("active_sample_count does not match mask")
         if self.active_sample_count <= 0:
@@ -227,7 +239,7 @@ class ActiveMaskRecord:
         actual_count = values.pop("active_sample_count")
         actual_id = values.pop("mask_id")
         record = cls(**values)
-        if actual_count != record.active_sample_count:
+        if isinstance(actual_count, bool) or not isinstance(actual_count, int) or actual_count != record.active_sample_count:
             raise ActiveMaskError("active_sample_count does not match mask")
         if actual_id != record.mask_id:
             raise ActiveMaskError("mask_id does not match semantic payload")

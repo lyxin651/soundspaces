@@ -15,6 +15,12 @@ from active_audition.a4.budget import (
     compute_motion_cost,
 )
 from active_audition.a4.active_mask import ACTIVE_MASK_ALGORITHM_IDENTITY
+from active_audition.a4.noise_segments import (
+    EpisodeNoiseRequest,
+    NoiseParentMetadata,
+    NoiseSegmentPlannerParameters,
+    plan_noise_segments,
+)
 from active_audition.a4.identity import (
     A4IdentityError,
     canonical_json_bytes,
@@ -61,18 +67,59 @@ def _geometry():
     return GeometryRecord(geometry_id=stable_id("geometry", payload), **payload)
 
 
+def _noise_plan(pre_roll_sec=2.0):
+    parent_payload = {"fixture": "infrastructure-noise-parent"}
+    parent = NoiseParentMetadata(
+        noise_parent_id=stable_id("noise-parent", parent_payload),
+        decoded_resampled_payload_sha256="a" * 64,
+        sample_rate_hz=16000,
+        sample_count=1000000,
+    )
+    episodes = [
+        EpisodeNoiseRequest("selection", 0, "utt-s1", 16000),
+        EpisodeNoiseRequest("selection", 1, "utt-s2", 16001),
+        EpisodeNoiseRequest("evaluation", 0, "utt-e1", 16002),
+        EpisodeNoiseRequest("evaluation", 1, "utt-e2", 16003),
+    ]
+    planner = NoiseSegmentPlannerParameters(16000, pre_roll_sec, 2.0, 0.25)
+    return plan_noise_segments(parent, episodes, planner)
+
+
 def _block(geometry):
+    plan = _noise_plan()
+    return _block_from_plan(geometry, plan)
+
+
+def _block_from_plan(geometry, plan):
     payload = {
         "geometry_id": geometry.geometry_id,
         "speaker_id": "speaker-1",
-        "noise_parent_id": "musan-parent-1",
+        "noise_parent_id": plan.noise_parent_id,
         "nominal_initial_snr_db": 0.0,
         "selection_utterance_ids": ["utt-s1", "utt-s2"],
         "evaluation_utterance_ids": ["utt-e1", "utt-e2"],
-        "noise_segment_plan_identity": "noise-plan-v1",
+        "noise_segment_plan_identity": plan.plan_id,
         "global_gain_identity": "gain-v1",
     }
     return BlockRecord(schema_version="active-asr-a4-block-v1", block_id=stable_id("block", payload), **payload)
+
+
+def _episode_payload(block, segment):
+    return {
+        "schema_version": "active-asr-a4-episode-v1",
+        "block_id": block.block_id,
+        "role": segment.role,
+        "utterance_identity": {
+            "utterance_id": segment.utterance_identity,
+            "decoded_waveform_sha256": "5" * 64,
+        },
+        "reference_identity": {"reference_sha256": "6" * 64, "normalization_version": "v1"},
+        "fixed_dry_noise_segment_identity": segment.to_payload(),
+        "target_source_duration_sec": segment.target_duration_sec,
+        "noise_source_time_start_sec": segment.source_time_start_sec,
+        "noise_source_time_end_sec": segment.source_time_end_sec,
+        "noise_segment_duration_sec": segment.source_time_end_sec - segment.source_time_start_sec,
+    }
 
 
 def _concrete_frozen_contract():
@@ -258,12 +305,12 @@ class A4RecordTests(unittest.TestCase):
         mutations = {
             "geometry_id": changed_geometry.geometry_id,
             "speaker_id": "speaker-2",
-            "noise_parent_id": "musan-parent-2",
+            "noise_parent_id": stable_id("noise-parent", {"fixture": "musan-parent-2"}),
             "nominal_initial_snr_db": 3.0,
             "global_gain_identity": "gain-v2",
             "selection_utterance_ids": ["utt-s1", "utt-s3"],
             "evaluation_utterance_ids": ["utt-e1", "utt-e3"],
-            "noise_segment_plan_identity": "noise-plan-v2",
+            "noise_segment_plan_identity": stable_id("noise-segment-plan", {"fixture": "noise-plan-v2"}),
         }
         for field, value in mutations.items():
             payload = dict(block.to_payload())
@@ -274,44 +321,46 @@ class A4RecordTests(unittest.TestCase):
             self.assertNotEqual(block.block_id, candidate.block_id, field)
 
     def test_episode_identity_changes_with_utterance_or_noise_segment(self):
-        block = _block(_geometry())
-        payload = {
-            "schema_version": "active-asr-a4-episode-v1",
-            "block_id": block.block_id,
-            "role": "selection",
-            "utterance_identity": {"utterance_id": "utt-s1", "decoded_waveform_sha256": "5" * 64},
-            "reference_identity": {"reference_sha256": "6" * 64, "normalization_version": "v1"},
-            "fixed_dry_noise_segment_identity": {"parent_id": "musan-parent-1", "sha256": "7" * 64},
-            "target_source_duration_sec": 3.5,
-            "noise_source_time_start_sec": -2.0,
-            "noise_source_time_end_sec": 4.0,
-            "noise_segment_duration_sec": 6.0,
-        }
+        geometry = _geometry()
+        plan = _noise_plan()
+        block = _block_from_plan(geometry, plan)
+        payload = _episode_payload(block, plan.segments[0])
         episode = EpisodeRecord(episode_id=stable_id("episode", payload), **payload)
         self.assertEqual(episode.noise_source_time_start_sec, -2.0)
-        utterance_changed = copy.deepcopy(payload)
-        utterance_changed["utterance_identity"]["utterance_id"] = "utt-s2"
-        changed_utterance = EpisodeRecord(episode_id=stable_id("episode", utterance_changed), **utterance_changed)
+        changed_requests = [
+            EpisodeNoiseRequest("selection", 0, "utt-s1-changed", 16000),
+            EpisodeNoiseRequest("selection", 1, "utt-s2", 16001),
+            EpisodeNoiseRequest("evaluation", 0, "utt-e1", 16002),
+            EpisodeNoiseRequest("evaluation", 1, "utt-e2", 16003),
+        ]
+        changed_plan = plan_noise_segments(
+            NoiseParentMetadata(
+                noise_parent_id=plan.noise_parent_id,
+                decoded_resampled_payload_sha256=plan.decoded_resampled_payload_sha256,
+                sample_rate_hz=plan.sample_rate_hz,
+                sample_count=1000000,
+            ),
+            changed_requests,
+            NoiseSegmentPlannerParameters(16000, 2.0, 2.0, 0.25),
+        )
+        changed_block = _block_from_plan(geometry, changed_plan)
+        utterance_changed = _episode_payload(changed_block, changed_plan.segments[0])
+        changed_utterance = EpisodeRecord(
+            episode_id=stable_id("episode", utterance_changed), **utterance_changed
+        )
         self.assertNotEqual(episode.episode_id, changed_utterance.episode_id)
-        segment_changed = copy.deepcopy(payload)
-        segment_changed["fixed_dry_noise_segment_identity"]["sha256"] = "8" * 64
-        changed_segment = EpisodeRecord(episode_id=stable_id("episode", segment_changed), **segment_changed)
+        changed_segment_plan = _noise_plan(pre_roll_sec=1.0)
+        changed_segment_block = _block_from_plan(geometry, changed_segment_plan)
+        segment_changed = _episode_payload(changed_segment_block, changed_segment_plan.segments[0])
+        changed_segment = EpisodeRecord(
+            episode_id=stable_id("episode", segment_changed), **segment_changed
+        )
         self.assertNotEqual(episode.episode_id, changed_segment.episode_id)
 
     def test_episode_zero_start_is_valid_and_invalid_timeline_fields_rejected(self):
-        block = _block(_geometry())
-        payload = {
-            "schema_version": "active-asr-a4-episode-v1",
-            "block_id": block.block_id,
-            "role": "evaluation",
-            "utterance_identity": {"utterance_id": "utt-e1", "decoded_waveform_sha256": "5" * 64},
-            "reference_identity": {"reference_sha256": "6" * 64, "normalization_version": "v1"},
-            "fixed_dry_noise_segment_identity": {"parent_id": "musan-parent-1", "sha256": "7" * 64},
-            "target_source_duration_sec": 4.0,
-            "noise_source_time_start_sec": 0.0,
-            "noise_source_time_end_sec": 4.0,
-            "noise_segment_duration_sec": 4.0,
-        }
+        plan = _noise_plan(pre_roll_sec=0.0)
+        block = _block_from_plan(_geometry(), plan)
+        payload = _episode_payload(block, plan.segments[2])
         valid = EpisodeRecord(episode_id=stable_id("episode", payload), **payload)
         self.assertEqual(valid.noise_source_time_start_sec, 0.0)
         for field, value in (
@@ -323,6 +372,22 @@ class A4RecordTests(unittest.TestCase):
             invalid[field] = value
             with self.assertRaises(RecordError):
                 EpisodeRecord(episode_id=stable_id("episode", invalid), **invalid)
+
+    def test_episode_segment_round_trip_and_tampering_rejected(self):
+        plan = _noise_plan()
+        block = _block_from_plan(_geometry(), plan)
+        payload = _episode_payload(block, plan.segments[0])
+        episode = EpisodeRecord(episode_id=stable_id("episode", payload), **payload)
+        restored = EpisodeRecord.from_payload(episode.to_payload())
+        self.assertEqual(restored.episode_id, episode.episode_id)
+        tampered = copy.deepcopy(episode.to_payload())
+        tampered["fixed_dry_noise_segment_identity"]["target_sample_count"] += 1
+        with self.assertRaises(RecordError):
+            EpisodeRecord.from_payload(tampered)
+        tampered = copy.deepcopy(episode.to_payload())
+        tampered["noise_source_time_end_sec"] += 1.0
+        with self.assertRaises(RecordError):
+            EpisodeRecord.from_payload(tampered)
 
     def test_calibration_artifact_has_independent_identity_and_block_reference(self):
         block = _block(_geometry())

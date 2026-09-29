@@ -19,6 +19,7 @@ from active_audition.a4.identity import (
     validate_sha256,
     validate_stable_id,
 )
+from active_audition.a4.noise_segments import NoiseSegmentError, NoiseSegmentRecord
 
 
 GEOMETRY_SCHEMA_VERSION = "active-asr-a4-geometry-v1"
@@ -511,8 +512,13 @@ def validate_block_record(record: BlockRecord) -> BlockRecord:
         validate_stable_id(record.geometry_id, "geometry", "block.geometry_id")
     except A4IdentityError as exc:
         _error(str(exc))
-    for field in ("speaker_id", "noise_parent_id", "global_gain_identity", "noise_segment_plan_identity"):
-        _identity_string(getattr(record, field), "block." + field)
+    _identity_string(record.speaker_id, "block.speaker_id")
+    _identity_string(record.global_gain_identity, "block.global_gain_identity")
+    try:
+        validate_stable_id(record.noise_parent_id, "noise-parent", "block.noise_parent_id")
+        validate_stable_id(record.noise_segment_plan_identity, "noise-segment-plan", "block.noise_segment_plan_identity")
+    except A4IdentityError as exc:
+        _error(str(exc))
     _finite(record.nominal_initial_snr_db, "block.nominal_initial_snr_db")
     _ids(record.selection_utterance_ids, "block.selection_utterance_ids", 2)
     _ids(record.evaluation_utterance_ids, "block.evaluation_utterance_ids", 2)
@@ -582,11 +588,29 @@ def validate_episode_record(record: EpisodeRecord) -> EpisodeRecord:
     _mapping(record.utterance_identity, "episode.utterance_identity")
     _mapping(record.reference_identity, "episode.reference_identity")
     _mapping(record.fixed_dry_noise_segment_identity, "episode.fixed_dry_noise_segment_identity")
+    try:
+        segment = NoiseSegmentRecord.from_payload(_plain(record.fixed_dry_noise_segment_identity))
+    except (NoiseSegmentError, TypeError) as exc:
+        _error("episode.fixed_dry_noise_segment_identity is not a valid A4 noise segment: {}".format(exc))
+    if segment.role != record.role:
+        _error("episode.role does not match fixed noise segment role")
+    utterance_id = record.utterance_identity.get("utterance_id")
+    if utterance_id != segment.utterance_identity:
+        _error("episode utterance_id does not match fixed noise segment utterance identity")
     target_duration = _finite(record.target_source_duration_sec, "episode.target_source_duration_sec")
     start = _finite(record.noise_source_time_start_sec, "episode.noise_source_time_start_sec")
     end = _finite(record.noise_source_time_end_sec, "episode.noise_source_time_end_sec")
     duration = _finite(record.noise_segment_duration_sec, "episode.noise_segment_duration_sec")
-    if target_duration <= 0.0 or end <= start or duration <= 0.0 or abs((end - start) - duration) > 1.0e-9:
+    if (
+        target_duration <= 0.0
+        or end <= start
+        or duration <= 0.0
+        or abs((end - start) - duration) > 1.0e-9
+        or not math.isclose(target_duration, segment.target_duration_sec, rel_tol=0.0, abs_tol=1.0e-12)
+        or not math.isclose(start, segment.source_time_start_sec, rel_tol=0.0, abs_tol=1.0e-12)
+        or not math.isclose(end, segment.source_time_end_sec, rel_tol=0.0, abs_tol=1.0e-12)
+        or not math.isclose(duration, segment.source_time_end_sec - segment.source_time_start_sec, rel_tol=0.0, abs_tol=1.0e-12)
+    ):
         _error("episode noise source-time interval is inconsistent")
     _check_id(record.episode_id, "episode", record.identity_payload(), "episode.episode_id")
     return record

@@ -16,7 +16,7 @@ typed_records:
   block: active-asr-a4-block-v1
   episode: active-asr-a4-episode-v1
   calibration: active-asr-a4-calibration-v1
-  noise_segment: active-asr-a4-noise-segment-v1
+  noise_segment: active-asr-a4-noise-segment-v2
   active_mask: active-asr-a4-active-mask-v1
 sampler_boundary:
   source_free: true
@@ -48,11 +48,15 @@ geometry_legality:
   replacement_sampling: false
   invalid_reasons: [TARGET_SOURCE_CLEARANCE, NOISE_SOURCE_CLEARANCE, TARGET_AND_NOISE_SOURCE_CLEARANCE]
 noise_segment_planner:
-  algorithm_identity: active-asr-a4-noise-segment-planner-v1
-  schema_version: active-asr-a4-noise-segment-plan-v1
+  algorithm_identity: active-asr-a4-noise-segment-planner-v2
+  schema_version: active-asr-a4-noise-segment-plan-v2
   source_time_convention: active-asr-a4-target-dry-onset-zero-v1
   sample_index_convention: active-asr-a4-half-open-sample-range-v1
   episode_order_identity: active-asr-a4-stable-episode-order-v1
+  sample_rounding_identity: active-asr-a4-seconds-to-samples-nearest-half-up-v1
+  target_sample_authority: episode_request.target_sample_count
+  range_layout: pre_target_post_half_open_samples_v1
+  guard_semantics: intermediate_guard_final_zero_v1
   selection_evaluation_nonoverlap: true
   parent_ranges_nonoverlap: true
   no_looping: true
@@ -63,6 +67,7 @@ noise_segment_planner:
     post_roll_sec: finite_nonnegative_seconds
     guard_interval_sec: finite_nonnegative_seconds
     episode_count: exactly_four_block_episodes
+    target_sample_count: positive_integer_samples_per_episode_request
 active_mask:
   algorithm_identity: active-asr-a4-dry-speech-active-mask-v1
   schema_version: active-asr-a4-active-mask-v1

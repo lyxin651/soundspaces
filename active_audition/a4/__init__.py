@@ -60,7 +60,9 @@ from active_audition.a4.records import (
     validate_pose_record,
 )
 from active_audition.a4.noise_segments import (
+    A3_NOISE_PARENT_ADAPTER_IDENTITY,
     EPISODE_ORDER_IDENTITY,
+    EPISODE_SLOT_ORDER,
     EpisodeNoiseRequest,
     NOISE_PARENT_SCHEMA_VERSION,
     NOISE_SEGMENT_PLAN_SCHEMA_VERSION,
@@ -72,7 +74,9 @@ from active_audition.a4.noise_segments import (
     NoiseSegmentPlannerParameters,
     NoiseSegmentRecord,
     SAMPLE_INDEX_CONVENTION_IDENTITY,
+    SAMPLE_ROUNDING_IDENTITY,
     SOURCE_TIME_CONVENTION_IDENTITY,
+    noise_parent_from_a3_provenance,
     plan_noise_segments,
 )
 from active_audition.a4.active_mask import (
@@ -140,13 +144,17 @@ __all__ = [
     "ACTIVE_MASK_ALGORITHM_IDENTITY",
     "ACTIVE_MASK_CONTRACT_SCHEMA_VERSION",
     "ACTIVE_MASK_SCHEMA_VERSION",
+    "A3_NOISE_PARENT_ADAPTER_IDENTITY",
     "EPISODE_ORDER_IDENTITY",
+    "EPISODE_SLOT_ORDER",
     "NOISE_PARENT_SCHEMA_VERSION",
     "NOISE_SEGMENT_PLAN_SCHEMA_VERSION",
     "NOISE_SEGMENT_PLANNER_ALGORITHM_IDENTITY",
     "NOISE_SEGMENT_SCHEMA_VERSION",
     "SAMPLE_INDEX_CONVENTION_IDENTITY",
+    "SAMPLE_ROUNDING_IDENTITY",
     "SOURCE_TIME_CONVENTION_IDENTITY",
     "build_active_mask",
     "plan_noise_segments",
+    "noise_parent_from_a3_provenance",
 ]

@@ -12,12 +12,16 @@ from active_audition.a4.active_mask import (
 )
 from active_audition.a4.identity import canonical_json_bytes, stable_id
 from active_audition.a4.noise_segments import (
+    A3_NOISE_PARENT_ADAPTER_IDENTITY,
+    EPISODE_SLOT_ORDER,
     EpisodeNoiseRequest,
     NoiseParentMetadata,
     NoiseSegmentError,
     NoiseSegmentPlannerParameters,
+    noise_parent_from_a3_provenance,
     plan_noise_segments,
 )
+from active_audition.a4.records import BlockRecord, EpisodeRecord
 
 
 def _parent(sample_count=1000000, sample_rate_hz=16000):
@@ -40,31 +44,77 @@ def _planner(pre=2.0, post=2.0, guard=0.25, sample_rate_hz=16000):
 
 
 def _episodes():
+    # Deliberately caller-shuffled; the planner must use fixed slot order.
     return [
-        EpisodeNoiseRequest("episode-e2", "utterance-e2", "evaluation", "e2", 0.75),
-        EpisodeNoiseRequest("episode-s1", "utterance-s1", "selection", "s1", 1.0),
-        EpisodeNoiseRequest("episode-e1", "utterance-e1", "evaluation", "e1", 1.25),
-        EpisodeNoiseRequest("episode-s2", "utterance-s2", "selection", "s2", 0.5),
+        EpisodeNoiseRequest("evaluation", 1, "utterance-e2", 12003),
+        EpisodeNoiseRequest("selection", 0, "utterance-s1", 16000),
+        EpisodeNoiseRequest("evaluation", 0, "utterance-e1", 20001),
+        EpisodeNoiseRequest("selection", 1, "utterance-s2", 8001),
     ]
 
 
+def _plan_block_episode_chain():
+    """Construct the complete DAG without any placeholder episode IDs."""
+
+    parent = _parent()
+    plan = plan_noise_segments(parent, _episodes(), _planner())
+    block_payload = {
+        "geometry_id": stable_id("geometry", {"fixture": "dag-geometry"}),
+        "speaker_id": "speaker-dag",
+        "noise_parent_id": parent.noise_parent_id,
+        "nominal_initial_snr_db": 0.0,
+        "selection_utterance_ids": ["utterance-s1", "utterance-s2"],
+        "evaluation_utterance_ids": ["utterance-e1", "utterance-e2"],
+        "noise_segment_plan_identity": plan.plan_id,
+        "global_gain_identity": "gain-dag-v1",
+    }
+    block = BlockRecord(
+        schema_version="active-asr-a4-block-v1",
+        block_id=stable_id("block", block_payload),
+        **block_payload,
+    )
+    episodes = []
+    for segment in plan.segments:
+        episode_payload = {
+            "schema_version": "active-asr-a4-episode-v1",
+            "block_id": block.block_id,
+            "role": segment.role,
+            "utterance_identity": {
+                "utterance_id": segment.utterance_identity,
+                "decoded_waveform_sha256": "b" * 64,
+            },
+            "reference_identity": {"reference_sha256": "c" * 64, "normalization_version": "v1"},
+            "fixed_dry_noise_segment_identity": segment.to_payload(),
+            "target_source_duration_sec": segment.target_duration_sec,
+            "noise_source_time_start_sec": segment.source_time_start_sec,
+            "noise_source_time_end_sec": segment.source_time_end_sec,
+            "noise_segment_duration_sec": segment.source_time_end_sec - segment.source_time_start_sec,
+        }
+        episodes.append(EpisodeRecord(episode_id=stable_id("episode", episode_payload), **episode_payload))
+    return parent, plan, block, tuple(episodes)
+
+
 class NoiseSegmentPlannerTests(unittest.TestCase):
+    def test_fixed_slots_and_dag_plan_does_not_contain_final_episode_ids(self):
+        parent, plan, block, episodes = _plan_block_episode_chain()
+        self.assertEqual([(item.role, item.role_index) for item in plan.segments], list(EPISODE_SLOT_ORDER))
+        self.assertEqual(len(episodes), 4)
+        self.assertEqual(block.noise_segment_plan_identity, plan.plan_id)
+        serialized = plan.to_payload()
+        self.assertNotIn("episode_id", serialized)
+        self.assertTrue(all("episode_id" not in segment for segment in serialized["segments"]))
+        self.assertEqual(parent.noise_parent_id, block.noise_parent_id)
+        self.assertEqual([episode.block_id for episode in episodes], [block.block_id] * 4)
+
     def test_stable_order_and_four_nonoverlapping_segments(self):
         plan = plan_noise_segments(_parent(), _episodes(), _planner())
-        self.assertEqual([item.role for item in plan.segments], ["selection", "selection", "evaluation", "evaluation"])
-        self.assertEqual([item.episode_id for item in plan.segments], ["episode-s1", "episode-s2", "episode-e1", "episode-e2"])
+        self.assertEqual([(item.role, item.role_index) for item in plan.segments], list(EPISODE_SLOT_ORDER))
         for first, second in zip(plan.segments, plan.segments[1:]):
+            self.assertEqual(second.start_sample, first.end_sample + first.guard_after_samples)
             self.assertLessEqual(first.end_sample, second.start_sample)
         self.assertEqual(plan.segments[0].source_time_start_sec, -2.0)
         self.assertEqual(plan.segments[0].source_time_end_sec, 3.0)
-        self.assertEqual(plan.segments[0].end_sample - plan.segments[0].start_sample, 5 * 16000)
-        self.assertEqual(plan.segments[0].guard_after_samples, int(0.25 * 16000))
-
-    def test_selection_and_evaluation_ranges_are_nonoverlapping(self):
-        plan = plan_noise_segments(_parent(), _episodes(), _planner())
-        selection = plan.segments[:2]
-        evaluation = plan.segments[2:]
-        self.assertLessEqual(selection[-1].end_sample, evaluation[0].start_sample)
+        self.assertEqual(plan.segments[-1].guard_after_samples, 0)
         self.assertEqual(plan.required_parent_sample_count, plan.segments[-1].end_sample)
 
     def test_same_input_is_byte_identical_and_round_trips(self):
@@ -76,9 +126,59 @@ class NoiseSegmentPlannerTests(unittest.TestCase):
         self.assertEqual(restored.plan_id, first.plan_id)
         self.assertEqual(canonical_json_bytes(restored.to_payload()), canonical_json_bytes(first.to_payload()))
 
-    def test_segment_identity_binds_parent_payload_episode_and_contract(self):
+    def test_target_sample_count_is_authority_for_fractional_duration(self):
+        params = _planner(pre=0.25, post=0.25, guard=0.05, sample_rate_hz=10)
+        episodes = [
+            EpisodeNoiseRequest(role, index, "utt-{}-{}".format(role, index), count)
+            for role, index, count in (
+                ("selection", 0, 1), ("selection", 1, 2), ("evaluation", 0, 3), ("evaluation", 1, 4)
+            )
+        ]
+        plan = plan_noise_segments(_parent(sample_count=1000, sample_rate_hz=10), episodes, params)
+        first = plan.segments[0]
+        # 0.25 s rounds half-up to 3 samples; target count remains exactly 1.
+        self.assertEqual(first.start_sample, 0)
+        self.assertEqual(first.end_sample - first.start_sample, 3 + 1 + 3)
+        self.assertEqual(first.target_sample_count, 1)
+        self.assertEqual(first.target_duration_sec, 0.1)
+        self.assertEqual(first.source_time_start_sec, -0.3)
+        self.assertEqual(first.source_time_end_sec, 0.4)
+        self.assertEqual(plan.required_parent_sample_count, plan.segments[-1].end_sample)
+
+    def test_insufficient_parent_fails_without_looping(self):
+        large = plan_noise_segments(_parent(), _episodes(), _planner())
+        short_parent = _parent(sample_count=large.required_parent_sample_count - 1)
+        with self.assertRaisesRegex(NoiseSegmentError, "INSUFFICIENT_NOISE_PARENT_LENGTH"):
+            plan_noise_segments(short_parent, _episodes(), _planner())
+
+    def test_serialized_plan_consistency_rejects_tampering(self):
+        plan = plan_noise_segments(_parent(), _episodes(), _planner())
+        payload = plan.to_payload()
+        mutations = []
+        changed = copy.deepcopy(payload)
+        changed["segments"][1]["role_index"] = 0
+        mutations.append(changed)
+        changed = copy.deepcopy(payload)
+        changed["segments"][1]["guard_after_samples"] += 1
+        mutations.append(changed)
+        changed = copy.deepcopy(payload)
+        changed["segments"][2]["start_sample"] += 1
+        mutations.append(changed)
+        changed = copy.deepcopy(payload)
+        changed["segments"][0]["start_sample"] = 1
+        mutations.append(changed)
+        changed = copy.deepcopy(payload)
+        changed["segments"][3]["guard_after_samples"] = 1
+        mutations.append(changed)
+        changed = copy.deepcopy(payload)
+        changed["required_parent_sample_count"] -= 1
+        mutations.append(changed)
+        for mutation in mutations:
+            with self.assertRaises(NoiseSegmentError):
+                plan.from_payload(mutation)
+
+    def test_parent_payload_episode_and_contract_identity_bindings(self):
         first = plan_noise_segments(_parent(), _episodes(), _planner())
-        changed_parent = _parent()
         changed_parent = NoiseParentMetadata(
             noise_parent_id=stable_id("noise-parent", {"fixture": "other-parent"}),
             decoded_resampled_payload_sha256="b" * 64,
@@ -88,52 +188,19 @@ class NoiseSegmentPlannerTests(unittest.TestCase):
         changed = plan_noise_segments(changed_parent, _episodes(), _planner())
         self.assertNotEqual(first.plan_id, changed.plan_id)
         self.assertNotEqual(first.segments[0].segment_id, changed.segments[0].segment_id)
-        changed_episodes = list(_episodes())
-        changed_episodes[1] = EpisodeNoiseRequest("episode-s1", "utterance-s1-changed", "selection", "s1", 1.0)
-        changed_episode_plan = plan_noise_segments(_parent(), changed_episodes, _planner())
-        self.assertNotEqual(first.segments[0].segment_id, changed_episode_plan.segments[0].segment_id)
+        changed_slots = list(_episodes())
+        changed_slots[1] = EpisodeNoiseRequest("selection", 0, "utterance-s1-changed", 16000)
+        changed_plan = plan_noise_segments(_parent(), changed_slots, _planner())
+        self.assertNotEqual(first.segments[0].segment_id, changed_plan.segments[0].segment_id)
 
-    def test_insufficient_parent_fails_without_looping(self):
-        large = plan_noise_segments(_parent(), _episodes(), _planner())
-        short_parent = _parent(sample_count=large.required_parent_sample_count - 1)
-        with self.assertRaisesRegex(NoiseSegmentError, "INSUFFICIENT_NOISE_PARENT_LENGTH"):
-            plan_noise_segments(short_parent, _episodes(), _planner())
-
-    def test_sample_boundary_and_guard_accounting_are_half_open(self):
-        params = _planner(pre=0.2, post=0.3, guard=0.1, sample_rate_hz=10)
-        episodes = [
-            EpisodeNoiseRequest("episode-{}".format(index), "utterance-{}".format(index), role, order, 0.5)
-            for index, (role, order) in enumerate((
-                ("selection", "s1"), ("selection", "s2"), ("evaluation", "e1"), ("evaluation", "e2")
-            ))
-        ]
-        plan = plan_noise_segments(_parent(sample_count=1000, sample_rate_hz=10), episodes, params)
-        self.assertEqual(plan.segments[0].start_sample, 0)
-        self.assertEqual(plan.segments[0].end_sample, 10)
-        self.assertEqual(plan.segments[1].start_sample, 11)
-        self.assertEqual(plan.segments[-1].end_sample, 43)
-        self.assertEqual(plan.required_parent_sample_count, 43)
-
-    def test_int_and_float_metadata_normalize_to_same_identity(self):
-        integer = _planner(pre=2, post=2, guard=0)
-        floating = _planner(pre=2.0, post=2.0, guard=0.0)
-        source_episodes = [
-            EpisodeNoiseRequest("episode-{}".format(index), "utterance-{}".format(index), role, order, duration)
-            for index, (role, order, duration) in enumerate((
-                ("selection", "s1", 1), ("selection", "s2", 2), ("evaluation", "e1", 3), ("evaluation", "e2", 4)
-            ))
-        ]
-        integer_episodes = [
-            EpisodeNoiseRequest(item.episode_id, item.utterance_identity, item.role, item.stable_order_key, int(item.target_duration_sec))
-            for item in source_episodes
-        ]
-        float_episodes = [
-            EpisodeNoiseRequest(item.episode_id, item.utterance_identity, item.role, item.stable_order_key, float(item.target_duration_sec))
-            for item in integer_episodes
-        ]
-        first = plan_noise_segments(_parent(), integer_episodes, integer)
-        second = plan_noise_segments(_parent(), float_episodes, floating)
-        self.assertEqual(first.plan_id, second.plan_id)
+    def test_a3_path_like_parent_requires_explicit_provenance_adapter(self):
+        with self.assertRaises(NoiseSegmentError):
+            NoiseParentMetadata("parent_recording_id/path.wav", "a" * 64, 16000, 1000)
+        parent = noise_parent_from_a3_provenance(
+            "parent_recording_id/path.wav", "1" * 64, "2" * 64, "3" * 64, 16000, 1000
+        )
+        self.assertTrue(parent.noise_parent_id.startswith("noise-parent-"))
+        self.assertEqual(A3_NOISE_PARENT_ADAPTER_IDENTITY, "active-asr-a4-a3-parent-provenance-adapter-v1")
 
     def test_api_has_no_rir_snr_or_asr_inputs(self):
         with self.assertRaises(TypeError):
@@ -168,13 +235,34 @@ class ActiveMaskTests(unittest.TestCase):
         self.assertTrue(math.isclose(first.threshold_rms, 0.01, rel_tol=1.0e-12))
         self.assertEqual(first.active_sample_count, 1520)
 
-    def test_mask_record_round_trip_and_unknown_fields_reject(self):
+    def test_mask_record_round_trip_and_tamper_rejection(self):
         result = build_active_mask(tuple([1.0] * 1600), 16000, ActiveMaskContract())
         restored = ActiveMaskRecord.from_payload(result.to_payload())
         self.assertEqual(restored.mask_id, result.mask_id)
-        payload = dict(result.to_payload(), unknown=True)
-        with self.assertRaises(ActiveMaskError):
-            ActiveMaskRecord.from_payload(payload)
+        mutations = []
+        changed = dict(result.to_payload())
+        changed["frame_count"] += 1
+        mutations.append(changed)
+        changed = dict(result.to_payload())
+        changed["active_frame_indices"] = [0, 1]
+        mutations.append(changed)
+        changed = dict(result.to_payload())
+        changed["mask"] = list(result.mask)
+        changed["mask"][1599] = True
+        mutations.append(changed)
+        changed = dict(result.to_payload())
+        changed["mask"] = list(result.mask)
+        changed["mask"][0] = False
+        mutations.append(changed)
+        changed = dict(result.to_payload())
+        changed["active_sample_count"] += 1
+        mutations.append(changed)
+        changed = dict(result.to_payload())
+        changed["mask_id"] = "active-mask-" + "0" * 64
+        mutations.append(changed)
+        for mutation in mutations:
+            with self.assertRaises(ActiveMaskError):
+                ActiveMaskRecord.from_payload(mutation)
 
     def test_finite_and_silence_validation(self):
         with self.assertRaisesRegex(ActiveMaskError, "finite"):
