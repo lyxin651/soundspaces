@@ -5,8 +5,8 @@ closed A0--A3 contracts.  A4-1 supplies the sampler and motion algorithm
 identities, A4-2A supplies source-time segment planning and dry-speech mask
 semantics, A4-2B1 supplies the common timeline and selection-only calibration
 semantics, and A4-2B2 supplies dual-source reconstruction and mixer integrity.
-Exact smoke sources/geometries and cache execution remain versioned in later
-A4 slices.
+Exact smoke sources/geometries remain versioned in the later A4-4 slice;
+generic cache/resume infrastructure is completed by A4-3B.
 """
 
 import hashlib
@@ -376,6 +376,11 @@ def _cache(value: Mapping, state: str) -> None:
         "integrity",
         "atomic_commit",
         "resume",
+        "expected_manifest_schema",
+        "reconciliation_record_schema",
+        "reconciliation_algorithm",
+        "completion_marker_schema",
+        "completion_algorithm",
         "algorithm",
     )
     _only(value, keys, path)
@@ -399,13 +404,12 @@ def _cache(value: Mapping, state: str) -> None:
     if value["integrity"] != ["key_recompute", "metadata_schema", "payload_exists", "payload_sha256", "shape_dtype", "finite_payload", "semantic_identities"]:
         raise A4ContractError("cache_resume.integrity is incomplete")
     _string(value["atomic_commit"], _path(path, "atomic_commit"), "active-asr-a4-payload-then-metadata-atomic-commit-v1")
-    _concrete_or_deferred_identity(
-        value["resume"],
-        _path(path, "resume"),
-        "DEFERRED_TO_A4_3",
-        "reject_incomplete_or_corrupt_entries",
-        state,
-    )
+    _string(value["resume"], _path(path, "resume"), "active-asr-a4-deterministic-resume-reconciliation-v1")
+    _string(value["expected_manifest_schema"], _path(path, "expected_manifest_schema"), "active-asr-a4-cache-expected-manifest-v1")
+    _string(value["reconciliation_record_schema"], _path(path, "reconciliation_record_schema"), "active-asr-a4-cache-reconciliation-record-v1")
+    _string(value["reconciliation_algorithm"], _path(path, "reconciliation_algorithm"), "active-asr-a4-cache-reconciliation-v1")
+    _string(value["completion_marker_schema"], _path(path, "completion_marker_schema"), "active-asr-a4-cache-completion-marker-v1")
+    _string(value["completion_algorithm"], _path(path, "completion_algorithm"), "active-asr-a4-strict-completion-marker-v1")
     _string(value["algorithm"], _path(path, "algorithm"), "active-asr-a4-content-addressed-cache-v1")
 
 

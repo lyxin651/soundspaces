@@ -150,7 +150,12 @@ cache_resume:
   integrity_algorithm: active-asr-a4-cache-key-metadata-payload-integrity-v1
   integrity: [key_recompute, metadata_schema, payload_exists, payload_sha256, shape_dtype, finite_payload, semantic_identities]
   atomic_commit: active-asr-a4-payload-then-metadata-atomic-commit-v1
-  resume: DEFERRED_TO_A4_3
+  resume: active-asr-a4-deterministic-resume-reconciliation-v1
+  expected_manifest_schema: active-asr-a4-cache-expected-manifest-v1
+  reconciliation_record_schema: active-asr-a4-cache-reconciliation-record-v1
+  reconciliation_algorithm: active-asr-a4-cache-reconciliation-v1
+  completion_marker_schema: active-asr-a4-cache-completion-marker-v1
+  completion_algorithm: active-asr-a4-strict-completion-marker-v1
   algorithm: active-asr-a4-content-addressed-cache-v1
 access_boundary:
   selection: selection_only_for_calibration_and_pose_choice

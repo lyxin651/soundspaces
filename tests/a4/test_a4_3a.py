@@ -331,7 +331,7 @@ class CacheStoreTests(unittest.TestCase):
 
 
 class A4CacheContractTests(unittest.TestCase):
-    def test_a4_3a_cache_semantics_are_concrete_but_resume_is_deferred(self):
+    def test_a4_cache_semantics_are_concrete_including_resume(self):
         contract = load_contract(str(CONTRACT_PATH))
         validate_contract(contract)
         cache = contract["cache_resume"]
@@ -349,7 +349,10 @@ class A4CacheContractTests(unittest.TestCase):
         )
         self.assertEqual(cache["integrity_algorithm"], "active-asr-a4-cache-key-metadata-payload-integrity-v1")
         self.assertIn("finite_payload", cache["integrity"])
-        self.assertEqual(cache["resume"], "DEFERRED_TO_A4_3")
+        self.assertEqual(cache["resume"], "active-asr-a4-deterministic-resume-reconciliation-v1")
+        self.assertEqual(cache["expected_manifest_schema"], "active-asr-a4-cache-expected-manifest-v1")
+        self.assertEqual(cache["reconciliation_record_schema"], "active-asr-a4-cache-reconciliation-record-v1")
+        self.assertEqual(cache["completion_marker_schema"], "active-asr-a4-cache-completion-marker-v1")
         self.assertEqual(contract["contract"]["state"], "DRAFT")
         self.assertEqual(len(contract_sha256(contract)), 64)
 
