@@ -373,7 +373,7 @@ class MixerTests(unittest.TestCase):
         artifact = self.build()
         self.assertTrue(artifact.diagnostics["peak_over_unit"])
         self.assertGreater(artifact.diagnostics["peak_over_unit_max_abs"], 1.0)
-        self.assertEqual(artifact.mixture_binaural.max(), np.float32(3.0))
+        self.assertAlmostEqual(float(artifact.mixture_binaural.max()), 3.0, places=5)
         self.assertEqual(artifact.alpha, self.fixture["calibration"].alpha)
         self.assertIn("diagnostic_snr_db_two_ear", artifact.diagnostics)
         self.assertIn("diagnostic_snr_db_mean_lr", artifact.diagnostics)

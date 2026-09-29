@@ -61,6 +61,8 @@ def _mixture_key(rir_key):
     return MixtureCacheKey(
         target_rir_cache_key=rir_key.cache_key,
         noise_rir_cache_key=_rir_key(4.0).cache_key,
+        target_component_identity=stable_id("target-component", {"fixture": "resume-target-component"}),
+        noise_component_identity=stable_id("noise-component", {"fixture": "resume-noise-component"}),
         target_dry_waveform_sha256="1" * 64,
         noise_segment_payload_sha256="2" * 64,
         noise_segment_identity=stable_id("noise-segment", {"fixture": "resume-noise"}),

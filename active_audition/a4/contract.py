@@ -19,7 +19,7 @@ import yaml
 from active_audition.a4.identity import canonical_json, validate_sha256
 
 
-A4_CONTRACT_VERSION = "active-asr-a4-infrastructure-v1"
+A4_CONTRACT_VERSION = "active-asr-a4-infrastructure-v2"
 A4_GATE = "A4"
 
 
@@ -269,13 +269,18 @@ def _active_mask(value: Mapping) -> None:
 
 def _acoustic(value: Mapping) -> None:
     path = "production_acoustics"
-    keys = ("sample_rate_hz", "channel_layout", "channel_order", "materials", "convolution", "speech_emission_scale", "normalization", "time_convention")
+    keys = ("sample_rate_hz", "channel_layout", "channel_order", "materials", "convolution", "convolution_implementation_identity", "speech_emission_scale", "normalization", "time_convention")
     _only(value, keys, path)
     _require(value, keys, path)
     if value["sample_rate_hz"] != 16000 or value["channel_layout"] != "binaural" or value["channel_order"] != ["L", "R"]:
         raise A4ContractError("production_acoustics native16/canonical binaural fields are invalid")
     _string(value["materials"], _path(path, "materials"), "OFF")
     _string(value["convolution"], _path(path, "convolution"), "full")
+    _string(
+        value["convolution_implementation_identity"],
+        _path(path, "convolution_implementation_identity"),
+        "active-asr-a4-scipy-fftconvolve-full-float32-v1",
+    )
     _number(value["speech_emission_scale"], _path(path, "speech_emission_scale"))
     if float(value["speech_emission_scale"]) != 1.0:
         raise A4ContractError("production_acoustics.speech_emission_scale must be 1.0")
@@ -331,11 +336,11 @@ def _mixture(value: Mapping, state: str) -> None:
     _string(value["calibration_input"], _path(path, "calibration_input"), "calibration_artifact_identity_only")
     _string(
         value["timeline"], _path(path, "timeline"),
-        "active-asr-a4-common-receiver-timeline-v1",
+        "active-asr-a4-common-receiver-timeline-v2",
     )
     _string(
         value["timeline_schema"], _path(path, "timeline_schema"),
-        "active-asr-a4-receiver-timeline-v1",
+        "active-asr-a4-receiver-timeline-v2",
     )
     _string(
         value["timeline_source_time_convention"], _path(path, "timeline_source_time_convention"),
@@ -392,7 +397,7 @@ def _cache(value: Mapping, state: str) -> None:
     _only(schemas, ("rir", "mixture", "asr"), _path(path, "key_schemas"))
     _require(schemas, ("rir", "mixture", "asr"), _path(path, "key_schemas"))
     _string(schemas["rir"], _path(path, "key_schemas.rir"), "active-asr-a4-rir-cache-key-v1")
-    _string(schemas["mixture"], _path(path, "key_schemas.mixture"), "active-asr-a4-mixture-cache-key-v2")
+    _string(schemas["mixture"], _path(path, "key_schemas.mixture"), "active-asr-a4-mixture-cache-key-v3")
     _string(schemas["asr"], _path(path, "key_schemas.asr"), "active-asr-a4-asr-cache-key-v1")
     _string(value["metadata_schema"], _path(path, "metadata_schema"), "active-asr-a4-cache-metadata-v1")
     metadata_schemas = _mapping(value["metadata_schemas"], _path(path, "metadata_schemas"))

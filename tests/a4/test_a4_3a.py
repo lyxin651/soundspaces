@@ -62,6 +62,8 @@ def _mixture_key(**overrides):
     payload = {
         "target_rir_cache_key": _rir_key().cache_key,
         "noise_rir_cache_key": _rir_key(source_world_transform={"position_xyz": [4.0, 1.5, -2.0]}).cache_key,
+        "target_component_identity": stable_id("target-component", {"fixture": "target-component"}),
+        "noise_component_identity": stable_id("noise-component", {"fixture": "noise-component"}),
         "target_dry_waveform_sha256": "1" * 64,
         "noise_segment_payload_sha256": "2" * 64,
         "noise_segment_identity": stable_id("noise-segment", {"fixture": "noise"}),
@@ -337,7 +339,7 @@ class A4CacheContractTests(unittest.TestCase):
         cache = contract["cache_resume"]
         self.assertEqual(cache["algorithm"], "active-asr-a4-content-addressed-cache-v1")
         self.assertEqual(cache["key_serialization"], "active-asr-a4-cache-key-canonical-json-v1")
-        self.assertEqual(cache["key_schemas"]["mixture"], "active-asr-a4-mixture-cache-key-v2")
+        self.assertEqual(cache["key_schemas"]["mixture"], "active-asr-a4-mixture-cache-key-v3")
         self.assertEqual(cache["metadata_schema"], "active-asr-a4-cache-metadata-v1")
         self.assertEqual(
             cache["metadata_schemas"],

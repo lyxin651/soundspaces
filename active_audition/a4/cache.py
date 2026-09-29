@@ -33,7 +33,7 @@ from active_audition.a4.noise_segments import SOURCE_TIME_CONVENTION_IDENTITY
 CACHE_KEY_SERIALIZATION_IDENTITY = "active-asr-a4-cache-key-canonical-json-v1"
 CACHE_METADATA_SCHEMA_VERSION = "active-asr-a4-cache-metadata-v1"
 RIR_CACHE_KEY_SCHEMA_VERSION = "active-asr-a4-rir-cache-key-v1"
-MIXTURE_CACHE_KEY_SCHEMA_VERSION = "active-asr-a4-mixture-cache-key-v2"
+MIXTURE_CACHE_KEY_SCHEMA_VERSION = "active-asr-a4-mixture-cache-key-v3"
 ASR_CACHE_KEY_SCHEMA_VERSION = "active-asr-a4-asr-cache-key-v1"
 RIR_CACHE_METADATA_SCHEMA_VERSION = "active-asr-a4-rir-cache-metadata-v1"
 MIXTURE_CACHE_METADATA_SCHEMA_VERSION = "active-asr-a4-mixture-cache-metadata-v1"
@@ -310,6 +310,8 @@ class RirCacheKey:
 class MixtureCacheKey:
     target_rir_cache_key: str
     noise_rir_cache_key: str
+    target_component_identity: str
+    noise_component_identity: str
     target_dry_waveform_sha256: str
     noise_segment_payload_sha256: str
     noise_segment_identity: str
@@ -323,6 +325,8 @@ class MixtureCacheKey:
     def __post_init__(self) -> None:
         _stable(self.target_rir_cache_key, "rir-cache-key", "mixture.target_rir_cache_key")
         _stable(self.noise_rir_cache_key, "rir-cache-key", "mixture.noise_rir_cache_key")
+        _stable(self.target_component_identity, "target-component", "mixture.target_component_identity")
+        _stable(self.noise_component_identity, "noise-component", "mixture.noise_component_identity")
         for name in ("target_dry_waveform_sha256", "noise_segment_payload_sha256"):
             _sha(getattr(self, name), "mixture." + name)
         _stable(self.noise_segment_identity, "noise-segment", "mixture.noise_segment_identity")
@@ -341,6 +345,8 @@ class MixtureCacheKey:
             "layer": CACHE_LAYER_MIXTURE,
             "target_rir_cache_key": self.target_rir_cache_key,
             "noise_rir_cache_key": self.noise_rir_cache_key,
+            "target_component_identity": self.target_component_identity,
+            "noise_component_identity": self.noise_component_identity,
             "target_dry_waveform_sha256": self.target_dry_waveform_sha256,
             "noise_segment_payload_sha256": self.noise_segment_payload_sha256,
             "noise_segment_identity": self.noise_segment_identity,
@@ -1028,6 +1034,7 @@ __all__ = [
     "CACHE_KEY_SERIALIZATION_IDENTITY",
     "CACHE_KEYING_IDENTITY",
     "CACHE_METADATA_SCHEMA_VERSION",
+    "MIXTURE_CACHE_KEY_SCHEMA_VERSION",
     "CacheError",
     "CacheReadResult",
     "CacheStore",

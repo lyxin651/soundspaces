@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from active_audition.a4.identity import canonical_json, identity_sha256, stable_id
+from active_audition.a4.contract import contract_sha256, load_contract
 from active_audition.a4.budget import MotionCost
 from active_audition.a4.noise_audit import (
     NOISE_AUDIT_POLICY_IDENTITY,
@@ -165,9 +166,11 @@ def main() -> None:
     args = parser.parse_args()
 
     old = json.loads(OLD_MANIFEST.read_text(encoding="utf-8"))
-    contract_sha = CONTRACT_SHA.read_text(encoding="utf-8").strip()
-    if contract_sha != "81ae5896c8d0b5348d00cb7314aef1eb2bebb5445b1bdfdb7ff55f4cd4a4abe6":
-        raise RuntimeError("Infrastructure Contract SHA changed; refusing re-freeze")
+    contract = load_contract(str(ROOT / "configs/active_audition/v1/a4_infrastructure_contract.yaml"), require_frozen=True)
+    contract_sha = contract_sha256(contract)
+    declared_contract_sha = CONTRACT_SHA.read_text(encoding="utf-8").strip()
+    if contract_sha != declared_contract_sha:
+        raise RuntimeError("Infrastructure Contract sidecar SHA mismatch; refusing re-freeze")
     selection = json.loads(REPLACEMENT_SELECTION.read_text(encoding="utf-8"))
     replacement_sheet = json.loads(REPLACEMENT_AUDIT.read_text(encoding="utf-8"))
     manual_sheet = json.loads(MANUAL_AUDIT.read_text(encoding="utf-8"))

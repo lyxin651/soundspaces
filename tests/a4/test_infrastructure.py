@@ -188,7 +188,7 @@ class A4ContractTests(unittest.TestCase):
         contract["contract"]["state"] = "DRAFT"
         self.assertEqual(contract["calibration_boundary"]["active_mask"], ACTIVE_MASK_ALGORITHM_IDENTITY)
         self.assertEqual(contract["calibration_boundary"]["algorithm"], "active-asr-a4-selection-initial-snr-calibration-v1")
-        self.assertEqual(contract["mixture_boundary"]["timeline"], "active-asr-a4-common-receiver-timeline-v1")
+        self.assertEqual(contract["mixture_boundary"]["timeline"], "active-asr-a4-common-receiver-timeline-v2")
         validate_contract(contract)
 
     def test_fully_concrete_draft_validates(self):
@@ -212,6 +212,7 @@ class A4ContractTests(unittest.TestCase):
         self.assertEqual(contract["cache_resume"]["completion_marker_schema"], "active-asr-a4-cache-completion-marker-v1")
         self.assertEqual(contract["cache_resume"]["completion_marker_scope"], "manifest_scoped_resume_v1")
         self.assertEqual(contract["cache_resume"]["key_schemas"]["rir"], "active-asr-a4-rir-cache-key-v1")
+        self.assertEqual(contract["cache_resume"]["key_schemas"]["mixture"], "active-asr-a4-mixture-cache-key-v3")
         validate_contract(contract)
 
     def test_frozen_with_any_deferred_field_rejects(self):

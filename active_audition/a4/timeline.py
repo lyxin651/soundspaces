@@ -12,13 +12,15 @@ from types import MappingProxyType
 from typing import Any, Mapping, Sequence, Tuple
 
 import numpy as np
+from scipy.signal import fftconvolve
 
 from active_audition.a4.identity import stable_id, validate_stable_id
 
 
-TIMELINE_SCHEMA_VERSION = "active-asr-a4-receiver-timeline-v1"
-TIMELINE_CONTRACT_SCHEMA_VERSION = "active-asr-a4-receiver-timeline-contract-v1"
-TIMELINE_ALGORITHM_IDENTITY = "active-asr-a4-common-receiver-timeline-v1"
+TIMELINE_SCHEMA_VERSION = "active-asr-a4-receiver-timeline-v2"
+TIMELINE_CONTRACT_SCHEMA_VERSION = "active-asr-a4-receiver-timeline-contract-v2"
+TIMELINE_ALGORITHM_IDENTITY = "active-asr-a4-common-receiver-timeline-v2"
+CONVOLUTION_IMPLEMENTATION_IDENTITY = "active-asr-a4-scipy-fftconvolve-full-float32-v1"
 TIMELINE_MASK_SCHEMA_VERSION = "active-asr-a4-receiver-time-mask-v1"
 TIMELINE_MASK_ALGORITHM_IDENTITY = "active-asr-a4-dry-mask-to-receiver-time-v1"
 SOURCE_TIME_CONVENTION_IDENTITY = "active-asr-a4-target-dry-onset-zero-v1"
@@ -396,8 +398,18 @@ class ReceiverTimeMask:
 
 
 def _full_convolve(source: np.ndarray, rir: np.ndarray) -> np.ndarray:
+    """Use one explicit, versioned propagation backend for every input size."""
+
+    source_value = np.asarray(source, dtype=np.float32)
+    rir_value = np.asarray(rir, dtype=np.float32)
     return np.column_stack(
-        [np.convolve(source.astype(np.float32), rir[:, index].astype(np.float32), mode="full") for index in range(2)]
+        [
+            np.asarray(
+                fftconvolve(source_value, rir_value[:, index], mode="full"),
+                dtype=np.float32,
+            )
+            for index in range(2)
+        ]
     ).astype(np.float32, copy=False)
 
 
@@ -508,6 +520,7 @@ def map_dry_mask_to_receiver_time(
 __all__ = [
     "A2_DIRECT_ONSET_CONVENTION_IDENTITY",
     "CHANNEL_ORDER",
+    "CONVOLUTION_IMPLEMENTATION_IDENTITY",
     "CommonReceiverTimeline",
     "ReceiverTimeMask",
     "SOURCE_TIME_CONVENTION_IDENTITY",

@@ -1,6 +1,6 @@
 contract:
   namespace: active-asr-a4
-  version: active-asr-a4-infrastructure-v1
+  version: active-asr-a4-infrastructure-v2
   gate: A4
   state: FROZEN
 serialization:
@@ -103,6 +103,7 @@ production_acoustics:
   channel_order: [L, R]
   materials: "OFF"
   convolution: full
+  convolution_implementation_identity: active-asr-a4-scipy-fftconvolve-full-float32-v1
   speech_emission_scale: 1.0
   normalization:
     per_pose: false
@@ -121,8 +122,8 @@ calibration_boundary:
 mixture_boundary:
   target_noise_propagation: independent_rirs
   calibration_input: calibration_artifact_identity_only
-  timeline: active-asr-a4-common-receiver-timeline-v1
-  timeline_schema: active-asr-a4-receiver-timeline-v1
+  timeline: active-asr-a4-common-receiver-timeline-v2
+  timeline_schema: active-asr-a4-receiver-timeline-v2
   timeline_source_time_convention: active-asr-a4-target-dry-onset-zero-v1
   timeline_direct_onset_convention: active-asr-a2-direct-window-first-absolute-sample-10-percent-peak-v1
   reconstruction: active-asr-a4-linear-reconstruction-v1
@@ -140,7 +141,7 @@ cache_resume:
   key_serialization: active-asr-a4-cache-key-canonical-json-v1
   key_schemas:
     rir: active-asr-a4-rir-cache-key-v1
-    mixture: active-asr-a4-mixture-cache-key-v2
+    mixture: active-asr-a4-mixture-cache-key-v3
     asr: active-asr-a4-asr-cache-key-v1
   metadata_schema: active-asr-a4-cache-metadata-v1
   metadata_schemas:

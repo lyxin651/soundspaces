@@ -95,9 +95,9 @@ class TimelineTests(unittest.TestCase, A42B1FixtureMixin):
     def test_common_timeline_preserves_relative_target_noise_and_channel_delays(self):
         timeline, _, _ = self.timeline()
         self.assertEqual(timeline.receiver_end_sample_exclusive - timeline.receiver_start_sample, timeline.target_binaural.shape[0])
-        target_l = np.flatnonzero(timeline.target_binaural[:, 0])
-        target_r = np.flatnonzero(timeline.target_binaural[:, 1])
-        noise_l = np.flatnonzero(timeline.noise_binaural[:, 0])
+        target_l = np.flatnonzero(np.abs(timeline.target_binaural[:, 0]) > 1.0e-6)
+        target_r = np.flatnonzero(np.abs(timeline.target_binaural[:, 1]) > 1.0e-6)
+        noise_l = np.flatnonzero(np.abs(timeline.noise_binaural[:, 0]) > 1.0e-6)
         self.assertEqual(int(target_l[0] - timeline.target_receiver_offset_samples), 2)
         self.assertEqual(int(target_r[0] - timeline.target_receiver_offset_samples), 4)
         self.assertEqual(int(noise_l[0] - timeline.noise_receiver_offset_samples), 7)
