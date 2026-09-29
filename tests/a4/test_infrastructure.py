@@ -14,6 +14,7 @@ from active_audition.a4.budget import (
     MotionParameters,
     compute_motion_cost,
 )
+from active_audition.a4.active_mask import ACTIVE_MASK_ALGORITHM_IDENTITY
 from active_audition.a4.identity import (
     A4IdentityError,
     canonical_json_bytes,
@@ -77,7 +78,7 @@ def _block(geometry):
 def _concrete_frozen_contract():
     contract = copy.deepcopy(load_contract(str(CONTRACT_PATH)))
     contract["contract"]["state"] = "FROZEN"
-    contract["calibration_boundary"]["active_mask"] = "active-mask-v1"
+    contract["calibration_boundary"]["active_mask"] = ACTIVE_MASK_ALGORITHM_IDENTITY
     contract["calibration_boundary"]["algorithm"] = "selection-calibration-v1"
     contract["mixture_boundary"]["timeline"] = "source-time-timeline-v1"
     contract["mixture_boundary"]["reconstruction"] = "dual-source-reconstruction-v1"
@@ -126,6 +127,28 @@ class A4ContractTests(unittest.TestCase):
         contract = _concrete_frozen_contract()
         validate_contract(contract, require_frozen=True)
         self.assertNotIn("engineering_smoke_manifest", contract)
+
+    def test_all_deferred_later_slice_draft_validates(self):
+        contract = copy.deepcopy(load_contract(str(CONTRACT_PATH)))
+        contract["calibration_boundary"]["active_mask"] = "DEFERRED_TO_A4_2"
+        validate_contract(contract)
+
+    def test_partially_concrete_draft_validates(self):
+        contract = copy.deepcopy(load_contract(str(CONTRACT_PATH)))
+        self.assertEqual(contract["calibration_boundary"]["active_mask"], ACTIVE_MASK_ALGORITHM_IDENTITY)
+        self.assertEqual(contract["calibration_boundary"]["algorithm"], "DEFERRED_TO_A4_2")
+        validate_contract(contract)
+
+    def test_fully_concrete_draft_validates(self):
+        contract = _concrete_frozen_contract()
+        contract["contract"]["state"] = "DRAFT"
+        validate_contract(contract)
+
+    def test_frozen_with_any_deferred_field_rejects(self):
+        contract = copy.deepcopy(load_contract(str(CONTRACT_PATH)))
+        contract["contract"]["state"] = "FROZEN"
+        with self.assertRaises(A4ContractError):
+            validate_contract(contract)
 
     def test_smoke_manifest_is_not_an_infrastructure_contract_field(self):
         contract = copy.deepcopy(load_contract(str(CONTRACT_PATH)))

@@ -2,8 +2,9 @@
 
 The contract freezes long-lived interfaces and points back to the already
 closed A0--A3 contracts.  A4-1 supplies the sampler and motion algorithm
-identities here; exact smoke sources/geometries and later calibration, mixer,
-and cache execution remain versioned in later A4 slices.
+identities, while A4-2A supplies source-time segment planning and dry-speech
+mask semantics.  Exact smoke sources/geometries and later calibration,
+timeline, mixer, and cache execution remain versioned in later A4 slices.
 """
 
 import hashlib
@@ -113,6 +114,8 @@ def _schema(value: Mapping) -> None:
         "block": "active-asr-a4-block-v1",
         "episode": "active-asr-a4-episode-v1",
         "calibration": "active-asr-a4-calibration-v1",
+        "noise_segment": "active-asr-a4-noise-segment-v1",
+        "active_mask": "active-asr-a4-active-mask-v1",
     }
     _only(value, expected, path)
     _require(value, expected, path)
@@ -122,10 +125,18 @@ def _schema(value: Mapping) -> None:
 
 def _lifecycle_identity(value: Any, path: str, deferred: str, state: str) -> None:
     _string(value, path)
-    if state == "DRAFT" and value != deferred:
-        raise A4ContractError("{} must be {!r} while contract is DRAFT".format(path, deferred))
     if state == "FROZEN" and value.startswith("DEFERRED_TO_A4_"):
         raise A4ContractError("{} remains unresolved: {}".format(path, value))
+
+
+def _concrete_or_deferred_identity(value: Any, path: str, deferred: str, concrete: str, state: str) -> None:
+    _string(value, path)
+    if value == deferred:
+        if state == "FROZEN":
+            raise A4ContractError("{} remains unresolved: {}".format(path, value))
+        return
+    if value != concrete:
+        raise A4ContractError("{} must be {!r} or {!r}".format(path, concrete, deferred))
 
 
 def _sampler_boundary(value: Mapping, state: str) -> None:
@@ -201,6 +212,54 @@ def _geometry_legality(value: Mapping) -> None:
         raise A4ContractError("geometry_legality.invalid_reasons is invalid")
 
 
+def _noise_segment_planner(value: Mapping) -> None:
+    path = "noise_segment_planner"
+    keys = (
+        "algorithm_identity", "schema_version", "source_time_convention",
+        "sample_index_convention", "episode_order_identity",
+        "selection_evaluation_nonoverlap", "parent_ranges_nonoverlap",
+        "no_looping", "no_provenance_free_concat", "parameter_schema",
+    )
+    _only(value, keys, path)
+    _require(value, keys, path)
+    _string(value["algorithm_identity"], _path(path, "algorithm_identity"), "active-asr-a4-noise-segment-planner-v1")
+    _string(value["schema_version"], _path(path, "schema_version"), "active-asr-a4-noise-segment-plan-v1")
+    _string(value["source_time_convention"], _path(path, "source_time_convention"), "active-asr-a4-target-dry-onset-zero-v1")
+    _string(value["sample_index_convention"], _path(path, "sample_index_convention"), "active-asr-a4-half-open-sample-range-v1")
+    _string(value["episode_order_identity"], _path(path, "episode_order_identity"), "active-asr-a4-stable-episode-order-v1")
+    for key in ("selection_evaluation_nonoverlap", "parent_ranges_nonoverlap", "no_looping", "no_provenance_free_concat"):
+        _bool(value[key], _path(path, key), True)
+    schema = _mapping(value["parameter_schema"], _path(path, "parameter_schema"))
+    schema_keys = ("sample_rate_hz", "pre_roll_sec", "post_roll_sec", "guard_interval_sec", "episode_count")
+    _only(schema, schema_keys, _path(path, "parameter_schema"))
+    _require(schema, schema_keys, _path(path, "parameter_schema"))
+    for key in schema_keys:
+        _string(schema[key], _path(path, "parameter_schema." + key))
+
+
+def _active_mask(value: Mapping) -> None:
+    path = "active_mask"
+    keys = (
+        "algorithm_identity", "schema_version", "input_identity", "frame_rms_identity",
+        "percentile_identity", "threshold_identity", "expansion_identity", "parameter_schema",
+    )
+    _only(value, keys, path)
+    _require(value, keys, path)
+    _string(value["algorithm_identity"], _path(path, "algorithm_identity"), "active-asr-a4-dry-speech-active-mask-v1")
+    _string(value["schema_version"], _path(path, "schema_version"), "active-asr-a4-active-mask-v1")
+    _string(value["input_identity"], _path(path, "input_identity"), "dry_target_speech_only_v1")
+    _string(value["frame_rms_identity"], _path(path, "frame_rms_identity"), "frame_rms_no_padding_v1")
+    _string(value["percentile_identity"], _path(path, "percentile_identity"), "linear_interpolated_finite_percentile_v1")
+    _string(value["threshold_identity"], _path(path, "threshold_identity"), "reference_plus_db_offset_v1")
+    _string(value["expansion_identity"], _path(path, "expansion_identity"), "frame_to_sample_half_open_union_v1")
+    schema = _mapping(value["parameter_schema"], _path(path, "parameter_schema"))
+    schema_keys = ("frame_duration_ms", "hop_duration_ms", "reference_percentile", "threshold_db")
+    _only(schema, schema_keys, _path(path, "parameter_schema"))
+    _require(schema, schema_keys, _path(path, "parameter_schema"))
+    for key in schema_keys:
+        _string(schema[key], _path(path, "parameter_schema." + key))
+
+
 def _acoustic(value: Mapping) -> None:
     path = "production_acoustics"
     keys = ("sample_rate_hz", "channel_layout", "channel_order", "materials", "convolution", "speech_emission_scale", "normalization", "time_convention")
@@ -224,7 +283,10 @@ def _calibration(value: Mapping, state: str) -> None:
     _only(value, keys, path)
     _require(value, keys, path)
     _string(value["scope"], _path(path, "scope"), "selection_only_initial_pose_once")
-    _lifecycle_identity(value["active_mask"], _path(path, "active_mask"), "DEFERRED_TO_A4_2", state)
+    _concrete_or_deferred_identity(
+        value["active_mask"], _path(path, "active_mask"),
+        "DEFERRED_TO_A4_2", "active-asr-a4-dry-speech-active-mask-v1", state
+    )
     if value["selection_episode_count"] != 2:
         raise A4ContractError("calibration_boundary.selection_episode_count must be 2")
     _lifecycle_identity(value["algorithm"], _path(path, "algorithm"), "DEFERRED_TO_A4_2", state)
@@ -290,7 +352,8 @@ def validate_contract(value: Mapping[str, Any], require_frozen: bool = False) ->
         raise A4ContractError("A4 contract must be a mapping")
     keys = (
         "contract", "serialization", "typed_records", "sampler_boundary", "motion_cost",
-        "geometry_legality", "production_acoustics", "calibration_boundary", "mixture_boundary", "cache_resume",
+        "geometry_legality", "noise_segment_planner", "active_mask", "production_acoustics",
+        "calibration_boundary", "mixture_boundary", "cache_resume",
         "access_boundary", "frozen_parents",
     )
     _only(value, keys, "root")
@@ -304,6 +367,8 @@ def validate_contract(value: Mapping[str, Any], require_frozen: bool = False) ->
     _sampler_boundary(_mapping(value["sampler_boundary"], "sampler_boundary"), state)
     _motion(_mapping(value["motion_cost"], "motion_cost"), state)
     _geometry_legality(_mapping(value["geometry_legality"], "geometry_legality"))
+    _noise_segment_planner(_mapping(value["noise_segment_planner"], "noise_segment_planner"))
+    _active_mask(_mapping(value["active_mask"], "active_mask"))
     _acoustic(_mapping(value["production_acoustics"], "production_acoustics"))
     _calibration(_mapping(value["calibration_boundary"], "calibration_boundary"), state)
     _mixture(_mapping(value["mixture_boundary"], "mixture_boundary"), state)

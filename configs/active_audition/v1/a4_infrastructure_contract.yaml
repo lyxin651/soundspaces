@@ -16,6 +16,8 @@ typed_records:
   block: active-asr-a4-block-v1
   episode: active-asr-a4-episode-v1
   calibration: active-asr-a4-calibration-v1
+  noise_segment: active-asr-a4-noise-segment-v1
+  active_mask: active-asr-a4-active-mask-v1
 sampler_boundary:
   source_free: true
   selection_inputs: [navmesh_legality, pathfinder, stable_probe_identity]
@@ -45,6 +47,35 @@ geometry_legality:
   threshold_parameter: candidate_contract.source_clearance_m
   replacement_sampling: false
   invalid_reasons: [TARGET_SOURCE_CLEARANCE, NOISE_SOURCE_CLEARANCE, TARGET_AND_NOISE_SOURCE_CLEARANCE]
+noise_segment_planner:
+  algorithm_identity: active-asr-a4-noise-segment-planner-v1
+  schema_version: active-asr-a4-noise-segment-plan-v1
+  source_time_convention: active-asr-a4-target-dry-onset-zero-v1
+  sample_index_convention: active-asr-a4-half-open-sample-range-v1
+  episode_order_identity: active-asr-a4-stable-episode-order-v1
+  selection_evaluation_nonoverlap: true
+  parent_ranges_nonoverlap: true
+  no_looping: true
+  no_provenance_free_concat: true
+  parameter_schema:
+    sample_rate_hz: positive_integer_hz
+    pre_roll_sec: finite_nonnegative_seconds
+    post_roll_sec: finite_nonnegative_seconds
+    guard_interval_sec: finite_nonnegative_seconds
+    episode_count: exactly_four_block_episodes
+active_mask:
+  algorithm_identity: active-asr-a4-dry-speech-active-mask-v1
+  schema_version: active-asr-a4-active-mask-v1
+  input_identity: dry_target_speech_only_v1
+  frame_rms_identity: frame_rms_no_padding_v1
+  percentile_identity: linear_interpolated_finite_percentile_v1
+  threshold_identity: reference_plus_db_offset_v1
+  expansion_identity: frame_to_sample_half_open_union_v1
+  parameter_schema:
+    frame_duration_ms: finite_positive_milliseconds
+    hop_duration_ms: finite_positive_milliseconds
+    reference_percentile: finite_percentile_0_to_100
+    threshold_db: finite_negative_decibels
 motion_cost:
   formula_identity: active-asr-a4-motion-cost-v1
   parameter_schema:
@@ -74,7 +105,7 @@ production_acoustics:
   time_convention: source_time_common_receiver_time
 calibration_boundary:
   scope: selection_only_initial_pose_once
-  active_mask: DEFERRED_TO_A4_2
+  active_mask: active-asr-a4-dry-speech-active-mask-v1
   selection_episode_count: 2
   algorithm: DEFERRED_TO_A4_2
   artifact_schema: active-asr-a4-calibration-v1
