@@ -127,9 +127,10 @@ mixture_boundary:
   timeline_direct_onset_convention: active-asr-a2-direct-window-first-absolute-sample-10-percent-peak-v1
   reconstruction: active-asr-a4-linear-reconstruction-v1
   algorithm: active-asr-a4-dual-source-linear-mixer-v1
-  arithmetic_identity: active-asr-a4-float32-single-cast-arithmetic-v1
+  arithmetic_identity: active-asr-a4-float32-input-float64-intermediate-single-final-cast-v1
   global_gain: active-asr-a4-block-global-gain-v1
   residual_gate_threshold: 1.0e-6
+  residual_denominator: max_1_actual_mixture_peak_v1
   dtype_policy: native16_float32_finite_v1
   channel_policy: canonical_binaural_lr_v1
   normalization_policy: no_limiter_no_source_pose_channel_normalization_v1

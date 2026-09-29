@@ -29,10 +29,11 @@ MIXTURE_SCHEMA_VERSION = "active-asr-a4-mixture-v1"
 MIXTURE_CONTRACT_SCHEMA_VERSION = "active-asr-a4-mixture-contract-v1"
 MIXER_ALGORITHM_IDENTITY = "active-asr-a4-dual-source-linear-mixer-v1"
 RECONSTRUCTION_IDENTITY = "active-asr-a4-linear-reconstruction-v1"
-ARITHMETIC_IDENTITY = "active-asr-a4-float32-single-cast-arithmetic-v1"
+ARITHMETIC_IDENTITY = "active-asr-a4-float32-input-float64-intermediate-single-final-cast-v1"
 GLOBAL_GAIN_SCHEMA_VERSION = "active-asr-a4-global-gain-v1"
 GLOBAL_GAIN_ALGORITHM_IDENTITY = "active-asr-a4-block-global-gain-v1"
 RESIDUAL_GATE_THRESHOLD = 1.0e-6
+RESIDUAL_DENOMINATOR_IDENTITY = "max_1_actual_mixture_peak_v1"
 SAMPLE_RATE_HZ = 16000
 CHANNEL_ORDER_LIST = ("L", "R")
 
@@ -176,6 +177,7 @@ class MixtureContract:
     reconstruction_identity: str = RECONSTRUCTION_IDENTITY
     arithmetic_identity: str = ARITHMETIC_IDENTITY
     residual_gate_threshold: float = RESIDUAL_GATE_THRESHOLD
+    residual_denominator_identity: str = RESIDUAL_DENOMINATOR_IDENTITY
     dtype_policy: str = "native16_float32_finite_v1"
     channel_policy: str = "canonical_binaural_lr_v1"
     normalization_policy: str = "no_limiter_no_source_pose_channel_normalization_v1"
@@ -197,6 +199,8 @@ class MixtureContract:
             raise MixerError("mixture_contract arithmetic identity is invalid")
         if _finite(self.residual_gate_threshold, "mixture_contract.residual_gate_threshold") != RESIDUAL_GATE_THRESHOLD:
             raise MixerError("mixture_contract residual gate is invalid")
+        if self.residual_denominator_identity != RESIDUAL_DENOMINATOR_IDENTITY:
+            raise MixerError("mixture_contract residual denominator is invalid")
         if self.dtype_policy != "native16_float32_finite_v1":
             raise MixerError("mixture_contract dtype policy is invalid")
         if self.channel_policy != "canonical_binaural_lr_v1":
@@ -213,6 +217,7 @@ class MixtureContract:
             "reconstruction_identity": self.reconstruction_identity,
             "arithmetic_identity": self.arithmetic_identity,
             "residual_gate_threshold": self.residual_gate_threshold,
+            "residual_denominator_identity": self.residual_denominator_identity,
             "dtype_policy": self.dtype_policy,
             "channel_policy": self.channel_policy,
             "normalization_policy": self.normalization_policy,
@@ -389,6 +394,12 @@ def _artifact_identity_payload_from_values(values: Mapping[str, Any]) -> Dict[st
         "channel_order": list(values["channel_order"]),
         "shape": list(values["mixture_binaural"].shape),
         "dtype": values["dtype"],
+        "target_shape": list(values["target_shape"]),
+        "target_dtype": values["target_dtype"],
+        "noise_shape": list(values["noise_shape"]),
+        "noise_dtype": values["noise_dtype"],
+        "mixture_shape": list(values["mixture_shape"]),
+        "mixture_dtype": values["mixture_dtype"],
         "target_receiver_offset_samples": values["target_receiver_offset_samples"],
         "noise_receiver_offset_samples": values["noise_receiver_offset_samples"],
         "receiver_start_sample": values["receiver_start_sample"],
@@ -397,6 +408,7 @@ def _artifact_identity_payload_from_values(values: Mapping[str, Any]) -> Dict[st
         "max_abs_residual": values["max_abs_residual"],
         "relative_residual": values["relative_residual"],
         "residual_gate_threshold": values["residual_gate_threshold"],
+        "residual_denominator_identity": values["residual_denominator_identity"],
         "reconstruction_status": values["reconstruction_status"],
     }
 
@@ -423,6 +435,12 @@ def _artifact_identity_payload(record: "MixtureArtifact") -> Dict[str, Any]:
         "sample_rate_hz": record.sample_rate_hz,
         "channel_order": record.channel_order,
         "dtype": record.dtype,
+        "target_shape": record.target_shape,
+        "target_dtype": record.target_dtype,
+        "noise_shape": record.noise_shape,
+        "noise_dtype": record.noise_dtype,
+        "mixture_shape": record.mixture_shape,
+        "mixture_dtype": record.mixture_dtype,
         "target_receiver_offset_samples": record.target_receiver_offset_samples,
         "noise_receiver_offset_samples": record.noise_receiver_offset_samples,
         "receiver_start_sample": record.receiver_start_sample,
@@ -432,6 +450,7 @@ def _artifact_identity_payload(record: "MixtureArtifact") -> Dict[str, Any]:
         "max_abs_residual": record.max_abs_residual,
         "relative_residual": record.relative_residual,
         "residual_gate_threshold": record.residual_gate_threshold,
+        "residual_denominator_identity": record.residual_denominator_identity,
         "reconstruction_status": record.reconstruction_status,
     })
 
@@ -461,6 +480,12 @@ class MixtureArtifact:
     sample_rate_hz: int
     channel_order: Tuple[str, str]
     dtype: str
+    target_shape: Tuple[int, int]
+    target_dtype: str
+    noise_shape: Tuple[int, int]
+    noise_dtype: str
+    mixture_shape: Tuple[int, int]
+    mixture_dtype: str
     target_receiver_offset_samples: int
     noise_receiver_offset_samples: int
     receiver_start_sample: int
@@ -470,6 +495,7 @@ class MixtureArtifact:
     max_abs_residual: float
     relative_residual: float
     residual_gate_threshold: float
+    residual_denominator_identity: str
     reconstruction_status: str
 
     def __post_init__(self) -> None:
@@ -499,6 +525,22 @@ class MixtureArtifact:
             raise MixerError("mixture sample rate/channel order is invalid")
         if self.dtype != "float32":
             raise MixerError("mixture dtype must be float32")
+        for field in ("target_shape", "noise_shape", "mixture_shape"):
+            shape = getattr(self, field)
+            if (
+                not isinstance(shape, (list, tuple))
+                or len(shape) != 2
+                or any(isinstance(item, bool) or not isinstance(item, int) or item <= 0 for item in shape)
+            ):
+                raise MixerError("mixture.{} must be a positive two-dimensional shape".format(field))
+            object.__setattr__(self, field, tuple(shape))
+        for field in ("target_dtype", "noise_dtype", "mixture_dtype"):
+            if getattr(self, field) != "float32":
+                raise MixerError("mixture.{} must be float32".format(field))
+        if self.dtype != self.mixture_dtype:
+            raise MixerError("mixture.dtype must match mixture.mixture_dtype")
+        if self.target_shape != self.noise_shape or self.noise_shape != self.mixture_shape:
+            raise MixerError("target/noise/mixture shapes must be identical")
         for field in (
             "target_receiver_offset_samples", "noise_receiver_offset_samples",
             "receiver_start_sample", "receiver_end_sample_exclusive",
@@ -518,6 +560,8 @@ class MixtureArtifact:
             raise MixerError("mixture waveform must be finite float32")
         if self.mixture_binaural.shape[0] != self.receiver_end_sample_exclusive - self.receiver_start_sample:
             raise MixerError("mixture waveform does not match receiver support")
+        if tuple(self.mixture_binaural.shape) != self.mixture_shape:
+            raise MixerError("mixture_shape does not match mixture waveform")
         array = _copy_readonly(self.mixture_binaural)
         object.__setattr__(self, "mixture_binaural", array)
         actual_hash = _array_sha256(array)
@@ -536,6 +580,8 @@ class MixtureArtifact:
         threshold = _finite(self.residual_gate_threshold, "mixture.residual_gate_threshold")
         if min(max_residual, relative_residual) < 0.0 or threshold != RESIDUAL_GATE_THRESHOLD:
             raise MixerError("mixture residual metadata is invalid")
+        if self.residual_denominator_identity != RESIDUAL_DENOMINATOR_IDENTITY:
+            raise MixerError("mixture residual denominator identity is invalid")
         if self.reconstruction_status not in ("PASS", "FAIL"):
             raise MixerError("mixture.reconstruction_status is invalid")
         expected_id = stable_id("mixture", _artifact_identity_payload(self))
@@ -564,9 +610,12 @@ class MixtureArtifact:
             "global_gain", "alpha", "target_component_identity", "target_payload_sha256",
             "noise_component_identity", "noise_payload_sha256", "mixture_payload_sha256",
             "sample_rate_hz", "channel_order", "shape", "dtype",
+            "target_shape", "target_dtype", "noise_shape", "noise_dtype",
+            "mixture_shape", "mixture_dtype",
             "target_receiver_offset_samples", "noise_receiver_offset_samples",
             "receiver_start_sample", "receiver_end_sample_exclusive", "diagnostics",
             "max_abs_residual", "relative_residual", "residual_gate_threshold",
+            "residual_denominator_identity",
             "reconstruction_status", "mixture_samples",
         )
         _exact_fields(payload, expected, "mixture")
@@ -576,10 +625,14 @@ class MixtureArtifact:
         samples = np.asarray(payload["mixture_samples"], dtype=np.float32)
         if list(samples.shape) != list(shape):
             raise MixerError("mixture_samples shape does not match shape")
+        if list(payload["mixture_shape"]) != list(shape):
+            raise MixerError("mixture_shape does not match legacy mixture shape")
         values = dict(payload)
         values.pop("shape")
         values.pop("mixture_samples")
         values["channel_order"] = tuple(values["channel_order"])
+        for field in ("target_shape", "noise_shape", "mixture_shape"):
+            values[field] = tuple(values[field])
         values["mixture_binaural"] = samples
         return cls(**values)
 
@@ -668,7 +721,7 @@ def _make_artifact(
     expected = mixture.astype(np.float64)
     actual = mixture.astype(np.float64)
     residual = float(np.max(np.abs(actual - expected)))
-    relative = residual / max(1.0, float(np.max(np.abs(expected))))
+    relative = residual / max(1.0, float(np.max(np.abs(mixture.astype(np.float64)))))
     diagnostics = _diagnostics(target_component.payload, noise_component.payload, mixture, calibration_artifact.alpha)
     values = {
         "schema_version": MIXTURE_SCHEMA_VERSION,
@@ -691,6 +744,12 @@ def _make_artifact(
         "sample_rate_hz": contract.sample_rate_hz,
         "channel_order": tuple(contract.channel_order),
         "dtype": "float32",
+        "target_shape": tuple(target_component.payload.shape),
+        "target_dtype": "float32",
+        "noise_shape": tuple(noise_component.payload.shape),
+        "noise_dtype": "float32",
+        "mixture_shape": tuple(mixture.shape),
+        "mixture_dtype": "float32",
         "target_receiver_offset_samples": timeline.target_receiver_offset_samples,
         "noise_receiver_offset_samples": timeline.noise_receiver_offset_samples,
         "receiver_start_sample": timeline.receiver_start_sample,
@@ -700,6 +759,7 @@ def _make_artifact(
         "max_abs_residual": residual,
         "relative_residual": relative,
         "residual_gate_threshold": contract.residual_gate_threshold,
+        "residual_denominator_identity": contract.residual_denominator_identity,
         "reconstruction_status": "PASS" if relative <= contract.residual_gate_threshold else "FAIL",
     }
     values["mixture_artifact_id"] = stable_id("mixture", _artifact_identity_payload_from_values(values))
@@ -789,12 +849,20 @@ def validate_mixture_reconstruction(
         raise MixerError("mixture target component binding is inconsistent")
     if artifact.noise_component_identity != noise_component.component_identity or artifact.noise_payload_sha256 != noise_component.payload_sha256:
         raise MixerError("mixture noise component binding is inconsistent")
+    if artifact.target_shape != tuple(target_component.payload.shape) or artifact.target_dtype != "float32":
+        raise MixerError("mixture target shape/dtype metadata is inconsistent")
+    if artifact.noise_shape != tuple(noise_component.payload.shape) or artifact.noise_dtype != "float32":
+        raise MixerError("mixture noise shape/dtype metadata is inconsistent")
+    if artifact.mixture_shape != tuple(artifact.mixture_binaural.shape) or artifact.mixture_dtype != "float32":
+        raise MixerError("mixture waveform shape/dtype metadata is inconsistent")
+    if artifact.target_shape != artifact.noise_shape or artifact.noise_shape != artifact.mixture_shape:
+        raise MixerError("mixture component shapes are inconsistent")
     if artifact.mixture_binaural.shape != target_component.payload.shape:
         raise MixerError("mixture shape is inconsistent")
     expected = _render(target_component.payload, noise_component.payload, calibration_artifact.alpha, global_gain.gain)
     difference = np.abs(artifact.mixture_binaural.astype(np.float64) - expected.astype(np.float64))
     max_abs = float(np.max(difference))
-    relative = max_abs / max(1.0, float(np.max(np.abs(expected.astype(np.float64)))))
+    relative = max_abs / max(1.0, float(np.max(np.abs(artifact.mixture_binaural.astype(np.float64)))))
     if artifact.mixture_payload_sha256 != _array_sha256(artifact.mixture_binaural):
         raise MixerError("mixture payload hash is inconsistent")
     if not math.isclose(artifact.max_abs_residual, max_abs, rel_tol=0.0, abs_tol=1.0e-12):
@@ -803,6 +871,8 @@ def validate_mixture_reconstruction(
         raise MixerError("mixture relative_residual is inconsistent")
     if artifact.residual_gate_threshold != contract.residual_gate_threshold:
         raise MixerError("mixture residual threshold is inconsistent")
+    if artifact.residual_denominator_identity != contract.residual_denominator_identity:
+        raise MixerError("mixture residual denominator identity is inconsistent")
     expected_status = "PASS" if relative <= contract.residual_gate_threshold else "FAIL"
     if artifact.reconstruction_status != expected_status:
         raise MixerError("mixture reconstruction status is inconsistent")
@@ -829,6 +899,7 @@ __all__ = [
     "GlobalGainSpec",
     "RECONSTRUCTION_IDENTITY",
     "RESIDUAL_GATE_THRESHOLD",
+    "RESIDUAL_DENOMINATOR_IDENTITY",
     "WaveformComponent",
     "build_mixture",
     "validate_mixture_reconstruction",

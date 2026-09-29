@@ -197,7 +197,12 @@ class A4ContractTests(unittest.TestCase):
         contract = load_contract(str(CONTRACT_PATH))
         self.assertEqual(contract["mixture_boundary"]["reconstruction"], "active-asr-a4-linear-reconstruction-v1")
         self.assertEqual(contract["mixture_boundary"]["algorithm"], "active-asr-a4-dual-source-linear-mixer-v1")
+        self.assertEqual(
+            contract["mixture_boundary"]["arithmetic_identity"],
+            "active-asr-a4-float32-input-float64-intermediate-single-final-cast-v1",
+        )
         self.assertEqual(contract["mixture_boundary"]["residual_gate_threshold"], 1.0e-6)
+        self.assertEqual(contract["mixture_boundary"]["residual_denominator"], "max_1_actual_mixture_peak_v1")
         self.assertEqual(contract["cache_resume"]["algorithm"], "DEFERRED_TO_A4_3")
         validate_contract(contract)
 

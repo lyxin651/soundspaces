@@ -322,7 +322,7 @@ def _mixture(value: Mapping, state: str) -> None:
         "target_noise_propagation", "calibration_input", "timeline", "timeline_schema",
         "timeline_source_time_convention", "timeline_direct_onset_convention",
         "reconstruction", "algorithm", "arithmetic_identity", "global_gain",
-        "residual_gate_threshold", "dtype_policy", "channel_policy",
+        "residual_gate_threshold", "residual_denominator", "dtype_policy", "channel_policy",
         "normalization_policy", "artifact_schema",
     )
     _only(value, keys, path)
@@ -353,10 +353,11 @@ def _mixture(value: Mapping, state: str) -> None:
         value["algorithm"], _path(path, "algorithm"),
         "DEFERRED_TO_A4_2", "active-asr-a4-dual-source-linear-mixer-v1", state,
     )
-    _string(value["arithmetic_identity"], _path(path, "arithmetic_identity"), "active-asr-a4-float32-single-cast-arithmetic-v1")
+    _string(value["arithmetic_identity"], _path(path, "arithmetic_identity"), "active-asr-a4-float32-input-float64-intermediate-single-final-cast-v1")
     _string(value["global_gain"], _path(path, "global_gain"), "active-asr-a4-block-global-gain-v1")
     if _number(value["residual_gate_threshold"], _path(path, "residual_gate_threshold")) != 1.0e-6:
         raise A4ContractError("mixture_boundary.residual_gate_threshold must be 1e-6")
+    _string(value["residual_denominator"], _path(path, "residual_denominator"), "max_1_actual_mixture_peak_v1")
     _string(value["dtype_policy"], _path(path, "dtype_policy"), "native16_float32_finite_v1")
     _string(value["channel_policy"], _path(path, "channel_policy"), "canonical_binaural_lr_v1")
     _string(value["normalization_policy"], _path(path, "normalization_policy"), "no_limiter_no_source_pose_channel_normalization_v1")

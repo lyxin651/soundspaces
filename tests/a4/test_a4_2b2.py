@@ -36,7 +36,7 @@ from active_audition.a4.timeline import (
 )
 
 
-def _fixture():
+def _fixture(gain_value=1.0):
     parent_payload = {"fixture": "a4-2b2-mixer-parent"}
     parent = NoiseParentMetadata(
         noise_parent_id=stable_id("noise-parent", parent_payload),
@@ -52,7 +52,7 @@ def _fixture():
     ]
     planner = NoiseSegmentPlannerParameters(16000, 0.1, 0.1, 0.01)
     plan = plan_noise_segments(parent, requests, planner)
-    gain = GlobalGainSpec(1.0)
+    gain = GlobalGainSpec(gain_value)
     block_payload = {
         "geometry_id": stable_id("geometry", {"fixture": "a4-2b2-mixer-geometry"}),
         "speaker_id": "speaker-a4-2b2-mixer",
@@ -185,6 +185,35 @@ class MixerTests(unittest.TestCase):
         self.assertEqual(artifact.alpha, self.fixture["calibration"].alpha)
         self.assertEqual(artifact.global_gain, 1.0)
 
+    def test_residual_uses_actual_mixture_peak_denominator(self):
+        artifact = self.build()
+        payload = copy.deepcopy(artifact.to_payload())
+        expected = artifact.mixture_binaural.copy()
+        peak_index = np.unravel_index(np.argmax(np.abs(expected)), expected.shape)
+        payload["mixture_samples"][peak_index[0]][peak_index[1]] += 1.5e-6
+        actual = np.asarray(payload["mixture_samples"], dtype=np.float32)
+        residual = float(np.max(np.abs(actual.astype(np.float64) - expected.astype(np.float64))))
+        actual_relative = residual / max(1.0, float(np.max(np.abs(actual.astype(np.float64)))))
+        expected_relative = residual / max(1.0, float(np.max(np.abs(expected.astype(np.float64)))))
+        self.assertNotEqual(actual_relative, expected_relative)
+        payload["mixture_payload_sha256"] = __import__("hashlib").sha256(actual.tobytes()).hexdigest()
+        payload["max_abs_residual"] = residual
+        payload["relative_residual"] = actual_relative
+        payload["reconstruction_status"] = "PASS"
+        identity_payload = {
+            key: value for key, value in payload.items()
+            if key not in ("mixture_artifact_id", "mixture_samples")
+        }
+        payload["mixture_artifact_id"] = stable_id("mixture", identity_payload)
+        tampered = MixtureArtifact.from_payload(payload)
+        validate_mixture_reconstruction(
+            tampered, self.fixture["block"], self.fixture["episodes"][0], self.fixture["pose_id"],
+            self.fixture["timeline"], self.fixture["target_component"], self.fixture["noise_component"],
+            self.fixture["calibration"], self.fixture["gain"], self.contract,
+        )
+        self.assertAlmostEqual(tampered.relative_residual, actual_relative, places=15)
+        self.assertGreater(abs(tampered.relative_residual - expected_relative), 0.0)
+
     def test_alpha_only_comes_from_calibration_artifact(self):
         parameters = inspect.signature(build_mixture).parameters
         self.assertNotIn("alpha", parameters)
@@ -221,6 +250,31 @@ class MixerTests(unittest.TestCase):
         self.assertNotEqual(GlobalGainSpec(1.0).identity, GlobalGainSpec(2.0).identity)
         with self.assertRaises(MixerError):
             self.build(global_gain=GlobalGainSpec(2.0))
+
+    def test_non_unit_gain_changes_waveform_and_block_mixture_identity(self):
+        non_unit = _fixture(2.0)
+        artifact = build_mixture(
+            block=non_unit["block"],
+            episode=non_unit["episodes"][0],
+            pose_id=non_unit["pose_id"],
+            timeline=non_unit["timeline"],
+            target_component=non_unit["target_component"],
+            noise_component=non_unit["noise_component"],
+            calibration_artifact=non_unit["calibration"],
+            global_gain=non_unit["gain"],
+            contract=self.contract,
+        )
+        expected = 2.0 * (
+            non_unit["target_component"].payload.astype(np.float64)
+            + non_unit["calibration"].alpha * non_unit["noise_component"].payload.astype(np.float64)
+        ).astype(np.float32)
+        np.testing.assert_array_equal(artifact.mixture_binaural, expected)
+        self.assertEqual(non_unit["block"].global_gain_identity, non_unit["gain"].identity)
+        self.assertNotEqual(non_unit["gain"].identity, self.fixture["gain"].identity)
+        self.assertNotEqual(non_unit["block"].block_id, self.fixture["block"].block_id)
+        self.assertNotEqual(artifact.mixture_artifact_id, self.build().mixture_artifact_id)
+        self.assertEqual(artifact.mixer_algorithm_identity, self.build().mixer_algorithm_identity)
+        self.assertEqual(artifact.reconstruction_identity, self.build().reconstruction_identity)
 
     def test_shape_dtype_finite_and_independent_component_requirements(self):
         parameters = inspect.signature(build_mixture).parameters
@@ -269,6 +323,27 @@ class MixerTests(unittest.TestCase):
         tampered["max_abs_residual"] = 1.0
         with self.assertRaises(MixerError):
             MixtureArtifact.from_payload(tampered)
+
+    def test_component_shape_dtype_metadata_round_trip_and_tamper_rejection(self):
+        artifact = self.build()
+        payload = artifact.to_payload()
+        self.assertEqual(payload["target_shape"], payload["noise_shape"])
+        self.assertEqual(payload["noise_shape"], payload["mixture_shape"])
+        self.assertEqual(payload["target_dtype"], "float32")
+        self.assertEqual(payload["noise_dtype"], "float32")
+        self.assertEqual(payload["mixture_dtype"], "float32")
+        restored = MixtureArtifact.from_payload(payload)
+        self.assertEqual(restored.target_shape, tuple(self.fixture["target_component"].payload.shape))
+        for field, value in (("target_shape", [1, 2]), ("noise_shape", [1, 2]), ("mixture_shape", [1, 2])):
+            tampered = copy.deepcopy(payload)
+            tampered[field] = value
+            with self.assertRaises(MixerError):
+                MixtureArtifact.from_payload(tampered)
+        for field in ("target_dtype", "noise_dtype", "mixture_dtype"):
+            tampered = copy.deepcopy(payload)
+            tampered[field] = "float64"
+            with self.assertRaises(MixerError):
+                MixtureArtifact.from_payload(tampered)
 
     def test_reconstruction_gate_and_tampered_waveform_fail_without_normalization(self):
         artifact = self.build()
