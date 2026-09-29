@@ -13,6 +13,7 @@ from typing import Any, Mapping, Sequence, Tuple
 from active_audition.a4.budget import MotionCost
 from active_audition.a4.identity import canonical_json_bytes, identity_sha256, stable_id, validate_sha256
 from active_audition.a4.noise_segments import NoiseSegmentPlan
+from active_audition.a4.noise_audit import NoiseParentAuditRecord
 from active_audition.a4.pose_sampler import (
     CandidateContract,
     ProbeAttemptRecord,
@@ -24,7 +25,12 @@ from active_audition.a4.pose_sampler import (
 from active_audition.a4.records import BlockRecord, EpisodeRecord, GeometryRecord, PoseRecord
 
 
-ENGINEERING_SMOKE_MANIFEST_SCHEMA_VERSION = "active-asr-a4-engineering-smoke-manifest-v1"
+ENGINEERING_SMOKE_MANIFEST_V1_SCHEMA_VERSION = "active-asr-a4-engineering-smoke-manifest-v1"
+ENGINEERING_SMOKE_MANIFEST_SCHEMA_VERSION = "active-asr-a4-engineering-smoke-manifest-v2"
+ENGINEERING_SMOKE_MANIFEST_SCHEMA_VERSIONS = (
+    ENGINEERING_SMOKE_MANIFEST_V1_SCHEMA_VERSION,
+    ENGINEERING_SMOKE_MANIFEST_SCHEMA_VERSION,
+)
 ENGINEERING_SMOKE_MANIFEST_STATE = "FROZEN"
 EXPECTED_FRONTENDS = ("mean_lr", "fixed_L", "fixed_R")
 FORBIDDEN_SELECTION_INPUTS = (
@@ -35,6 +41,7 @@ BLOCK_FIELDS = (
     "sampler_output", "poses", "noise_parent", "noise_plan", "episodes",
     "speech_sources", "noise_audit", "global_gain", "selection_evaluation_policy",
 )
+BLOCK_FIELDS_V2 = BLOCK_FIELDS + ("noise_audit_record",)
 TOP_FIELDS = (
     "schema_version", "state", "engineering_only", "infrastructure_contract_sha256",
     "selection_policy", "blocks", "expected_frontends", "forbidden_result_dependent_selection",
@@ -98,9 +105,9 @@ def _reject_result_fields(value: Any, path: str = "manifest") -> None:
             _reject_result_fields(item, "{}[{}]".format(path, index))
 
 
-def _validate_block(payload: Mapping[str, Any], index: int) -> None:
+def _validate_block(payload: Mapping[str, Any], index: int, schema_version: str) -> None:
     path = "manifest.blocks[{}]".format(index)
-    _exact(payload, BLOCK_FIELDS, path)
+    _exact(payload, BLOCK_FIELDS_V2 if schema_version == ENGINEERING_SMOKE_MANIFEST_SCHEMA_VERSION else BLOCK_FIELDS, path)
     geometry = GeometryRecord.from_payload(payload["geometry_record"])
     block = BlockRecord.from_payload(payload["block_record"])
     candidate = CandidateContract.from_payload(payload["candidate_contract"])
@@ -176,6 +183,24 @@ def _validate_block(payload: Mapping[str, Any], index: int) -> None:
             raise EngineeringSmokeManifestError("{} speech source is not engineering-only".format(path))
     if payload["noise_audit"]["engineering_only"] is not True:
         raise EngineeringSmokeManifestError("{} noise audit is not engineering-only".format(path))
+    if schema_version == ENGINEERING_SMOKE_MANIFEST_SCHEMA_VERSION:
+        try:
+            audit = NoiseParentAuditRecord.from_payload(payload["noise_audit_record"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise EngineeringSmokeManifestError("{}.noise_audit_record is invalid: {}".format(path, exc)) from exc
+        noise_parent = payload["noise_parent"]
+        if audit.parent_recording_id != noise_parent["parent_recording_id"]:
+            raise EngineeringSmokeManifestError("{} noise audit/parent recording mismatch".format(path))
+        if audit.source_file_sha256 != noise_parent["source_file_sha256"]:
+            raise EngineeringSmokeManifestError("{} noise audit/source SHA mismatch".format(path))
+        if audit.decoded_waveform_sha256 != noise_parent["decoded_waveform_sha256"]:
+            raise EngineeringSmokeManifestError("{} noise audit/decoded SHA mismatch".format(path))
+        if audit.sample_rate_hz != noise_parent["sample_rate_hz"] or audit.sample_count != noise_parent["samples"]:
+            raise EngineeringSmokeManifestError("{} noise audit/source extent mismatch".format(path))
+        if audit.selected_for_a4_smoke is not True:
+            raise EngineeringSmokeManifestError("{} selected block requires selected_for_a4_smoke=true".format(path))
+        if tuple(getattr(audit, field) for field in ("speech_leakage", "strong_reverberation", "indoor_localized_source_compatibility")) != ("PASS", "PASS", "PASS"):
+            raise EngineeringSmokeManifestError("{} selected block requires PASS for all noise audits".format(path))
     if payload["selection_evaluation_policy"] != {
         "selection": "calibration_and_later_pose_choice_eligible",
         "evaluation": "never_changes_pose_choice",
@@ -202,7 +227,7 @@ class EngineeringSmokeManifest:
 
     def __post_init__(self) -> None:
         _sha(self.infrastructure_contract_sha256, "manifest.infrastructure_contract_sha256")
-        if self.schema_version != ENGINEERING_SMOKE_MANIFEST_SCHEMA_VERSION or self.state != ENGINEERING_SMOKE_MANIFEST_STATE:
+        if self.schema_version not in ENGINEERING_SMOKE_MANIFEST_SCHEMA_VERSIONS or self.state != ENGINEERING_SMOKE_MANIFEST_STATE:
             raise EngineeringSmokeManifestError("manifest schema/state is invalid")
         if self.engineering_only is not True:
             raise EngineeringSmokeManifestError("engineering_only must be true")
@@ -214,7 +239,7 @@ class EngineeringSmokeManifest:
         if len(blocks) != 2:
             raise EngineeringSmokeManifestError("A4 engineering smoke requires exactly two blocks")
         for index, block in enumerate(blocks):
-            _validate_block(block, index)
+            _validate_block(block, index, self.schema_version)
         if len({block["block_record"]["block_id"] for block in blocks}) != 2:
             raise EngineeringSmokeManifestError("block IDs must be distinct")
         if len({block["geometry_record"]["geometry_id"] for block in blocks}) != 2:

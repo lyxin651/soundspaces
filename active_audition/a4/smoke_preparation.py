@@ -25,7 +25,7 @@ from active_audition.a4.pose_sampler import (
     sample_source_free,
 )
 from active_audition.a4.records import BlockRecord, EpisodeRecord, GeometryRecord
-from active_audition.a4.smoke_manifest import EngineeringSmokeManifest
+from active_audition.a4.smoke_manifest import EngineeringSmokeManifest, ENGINEERING_SMOKE_MANIFEST_V1_SCHEMA_VERSION
 
 
 def engineering_candidate_contract() -> CandidateContract:
@@ -203,6 +203,7 @@ def build_smoke_block_payload(
 def build_engineering_smoke_manifest(
     infrastructure_contract_sha256: str,
     blocks: Sequence[Mapping[str, Any]],
+    schema_version: str = ENGINEERING_SMOKE_MANIFEST_V1_SCHEMA_VERSION,
 ) -> EngineeringSmokeManifest:
     return EngineeringSmokeManifest(
         infrastructure_contract_sha256=infrastructure_contract_sha256,
@@ -215,6 +216,7 @@ def build_engineering_smoke_manifest(
             "separated_pattern_block": "target/noise source directions selected from non-adjacent cases",
         },
         blocks=tuple(blocks),
+        schema_version=schema_version,
         o2_exclusion={
             "excluded": True,
             "classification": "engineering_only_familiar_exploratory",

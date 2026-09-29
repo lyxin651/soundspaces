@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 CONTRACT = ROOT / "configs/active_audition/v1/a4_infrastructure_contract.yaml"
 CONTRACT_SHA = ROOT / "configs/active_audition/v1/a4_infrastructure_contract.sha256"
 SMOKE = ROOT / "configs/active_audition/v1/a4_engineering_smoke_manifest.json"
-CACHE_PLAN = ROOT / "configs/active_audition/v1/a4_engineering_smoke_cache_expected_manifest.json"
+CACHE_PLAN = ROOT / "configs/active_audition/v1/a4_engineering_smoke_cache_plan.json"
 
 
 class A44PreparationTests(unittest.TestCase):
@@ -70,10 +70,12 @@ class A44PreparationTests(unittest.TestCase):
         self.assertIn("WER", self.manifest.forbidden_result_dependent_selection)
         self.assertIn("Oracle", self.manifest.forbidden_result_dependent_selection)
 
-    def test_future_cache_plan_is_strict_and_has_deterministic_counts(self):
-        cache = CacheExpectedManifest.from_payload(json.loads(CACHE_PLAN.read_text(encoding="utf-8")))
-        self.assertEqual(dict(cache.expected_counts), {"rir": 192, "mixture": 384, "asr": 1152})
-        self.assertEqual(cache.manifest_id, json.loads(CACHE_PLAN.read_text(encoding="utf-8"))["manifest_id"])
+    def test_future_cache_plan_is_metadata_only_and_has_deterministic_counts(self):
+        plan = json.loads(CACHE_PLAN.read_text(encoding="utf-8"))
+        self.assertEqual(plan["plan_status"], "METADATA_ONLY_NOT_CACHE_EXPECTED_MANIFEST")
+        self.assertEqual(plan["expected_counts"], {"rir": 192, "mixture": 384, "asr": 1152})
+        self.assertTrue(plan["forbidden_placeholder_keys"])
+        self.assertNotIn("expected_rir_keys", plan)
 
     def test_smoke_manifest_module_is_pure(self):
         for name in ("smoke_manifest.py", "smoke_preparation.py"):
