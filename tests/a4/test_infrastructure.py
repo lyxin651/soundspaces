@@ -129,7 +129,7 @@ def _concrete_frozen_contract():
     contract["calibration_boundary"]["active_mask"] = ACTIVE_MASK_ALGORITHM_IDENTITY
     contract["mixture_boundary"]["reconstruction"] = "active-asr-a4-linear-reconstruction-v1"
     contract["mixture_boundary"]["algorithm"] = "active-asr-a4-dual-source-linear-mixer-v1"
-    contract["cache_resume"]["algorithm"] = "cache-resume-v1"
+    contract["cache_resume"]["resume"] = "reject_incomplete_or_corrupt_entries"
     return contract
 
 
@@ -178,7 +178,7 @@ class A4ContractTests(unittest.TestCase):
         contract = copy.deepcopy(load_contract(str(CONTRACT_PATH)))
         contract["mixture_boundary"]["reconstruction"] = "DEFERRED_TO_A4_2"
         contract["mixture_boundary"]["algorithm"] = "DEFERRED_TO_A4_2"
-        contract["cache_resume"]["algorithm"] = "DEFERRED_TO_A4_3"
+        contract["cache_resume"]["resume"] = "DEFERRED_TO_A4_3"
         validate_contract(contract)
 
     def test_partially_concrete_draft_validates(self):
@@ -203,7 +203,9 @@ class A4ContractTests(unittest.TestCase):
         )
         self.assertEqual(contract["mixture_boundary"]["residual_gate_threshold"], 1.0e-6)
         self.assertEqual(contract["mixture_boundary"]["residual_denominator"], "max_1_actual_mixture_peak_v1")
-        self.assertEqual(contract["cache_resume"]["algorithm"], "DEFERRED_TO_A4_3")
+        self.assertEqual(contract["cache_resume"]["algorithm"], "active-asr-a4-content-addressed-cache-v1")
+        self.assertEqual(contract["cache_resume"]["resume"], "DEFERRED_TO_A4_3")
+        self.assertEqual(contract["cache_resume"]["key_schemas"]["rir"], "active-asr-a4-rir-cache-key-v1")
         validate_contract(contract)
 
     def test_frozen_with_any_deferred_field_rejects(self):

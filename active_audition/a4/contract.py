@@ -366,14 +366,40 @@ def _mixture(value: Mapping, state: str) -> None:
 
 def _cache(value: Mapping, state: str) -> None:
     path = "cache_resume"
-    keys = ("keying", "integrity", "resume", "algorithm")
+    keys = (
+        "keying",
+        "key_serialization",
+        "key_schemas",
+        "metadata_schema",
+        "integrity_algorithm",
+        "integrity",
+        "atomic_commit",
+        "resume",
+        "algorithm",
+    )
     _only(value, keys, path)
     _require(value, keys, path)
     _string(value["keying"], _path(path, "keying"), "content_addressed_semantic_payload")
-    if value["integrity"] != ["key_recompute", "metadata_schema", "payload_exists", "payload_sha256", "shape_dtype", "semantic_identities"]:
+    _string(value["key_serialization"], _path(path, "key_serialization"), "active-asr-a4-cache-key-canonical-json-v1")
+    schemas = _mapping(value["key_schemas"], _path(path, "key_schemas"))
+    _only(schemas, ("rir", "mixture", "asr"), _path(path, "key_schemas"))
+    _require(schemas, ("rir", "mixture", "asr"), _path(path, "key_schemas"))
+    _string(schemas["rir"], _path(path, "key_schemas.rir"), "active-asr-a4-rir-cache-key-v1")
+    _string(schemas["mixture"], _path(path, "key_schemas.mixture"), "active-asr-a4-mixture-cache-key-v1")
+    _string(schemas["asr"], _path(path, "key_schemas.asr"), "active-asr-a4-asr-cache-key-v1")
+    _string(value["metadata_schema"], _path(path, "metadata_schema"), "active-asr-a4-cache-metadata-v1")
+    _string(value["integrity_algorithm"], _path(path, "integrity_algorithm"), "active-asr-a4-cache-key-metadata-payload-integrity-v1")
+    if value["integrity"] != ["key_recompute", "metadata_schema", "payload_exists", "payload_sha256", "shape_dtype", "finite_payload", "semantic_identities"]:
         raise A4ContractError("cache_resume.integrity is incomplete")
-    _string(value["resume"], _path(path, "resume"), "reject_incomplete_or_corrupt_entries")
-    _lifecycle_identity(value["algorithm"], _path(path, "algorithm"), "DEFERRED_TO_A4_3", state)
+    _string(value["atomic_commit"], _path(path, "atomic_commit"), "active-asr-a4-payload-then-metadata-atomic-commit-v1")
+    _concrete_or_deferred_identity(
+        value["resume"],
+        _path(path, "resume"),
+        "DEFERRED_TO_A4_3",
+        "reject_incomplete_or_corrupt_entries",
+        state,
+    )
+    _string(value["algorithm"], _path(path, "algorithm"), "active-asr-a4-content-addressed-cache-v1")
 
 
 def _access(value: Mapping) -> None:
