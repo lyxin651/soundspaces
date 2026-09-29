@@ -1,5 +1,4 @@
 import copy
-import math
 import unittest
 from pathlib import Path
 
@@ -46,7 +45,6 @@ def _geometry_payload():
         "noise_world_pose": {"position_xyz": [-1.0, 1.5, 0.0], "yaw_deg": 180.0},
         "production_acoustic_policy_identity": "a3-native16-materials-off",
         "candidate_contract_identity": "candidate-contract-v1",
-        "engineering_only": True,
     }
 
 
@@ -66,16 +64,22 @@ def _block(geometry):
         "noise_segment_plan_identity": "noise-plan-v1",
         "global_gain_identity": "gain-v1",
     }
-    return BlockRecord(
-        schema_version="active-asr-a4-block-v1",
-        block_id=stable_id("block", payload),
-        selection_episode_ids=["episode-selection-1", "episode-selection-2"],
-        evaluation_episode_ids=["episode-evaluation-1", "episode-evaluation-2"],
-        source_audit_identities={"speech_registry_sha256": "3" * 64},
-        noise_audit_identities={"noise_registry_sha256": "4" * 64},
-        engineering_only=True,
-        **payload
-    )
+    return BlockRecord(schema_version="active-asr-a4-block-v1", block_id=stable_id("block", payload), **payload)
+
+
+def _concrete_frozen_contract():
+    contract = copy.deepcopy(load_contract(str(CONTRACT_PATH)))
+    contract["contract"]["state"] = "FROZEN"
+    contract["sampler_boundary"]["exact_lattice"] = "sampler-lattice-v1"
+    contract["motion_cost"]["formula_identity"] = "motion-cost-formula-v1"
+    contract["motion_cost"]["exact_execution"] = "motion-cost-execution-v1"
+    contract["calibration_boundary"]["active_mask"] = "active-mask-v1"
+    contract["calibration_boundary"]["algorithm"] = "selection-calibration-v1"
+    contract["mixture_boundary"]["timeline"] = "source-time-timeline-v1"
+    contract["mixture_boundary"]["reconstruction"] = "dual-source-reconstruction-v1"
+    contract["mixture_boundary"]["algorithm"] = "synthetic-mixer-v1"
+    contract["cache_resume"]["algorithm"] = "cache-resume-v1"
+    return contract
 
 
 class A4IdentityTests(unittest.TestCase):
@@ -101,16 +105,29 @@ class A4ContractTests(unittest.TestCase):
     def test_draft_contract_validates_and_hash_is_stable(self):
         contract = load_contract(str(CONTRACT_PATH))
         self.assertEqual(contract["contract"]["state"], "DRAFT")
+        self.assertEqual(contract["contract"]["gate"], "A4")
         self.assertEqual(contract_sha256(contract), contract_sha256(copy.deepcopy(contract)))
         reordered = {key: contract[key] for key in reversed(list(contract))}
         self.assertEqual(contract_sha256(contract), contract_sha256(reordered))
 
-    def test_frozen_requires_state_but_keeps_smoke_manifest_deferred(self):
+    def test_require_frozen_rejects_draft_and_unresolved_semantics(self):
         contract = copy.deepcopy(load_contract(str(CONTRACT_PATH)))
         with self.assertRaises(A4ContractError):
             validate_contract(contract, require_frozen=True)
         contract["contract"]["state"] = "FROZEN"
+        with self.assertRaises(A4ContractError):
+            validate_contract(contract, require_frozen=True)
+
+    def test_concrete_frozen_fixture_validates_without_smoke_manifest(self):
+        contract = _concrete_frozen_contract()
         validate_contract(contract, require_frozen=True)
+        self.assertNotIn("engineering_smoke_manifest", contract)
+
+    def test_smoke_manifest_is_not_an_infrastructure_contract_field(self):
+        contract = copy.deepcopy(load_contract(str(CONTRACT_PATH)))
+        contract["engineering_smoke_manifest"] = {}
+        with self.assertRaises(A4ContractError):
+            validate_contract(contract)
 
     def test_unknown_and_missing_contract_fields_rejected(self):
         contract = copy.deepcopy(load_contract(str(CONTRACT_PATH)))
@@ -166,16 +183,49 @@ class A4RecordTests(unittest.TestCase):
 
     def test_block_identity_is_plan_only_and_calibration_is_separate(self):
         block = _block(_geometry())
-        self.assertEqual(block.calibration_state, "PRE_CALIBRATION")
-        changed_episode_ids = list(block.selection_episode_ids)
-        changed_episode_ids[0] = "episode-selection-other"
-        changed = BlockRecord(
-            **dict(block.to_payload(), selection_episode_ids=changed_episode_ids)
-        )
-        self.assertEqual(block.block_id, changed.block_id)
-        self.assertIsNone(block.calibration_artifact_id)
+        self.assertNotIn("alpha", block.identity_payload())
+        self.assertNotIn("measured_snr_db", block.identity_payload())
+        self.assertNotIn("calibration_state", block.to_payload())
+        self.assertNotIn("calibration_artifact_id", block.to_payload())
+        self.assertNotIn("selection_episode_ids", block.to_payload())
+        self.assertNotIn("engineering_only", block.to_payload())
         with self.assertRaises((RecordError, TypeError)):
             block.selection_utterance_ids[0] = "mutate"
+
+    def test_same_block_id_cannot_back_two_serialized_plan_payloads(self):
+        block = _block(_geometry())
+        changed = dict(block.to_payload(), speaker_id="speaker-2")
+        with self.assertRaises(RecordError):
+            BlockRecord.from_payload(changed)
+        with self.assertRaises(RecordError):
+            BlockRecord.from_payload(
+                dict(block.to_payload(), selection_episode_ids=["episode-selection-1", "episode-selection-2"])
+            )
+
+    def test_every_block_plan_field_changes_block_id(self):
+        block = _block(_geometry())
+        changed_geometry_payload = _geometry_payload()
+        changed_geometry_payload["initial_yaw_deg"] = 15.0
+        changed_geometry = GeometryRecord(
+            geometry_id=stable_id("geometry", changed_geometry_payload), **changed_geometry_payload
+        )
+        mutations = {
+            "geometry_id": changed_geometry.geometry_id,
+            "speaker_id": "speaker-2",
+            "noise_parent_id": "musan-parent-2",
+            "nominal_initial_snr_db": 3.0,
+            "global_gain_identity": "gain-v2",
+            "selection_utterance_ids": ["utt-s1", "utt-s3"],
+            "evaluation_utterance_ids": ["utt-e1", "utt-e3"],
+            "noise_segment_plan_identity": "noise-plan-v2",
+        }
+        for field, value in mutations.items():
+            payload = dict(block.to_payload())
+            payload[field] = value
+            payload.pop("block_id")
+            identity_payload = {key: payload[key] for key in block.identity_payload()}
+            candidate = BlockRecord(block_id=stable_id("block", identity_payload), **payload)
+            self.assertNotEqual(block.block_id, candidate.block_id, field)
 
     def test_episode_identity_changes_with_utterance_or_noise_segment(self):
         block = _block(_geometry())
@@ -186,12 +236,13 @@ class A4RecordTests(unittest.TestCase):
             "utterance_identity": {"utterance_id": "utt-s1", "decoded_waveform_sha256": "5" * 64},
             "reference_identity": {"reference_sha256": "6" * 64, "normalization_version": "v1"},
             "fixed_dry_noise_segment_identity": {"parent_id": "musan-parent-1", "sha256": "7" * 64},
-            "noise_source_time_start_sec": 0.0,
+            "target_source_duration_sec": 3.5,
+            "noise_source_time_start_sec": -2.0,
             "noise_source_time_end_sec": 4.0,
-            "source_time_duration_sec": 4.0,
-            "engineering_only": True,
+            "noise_segment_duration_sec": 6.0,
         }
         episode = EpisodeRecord(episode_id=stable_id("episode", payload), **payload)
+        self.assertEqual(episode.noise_source_time_start_sec, -2.0)
         utterance_changed = copy.deepcopy(payload)
         utterance_changed["utterance_identity"]["utterance_id"] = "utt-s2"
         changed_utterance = EpisodeRecord(episode_id=stable_id("episode", utterance_changed), **utterance_changed)
@@ -201,13 +252,39 @@ class A4RecordTests(unittest.TestCase):
         changed_segment = EpisodeRecord(episode_id=stable_id("episode", segment_changed), **segment_changed)
         self.assertNotEqual(episode.episode_id, changed_segment.episode_id)
 
+    def test_episode_zero_start_is_valid_and_invalid_timeline_fields_rejected(self):
+        block = _block(_geometry())
+        payload = {
+            "schema_version": "active-asr-a4-episode-v1",
+            "block_id": block.block_id,
+            "role": "evaluation",
+            "utterance_identity": {"utterance_id": "utt-e1", "decoded_waveform_sha256": "5" * 64},
+            "reference_identity": {"reference_sha256": "6" * 64, "normalization_version": "v1"},
+            "fixed_dry_noise_segment_identity": {"parent_id": "musan-parent-1", "sha256": "7" * 64},
+            "target_source_duration_sec": 4.0,
+            "noise_source_time_start_sec": 0.0,
+            "noise_source_time_end_sec": 4.0,
+            "noise_segment_duration_sec": 4.0,
+        }
+        valid = EpisodeRecord(episode_id=stable_id("episode", payload), **payload)
+        self.assertEqual(valid.noise_source_time_start_sec, 0.0)
+        for field, value in (
+            ("noise_source_time_end_sec", -1.0),
+            ("noise_segment_duration_sec", 3.0),
+            ("target_source_duration_sec", 0.0),
+        ):
+            invalid = dict(payload)
+            invalid[field] = value
+            with self.assertRaises(RecordError):
+                EpisodeRecord(episode_id=stable_id("episode", invalid), **invalid)
+
     def test_calibration_artifact_has_independent_identity_and_block_reference(self):
         block = _block(_geometry())
         payload = {
             "schema_version": "active-asr-a4-calibration-v1",
             "block_id": block.block_id,
             "calibration_contract_identity": "calibration-contract-v1",
-            "selection_episode_ids": list(block.selection_episode_ids),
+            "selection_episode_ids": ["episode-selection-1", "episode-selection-2"],
             "input_component_identities": {"target_sha256": "9" * 64, "noise_sha256": "a" * 64},
             "ps": 1.0,
             "pn": 0.5,
@@ -216,12 +293,11 @@ class A4RecordTests(unittest.TestCase):
             "nominal_snr_db": 3.0,
             "measured_snr_db": 3.01,
             "status": "CALIBRATED",
-            "provenance": {"algorithm_version": "future-a4-3"},
+            "provenance": {"algorithm_version": "future-a4-2"},
         }
         artifact = CalibrationArtifact(calibration_artifact_id=stable_id("calibration", payload), **payload)
-        bound = block.with_calibration_artifact(artifact.calibration_artifact_id)
-        self.assertEqual(bound.block_id, block.block_id)
-        self.assertEqual(bound.calibration_artifact_id, artifact.calibration_artifact_id)
+        self.assertEqual(artifact.block_id, block.block_id)
+        self.assertNotIn("calibration_artifact_id", block.to_payload())
         self.assertNotIn("alpha", block.identity_payload())
         self.assertNotIn("measured_snr_db", block.identity_payload())
 

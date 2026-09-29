@@ -1,7 +1,7 @@
 contract:
   namespace: active-asr-a4
   version: active-asr-a4-infrastructure-v1
-  gate: A4-0
+  gate: A4
   state: DRAFT
 serialization:
   version: canonical-json-v1
@@ -22,13 +22,13 @@ sampler_boundary:
   post_sampling_source_clearance: legality_annotation_only
   exact_lattice: DEFERRED_TO_A4_1
 motion_cost:
-  formula_identity: DEFERRED_TO_A4_2
+  formula_identity: DEFERRED_TO_A4_1
   parameters:
     translation_speed_mps: 0.25
     rotation_speed_dps: 90.0
     settling_sec: 0.5
     budget_sec: 10.0
-  exact_execution: DEFERRED_TO_A4_2
+  exact_execution: DEFERRED_TO_A4_1
 production_acoustics:
   sample_rate_hz: 16000
   channel_layout: binaural
@@ -43,21 +43,21 @@ production_acoustics:
   time_convention: source_time_common_receiver_time
 calibration_boundary:
   scope: selection_only_initial_pose_once
-  active_mask: DEFERRED_TO_A4_3
+  active_mask: DEFERRED_TO_A4_2
   selection_episode_count: 2
-  algorithm: DEFERRED_TO_A4_3
+  algorithm: DEFERRED_TO_A4_2
   artifact_schema: active-asr-a4-calibration-v1
 mixture_boundary:
   target_noise_propagation: independent_rirs
   calibration_input: calibration_artifact_identity_only
-  timeline: DEFERRED_TO_A4_3
-  reconstruction: DEFERRED_TO_A4_3
-  algorithm: DEFERRED_TO_A4_3
+  timeline: DEFERRED_TO_A4_2
+  reconstruction: DEFERRED_TO_A4_2
+  algorithm: DEFERRED_TO_A4_2
 cache_resume:
   keying: content_addressed_semantic_payload
   integrity: [key_recompute, metadata_schema, payload_exists, payload_sha256, shape_dtype, semantic_identities]
   resume: reject_incomplete_or_corrupt_entries
-  algorithm: DEFERRED_TO_A4_4
+  algorithm: DEFERRED_TO_A4_3
 access_boundary:
   selection: selection_only_for_calibration_and_pose_choice
   evaluation: evaluation_never_changes_pose_choice
@@ -66,7 +66,3 @@ frozen_parents:
   a0_contract_sha256: d731393cda3ddb29f0bdf58249f104da59f29d012b976eeb2de1f160e1df8107
   a2_contract_sha256: c8f3ff23c5dca6f6d18dcb25613e6df6e20663e552f5df76170077ca67b13e7c
   a3_contract_sha256: 70864c814a55db5d184ef8a6835b65cb564c4c90fc86112f8705b7ecf6df1ffe
-engineering_smoke_manifest:
-  schema_version: active-asr-a4-engineering-smoke-v1
-  state: DEFERRED_TO_A4_4
-  identity_sha256: null

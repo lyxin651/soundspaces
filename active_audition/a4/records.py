@@ -6,7 +6,7 @@ particular, a :class:`BlockRecord` is never mutated when calibration produces
 an alpha; calibration is represented by a separate immutable artifact.
 """
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Any, Dict, Iterable, Optional, Tuple
@@ -203,7 +203,6 @@ class GeometryRecord:
     noise_world_pose: Mapping[str, Any]
     production_acoustic_policy_identity: str
     candidate_contract_identity: str
-    engineering_only: bool
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "scene_resource_identities", _freeze(self.scene_resource_identities))
@@ -228,7 +227,6 @@ class GeometryRecord:
             "noise_world_pose": _plain(self.noise_world_pose),
             "production_acoustic_policy_identity": self.production_acoustic_policy_identity,
             "candidate_contract_identity": self.candidate_contract_identity,
-            "engineering_only": self.engineering_only,
         }
 
     def to_payload(self) -> Dict[str, Any]:
@@ -272,7 +270,6 @@ def validate_geometry_record(record: GeometryRecord) -> GeometryRecord:
     _mapping(record.noise_world_pose, "geometry.noise_world_pose")
     _identity_string(record.production_acoustic_policy_identity, "geometry.production_acoustic_policy_identity")
     _identity_string(record.candidate_contract_identity, "geometry.candidate_contract_identity")
-    _bool(record.engineering_only, "geometry.engineering_only")
     _check_id(record.geometry_id, "geometry", record.identity_payload(), "geometry.geometry_id")
     return record
 
@@ -393,23 +390,16 @@ class BlockRecord:
     global_gain_identity: str
     selection_utterance_ids: Tuple[str, str]
     evaluation_utterance_ids: Tuple[str, str]
-    selection_episode_ids: Tuple[str, str]
-    evaluation_episode_ids: Tuple[str, str]
     noise_segment_plan_identity: str
-    source_audit_identities: Mapping[str, Any]
-    noise_audit_identities: Mapping[str, Any]
-    engineering_only: bool
-    calibration_artifact_id: Optional[str] = None
-    calibration_state: str = "PRE_CALIBRATION"
 
     def __post_init__(self) -> None:
-        for field in ("selection_utterance_ids", "evaluation_utterance_ids", "selection_episode_ids", "evaluation_episode_ids", "source_audit_identities", "noise_audit_identities"):
+        for field in ("selection_utterance_ids", "evaluation_utterance_ids"):
             object.__setattr__(self, field, _freeze(getattr(self, field)))
         validate_block_record(self)
 
     def identity_payload(self) -> Dict[str, Any]:
-        # Deliberately only plan inputs: no episode IDs, alpha, measured SNR,
-        # calibration artifact, audit output, or result-dependent observation.
+        # The complete block plan identity.  Episode links and calibration
+        # outputs belong to separate records/artifacts, never to this plan.
         return {
             "geometry_id": self.geometry_id,
             "speaker_id": self.speaker_id,
@@ -435,11 +425,6 @@ class BlockRecord:
     def identity_sha256(self) -> str:
         return identity_sha256(self.identity_payload())
 
-    def with_calibration_artifact(self, calibration_artifact_id: str) -> "BlockRecord":
-        """Return a new immutable reference record; never mutate this plan."""
-
-        return replace(self, calibration_artifact_id=calibration_artifact_id, calibration_state="CALIBRATION_ARTIFACT_BOUND")
-
 
 def validate_block_record(record: BlockRecord) -> BlockRecord:
     _record_init(record.schema_version, BLOCK_SCHEMA_VERSION, "block.schema_version")
@@ -455,22 +440,6 @@ def validate_block_record(record: BlockRecord) -> BlockRecord:
     _ids(record.evaluation_utterance_ids, "block.evaluation_utterance_ids", 2)
     if set(record.selection_utterance_ids) & set(record.evaluation_utterance_ids):
         _error("selection and evaluation utterance IDs must be disjoint")
-    _ids(record.selection_episode_ids, "block.selection_episode_ids", 2)
-    _ids(record.evaluation_episode_ids, "block.evaluation_episode_ids", 2)
-    if set(record.selection_episode_ids) & set(record.evaluation_episode_ids):
-        _error("selection and evaluation episode IDs must be disjoint")
-    _mapping(record.source_audit_identities, "block.source_audit_identities")
-    _mapping(record.noise_audit_identities, "block.noise_audit_identities")
-    _bool(record.engineering_only, "block.engineering_only")
-    if record.calibration_artifact_id is not None:
-        try:
-            validate_stable_id(record.calibration_artifact_id, "calibration", "block.calibration_artifact_id")
-        except A4IdentityError as exc:
-            _error(str(exc))
-    if record.calibration_state not in ("PRE_CALIBRATION", "CALIBRATION_ARTIFACT_BOUND"):
-        _error("block.calibration_state is invalid")
-    if (record.calibration_state == "PRE_CALIBRATION") != (record.calibration_artifact_id is None):
-        _error("block calibration state and artifact reference disagree")
     _check_id(record.block_id, "block", record.identity_payload(), "block.block_id")
     return record
 
@@ -484,10 +453,10 @@ class EpisodeRecord:
     utterance_identity: Mapping[str, Any]
     reference_identity: Mapping[str, Any]
     fixed_dry_noise_segment_identity: Mapping[str, Any]
+    target_source_duration_sec: float
     noise_source_time_start_sec: float
     noise_source_time_end_sec: float
-    source_time_duration_sec: float
-    engineering_only: bool
+    noise_segment_duration_sec: float
 
     def __post_init__(self) -> None:
         for field in ("utterance_identity", "reference_identity", "fixed_dry_noise_segment_identity"):
@@ -502,10 +471,10 @@ class EpisodeRecord:
             "utterance_identity": _plain(self.utterance_identity),
             "reference_identity": _plain(self.reference_identity),
             "fixed_dry_noise_segment_identity": _plain(self.fixed_dry_noise_segment_identity),
+            "target_source_duration_sec": self.target_source_duration_sec,
             "noise_source_time_start_sec": self.noise_source_time_start_sec,
             "noise_source_time_end_sec": self.noise_source_time_end_sec,
-            "source_time_duration_sec": self.source_time_duration_sec,
-            "engineering_only": self.engineering_only,
+            "noise_segment_duration_sec": self.noise_segment_duration_sec,
         }
 
     def to_payload(self) -> Dict[str, Any]:
@@ -535,12 +504,12 @@ def validate_episode_record(record: EpisodeRecord) -> EpisodeRecord:
     _mapping(record.utterance_identity, "episode.utterance_identity")
     _mapping(record.reference_identity, "episode.reference_identity")
     _mapping(record.fixed_dry_noise_segment_identity, "episode.fixed_dry_noise_segment_identity")
+    target_duration = _finite(record.target_source_duration_sec, "episode.target_source_duration_sec")
     start = _finite(record.noise_source_time_start_sec, "episode.noise_source_time_start_sec")
     end = _finite(record.noise_source_time_end_sec, "episode.noise_source_time_end_sec")
-    duration = _finite(record.source_time_duration_sec, "episode.source_time_duration_sec")
-    if start < 0.0 or end <= start or duration <= 0.0 or abs((end - start) - duration) > 1.0e-9:
+    duration = _finite(record.noise_segment_duration_sec, "episode.noise_segment_duration_sec")
+    if target_duration <= 0.0 or end <= start or duration <= 0.0 or abs((end - start) - duration) > 1.0e-9:
         _error("episode noise source-time interval is inconsistent")
-    _bool(record.engineering_only, "episode.engineering_only")
     _check_id(record.episode_id, "episode", record.identity_payload(), "episode.episode_id")
     return record
 

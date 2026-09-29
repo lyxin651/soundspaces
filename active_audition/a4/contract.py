@@ -1,4 +1,4 @@
-"""Strict validator for the A4-0 infrastructure contract.
+"""Strict validator for the A4 infrastructure contract.
 
 The contract freezes long-lived interfaces and points back to the already
 closed A0--A3 contracts.  It intentionally leaves exact smoke sources,
@@ -18,7 +18,7 @@ from active_audition.a4.identity import canonical_json, validate_sha256
 
 
 A4_CONTRACT_VERSION = "active-asr-a4-infrastructure-v1"
-A4_GATE = "A4-0"
+A4_GATE = "A4"
 
 
 class A4ContractError(ValueError):
@@ -120,7 +120,15 @@ def _schema(value: Mapping) -> None:
         _string(value[key], _path(path, key), version)
 
 
-def _sampler_boundary(value: Mapping) -> None:
+def _lifecycle_identity(value: Any, path: str, deferred: str, state: str) -> None:
+    _string(value, path)
+    if state == "DRAFT" and value != deferred:
+        raise A4ContractError("{} must be {!r} while contract is DRAFT".format(path, deferred))
+    if state == "FROZEN" and value.startswith("DEFERRED_TO_A4_"):
+        raise A4ContractError("{} remains unresolved: {}".format(path, value))
+
+
+def _sampler_boundary(value: Mapping, state: str) -> None:
     path = "sampler_boundary"
     keys = ("source_free", "selection_inputs", "post_sampling_source_clearance", "exact_lattice")
     _only(value, keys, path)
@@ -129,16 +137,16 @@ def _sampler_boundary(value: Mapping) -> None:
     if value["selection_inputs"] != ["navmesh_legality", "pathfinder", "stable_probe_identity"]:
         raise A4ContractError("sampler_boundary.selection_inputs is not the frozen source-free boundary")
     _string(value["post_sampling_source_clearance"], _path(path, "post_sampling_source_clearance"), "legality_annotation_only")
-    _string(value["exact_lattice"], _path(path, "exact_lattice"), "DEFERRED_TO_A4_1")
+    _lifecycle_identity(value["exact_lattice"], _path(path, "exact_lattice"), "DEFERRED_TO_A4_1", state)
 
 
-def _motion(value: Mapping) -> None:
+def _motion(value: Mapping, state: str) -> None:
     path = "motion_cost"
     keys = ("formula_identity", "parameters", "exact_execution")
     _only(value, keys, path)
     _require(value, keys, path)
-    _string(value["formula_identity"], _path(path, "formula_identity"), "DEFERRED_TO_A4_2")
-    _string(value["exact_execution"], _path(path, "exact_execution"), "DEFERRED_TO_A4_2")
+    _lifecycle_identity(value["formula_identity"], _path(path, "formula_identity"), "DEFERRED_TO_A4_1", state)
+    _lifecycle_identity(value["exact_execution"], _path(path, "exact_execution"), "DEFERRED_TO_A4_1", state)
     params = _mapping(value["parameters"], _path(path, "parameters"))
     _only(params, ("translation_speed_mps", "rotation_speed_dps", "settling_sec", "budget_sec"), _path(path, "parameters"))
     _require(params, ("translation_speed_mps", "rotation_speed_dps", "settling_sec", "budget_sec"), _path(path, "parameters"))
@@ -163,32 +171,32 @@ def _acoustic(value: Mapping) -> None:
     _string(value["time_convention"], _path(path, "time_convention"), "source_time_common_receiver_time")
 
 
-def _calibration(value: Mapping) -> None:
+def _calibration(value: Mapping, state: str) -> None:
     path = "calibration_boundary"
     keys = ("scope", "active_mask", "selection_episode_count", "algorithm", "artifact_schema")
     _only(value, keys, path)
     _require(value, keys, path)
     _string(value["scope"], _path(path, "scope"), "selection_only_initial_pose_once")
-    _string(value["active_mask"], _path(path, "active_mask"), "DEFERRED_TO_A4_3")
+    _lifecycle_identity(value["active_mask"], _path(path, "active_mask"), "DEFERRED_TO_A4_2", state)
     if value["selection_episode_count"] != 2:
         raise A4ContractError("calibration_boundary.selection_episode_count must be 2")
-    _string(value["algorithm"], _path(path, "algorithm"), "DEFERRED_TO_A4_3")
+    _lifecycle_identity(value["algorithm"], _path(path, "algorithm"), "DEFERRED_TO_A4_2", state)
     _string(value["artifact_schema"], _path(path, "artifact_schema"), "active-asr-a4-calibration-v1")
 
 
-def _mixture(value: Mapping) -> None:
+def _mixture(value: Mapping, state: str) -> None:
     path = "mixture_boundary"
     keys = ("target_noise_propagation", "calibration_input", "timeline", "reconstruction", "algorithm")
     _only(value, keys, path)
     _require(value, keys, path)
     _string(value["target_noise_propagation"], _path(path, "target_noise_propagation"), "independent_rirs")
     _string(value["calibration_input"], _path(path, "calibration_input"), "calibration_artifact_identity_only")
-    _string(value["timeline"], _path(path, "timeline"), "DEFERRED_TO_A4_3")
-    _string(value["reconstruction"], _path(path, "reconstruction"), "DEFERRED_TO_A4_3")
-    _string(value["algorithm"], _path(path, "algorithm"), "DEFERRED_TO_A4_3")
+    _lifecycle_identity(value["timeline"], _path(path, "timeline"), "DEFERRED_TO_A4_2", state)
+    _lifecycle_identity(value["reconstruction"], _path(path, "reconstruction"), "DEFERRED_TO_A4_2", state)
+    _lifecycle_identity(value["algorithm"], _path(path, "algorithm"), "DEFERRED_TO_A4_2", state)
 
 
-def _cache(value: Mapping) -> None:
+def _cache(value: Mapping, state: str) -> None:
     path = "cache_resume"
     keys = ("keying", "integrity", "resume", "algorithm")
     _only(value, keys, path)
@@ -197,7 +205,7 @@ def _cache(value: Mapping) -> None:
     if value["integrity"] != ["key_recompute", "metadata_schema", "payload_exists", "payload_sha256", "shape_dtype", "semantic_identities"]:
         raise A4ContractError("cache_resume.integrity is incomplete")
     _string(value["resume"], _path(path, "resume"), "reject_incomplete_or_corrupt_entries")
-    _string(value["algorithm"], _path(path, "algorithm"), "DEFERRED_TO_A4_4")
+    _lifecycle_identity(value["algorithm"], _path(path, "algorithm"), "DEFERRED_TO_A4_3", state)
 
 
 def _access(value: Mapping) -> None:
@@ -219,16 +227,15 @@ def _parents(value: Mapping) -> None:
         _sha(value[key], _path(path, key))
 
 
-def _smoke(value: Mapping, state: str) -> None:
-    path = "engineering_smoke_manifest"
-    keys = ("schema_version", "state", "identity_sha256")
-    _only(value, keys, path)
-    _require(value, keys, path)
-    _string(value["schema_version"], _path(path, "schema_version"), "active-asr-a4-engineering-smoke-v1")
-    _string(value["state"], _path(path, "state"), "DEFERRED_TO_A4_4")
-    _sha(value["identity_sha256"], _path(path, "identity_sha256"), allow_null=True)
-    if state == "FROZEN" and value["identity_sha256"] is not None:
-        raise A4ContractError("A4-0 frozen infrastructure contract cannot bind an exact smoke manifest")
+def _reject_deferred(value: Any, path: str = "contract") -> None:
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            _reject_deferred(item, _path(path, key))
+    elif isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            _reject_deferred(item, "{}[{}]".format(path, index))
+    elif isinstance(value, str) and value.startswith("DEFERRED_TO_A4_"):
+        raise A4ContractError("{} remains unresolved: {}".format(path, value))
 
 
 def validate_contract(value: Mapping[str, Any], require_frozen: bool = False) -> Mapping[str, Any]:
@@ -237,7 +244,7 @@ def validate_contract(value: Mapping[str, Any], require_frozen: bool = False) ->
     keys = (
         "contract", "serialization", "typed_records", "sampler_boundary", "motion_cost",
         "production_acoustics", "calibration_boundary", "mixture_boundary", "cache_resume",
-        "access_boundary", "frozen_parents", "engineering_smoke_manifest",
+        "access_boundary", "frozen_parents",
     )
     _only(value, keys, "root")
     _require(value, keys, "root")
@@ -247,15 +254,16 @@ def validate_contract(value: Mapping[str, Any], require_frozen: bool = False) ->
         raise A4ContractError("A4 contract must be FROZEN")
     _serialization(_mapping(value["serialization"], "serialization"))
     _schema(_mapping(value["typed_records"], "typed_records"))
-    _sampler_boundary(_mapping(value["sampler_boundary"], "sampler_boundary"))
-    _motion(_mapping(value["motion_cost"], "motion_cost"))
+    _sampler_boundary(_mapping(value["sampler_boundary"], "sampler_boundary"), state)
+    _motion(_mapping(value["motion_cost"], "motion_cost"), state)
     _acoustic(_mapping(value["production_acoustics"], "production_acoustics"))
-    _calibration(_mapping(value["calibration_boundary"], "calibration_boundary"))
-    _mixture(_mapping(value["mixture_boundary"], "mixture_boundary"))
-    _cache(_mapping(value["cache_resume"], "cache_resume"))
+    _calibration(_mapping(value["calibration_boundary"], "calibration_boundary"), state)
+    _mixture(_mapping(value["mixture_boundary"], "mixture_boundary"), state)
+    _cache(_mapping(value["cache_resume"], "cache_resume"), state)
     _access(_mapping(value["access_boundary"], "access_boundary"))
     _parents(_mapping(value["frozen_parents"], "frozen_parents"))
-    _smoke(_mapping(value["engineering_smoke_manifest"], "engineering_smoke_manifest"), state)
+    if require_frozen:
+        _reject_deferred(value)
     return value
 
 

@@ -1,4 +1,4 @@
-"""A4-0 infrastructure contracts and immutable experiment-plan records.
+"""A4 infrastructure contracts and immutable experiment-plan records.
 
 The A4 namespace is intentionally separate from the legacy V0 records and
 from the frozen A0--A3 runtime contracts.  This package contains only data
