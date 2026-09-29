@@ -27,16 +27,17 @@ from active_audition.a4.identity import (
     validate_stable_id,
 )
 from active_audition.data.storage import DatasetStorage
+from active_audition.a4.noise_segments import SOURCE_TIME_CONVENTION_IDENTITY
 
 
 CACHE_KEY_SERIALIZATION_IDENTITY = "active-asr-a4-cache-key-canonical-json-v1"
 CACHE_METADATA_SCHEMA_VERSION = "active-asr-a4-cache-metadata-v1"
 RIR_CACHE_KEY_SCHEMA_VERSION = "active-asr-a4-rir-cache-key-v1"
-MIXTURE_CACHE_KEY_SCHEMA_VERSION = "active-asr-a4-mixture-cache-key-v1"
+MIXTURE_CACHE_KEY_SCHEMA_VERSION = "active-asr-a4-mixture-cache-key-v2"
 ASR_CACHE_KEY_SCHEMA_VERSION = "active-asr-a4-asr-cache-key-v1"
 RIR_CACHE_METADATA_SCHEMA_VERSION = "active-asr-a4-rir-cache-metadata-v1"
 MIXTURE_CACHE_METADATA_SCHEMA_VERSION = "active-asr-a4-mixture-cache-metadata-v1"
-ASR_CACHE_METADATA_SCHEMA_VERSION = "active-asr-a4-asr-cache-metadata-v1"
+ASR_CACHE_METADATA_SCHEMA_VERSION = "active-asr-a4-asr-cache-metadata-v2"
 ASR_RESULT_SCHEMA_VERSION = "active-asr-a4-asr-result-v1"
 CACHE_ALGORITHM_IDENTITY = "active-asr-a4-content-addressed-cache-v1"
 CACHE_INTEGRITY_IDENTITY = "active-asr-a4-cache-key-metadata-payload-integrity-v1"
@@ -44,6 +45,10 @@ CACHE_ATOMIC_COMMIT_IDENTITY = "active-asr-a4-payload-then-metadata-atomic-commi
 CACHE_KEYING_IDENTITY = "content_addressed_semantic_payload"
 NATIVE_SAMPLE_RATE_HZ = 16000
 CHANNEL_ORDER = ("L", "R")
+A2_ACOUSTIC_CONTRACT_SHA256 = "c8f3ff23c5dca6f6d18dcb25613e6df6e20663e552f5df76170077ca67b13e7c"
+A3_ASR_CONTRACT_SHA256 = "70864c814a55db5d184ef8a6835b65cb564c4c90fc86112f8705b7ecf6df1ffe"
+NOISE_SOURCE_TIME_IDENTITY = SOURCE_TIME_CONVENTION_IDENTITY
+ASR_INPUT_LAYOUT = "mono"
 
 CACHE_LAYER_RIR = "rir"
 CACHE_LAYER_MIXTURE = "mixture"
@@ -246,7 +251,7 @@ class RirCacheKey:
 
     def __post_init__(self) -> None:
         _mapping(self.scene_resource_identities, "rir.scene_resource_identities")
-        _string(self.acoustic_contract_identity, "rir.acoustic_contract_identity")
+        _sha(self.acoustic_contract_identity, "rir.acoustic_contract_identity")
         _string(self.renderer_algorithm_identity, "rir.renderer_algorithm_identity")
         _string(self.materials_policy, "rir.materials_policy")
         _numeric_json(self.source_world_transform, "rir.source_world_transform")
@@ -320,15 +325,13 @@ class MixtureCacheKey:
         _stable(self.noise_rir_cache_key, "rir-cache-key", "mixture.noise_rir_cache_key")
         for name in ("target_dry_waveform_sha256", "noise_segment_payload_sha256"):
             _sha(getattr(self, name), "mixture." + name)
-        for name in (
-            "noise_segment_identity",
-            "noise_source_time_identity",
-            "calibration_artifact_identity",
-            "global_gain_identity",
-            "timeline_identity",
-            "mixer_contract_identity",
-        ):
-            _string(getattr(self, name), "mixture." + name)
+        _stable(self.noise_segment_identity, "noise-segment", "mixture.noise_segment_identity")
+        if self.noise_source_time_identity != NOISE_SOURCE_TIME_IDENTITY:
+            raise CacheError("mixture.noise_source_time_identity is not the frozen A4 source-time identity")
+        _stable(self.calibration_artifact_identity, "calibration", "mixture.calibration_artifact_identity")
+        _stable(self.global_gain_identity, "global-gain", "mixture.global_gain_identity")
+        _stable(self.timeline_identity, "receiver-timeline", "mixture.timeline_identity")
+        _stable(self.mixer_contract_identity, "mixture-contract", "mixture.mixer_contract_identity")
         if self.schema_version != MIXTURE_CACHE_KEY_SCHEMA_VERSION:
             raise CacheError("mixture.schema_version is invalid")
 
@@ -392,7 +395,7 @@ class AsrCacheKey:
             "precision_runtime_identity",
         ):
             _semantic_json(getattr(self, name), "asr." + name)
-        _string(self.asr_contract_identity, "asr.asr_contract_identity")
+        _sha(self.asr_contract_identity, "asr.asr_contract_identity")
         _positive_int(self.sample_rate_hz, "asr.sample_rate_hz")
         if self.sample_rate_hz != NATIVE_SAMPLE_RATE_HZ:
             raise CacheError("asr.sample_rate_hz must be native16")
@@ -443,30 +446,14 @@ class AsrCacheKey:
         return _key_payload_sha(self.to_payload())
 
 
-def _metadata_common(
+def _metadata_identity_common(
     payload: Mapping[str, Any],
     expected_schema: str,
     expected_layer: str,
     key: Any,
     path: str,
-    extra_fields: Sequence[str] = (),
+    fields: Sequence[str],
 ) -> None:
-    fields = (
-            "schema_version",
-            "layer",
-            "cache_key",
-            "key_payload",
-            "key_payload_sha256",
-            "payload_filename",
-            "payload_type",
-            "payload_sha256",
-            "expected_shape",
-            "dtype",
-            "sample_rate_hz",
-            "channel_order",
-            "semantic_identities",
-            "provenance",
-        ) + tuple(extra_fields)
     _exact_fields(
         payload,
         fields,
@@ -485,6 +472,38 @@ def _metadata_common(
     _sha(payload["payload_sha256"], path + ".payload_sha256")
     if not isinstance(payload["provenance"], Mapping):
         raise CacheError("{}.provenance must be a mapping".format(path))
+
+
+def _metadata_common(
+    payload: Mapping[str, Any],
+    expected_schema: str,
+    expected_layer: str,
+    key: Any,
+    path: str,
+) -> None:
+    _metadata_identity_common(
+        payload,
+        expected_schema,
+        expected_layer,
+        key,
+        path,
+        fields=(
+            "schema_version",
+            "layer",
+            "cache_key",
+            "key_payload",
+            "key_payload_sha256",
+            "payload_filename",
+            "payload_type",
+            "payload_sha256",
+            "expected_shape",
+            "dtype",
+            "sample_rate_hz",
+            "channel_order",
+            "semantic_identities",
+            "provenance",
+        ),
+    )
 
 
 def _shape(value: Any, path: str, rank: int) -> Tuple[int, ...]:
@@ -715,27 +734,39 @@ def _validate_asr_result(value: Any, key: AsrCacheKey) -> Dict[str, Any]:
 class AsrCacheMetadata:
     key: AsrCacheKey
     payload_sha256: str
-    expected_shape: Tuple[int]
+    input_shape: Tuple[int]
     provenance: Mapping[str, Any]
-    dtype: str = "float32"
+    input_layout: str = ASR_INPUT_LAYOUT
+    input_dtype: str = "float32"
     sample_rate_hz: int = NATIVE_SAMPLE_RATE_HZ
-    channel_order: Tuple[str, str] = CHANNEL_ORDER
     schema_version: str = ASR_CACHE_METADATA_SCHEMA_VERSION
     payload_filename: str = "payload.json"
     payload_type: str = "json_asr_result"
-    input_shape: Tuple[int] = (1,)
 
     def __post_init__(self) -> None:
         _sha(self.payload_sha256, "asr_metadata.payload_sha256")
-        object.__setattr__(self, "expected_shape", _shape(self.expected_shape, "asr_metadata.expected_shape", 1))
         object.__setattr__(self, "input_shape", _shape(self.input_shape, "asr_metadata.input_shape", 1))
-        if self.expected_shape != self.input_shape:
-            raise CacheError("ASR metadata expected_shape and input_shape must match")
-        if self.dtype != "float32" or self.sample_rate_hz != NATIVE_SAMPLE_RATE_HZ or tuple(self.channel_order) != CHANNEL_ORDER:
-            raise CacheError("ASR metadata dtype/sample/channel policy is invalid")
+        if self.input_layout != ASR_INPUT_LAYOUT:
+            raise CacheError("ASR metadata input_layout must be mono")
+        if self.input_dtype != "float32" or self.sample_rate_hz != NATIVE_SAMPLE_RATE_HZ:
+            raise CacheError("ASR metadata input dtype/sample policy is invalid")
+        if self.key.sample_rate_hz != self.sample_rate_hz or self.key.mono_dtype != self.input_dtype:
+            raise CacheError("ASR metadata input policy does not match key")
         if self.schema_version != ASR_CACHE_METADATA_SCHEMA_VERSION or self.payload_filename != "payload.json" or self.payload_type != "json_asr_result":
             raise CacheError("ASR metadata schema or payload policy is invalid")
         object.__setattr__(self, "provenance", _freeze(_provenance_json(self.provenance, "asr_metadata.provenance")))
+
+    @property
+    def expected_shape(self) -> Tuple[int]:
+        """Compatibility view; the serialized authority is input_shape."""
+
+        return self.input_shape
+
+    @property
+    def dtype(self) -> str:
+        """Compatibility view; the serialized authority is input_dtype."""
+
+        return self.input_dtype
 
     @property
     def semantic_identities(self) -> Dict[str, Any]:
@@ -752,13 +783,12 @@ class AsrCacheMetadata:
             "payload_filename": self.payload_filename,
             "payload_type": self.payload_type,
             "payload_sha256": self.payload_sha256,
-            "expected_shape": list(self.expected_shape),
-            "dtype": self.dtype,
+            "input_layout": self.input_layout,
+            "input_shape": list(self.input_shape),
+            "input_dtype": self.input_dtype,
             "sample_rate_hz": self.sample_rate_hz,
-            "channel_order": list(self.channel_order),
             "semantic_identities": self.semantic_identities,
             "provenance": _thaw(self.provenance),
-            "input_shape": list(self.input_shape),
         }
 
     @classmethod
@@ -769,37 +799,36 @@ class AsrCacheMetadata:
             raise _MetadataError(METADATA_SCHEMA_MISMATCH, "invalid ASR key payload") from exc
         if key is not None and parsed_key.cache_key != key.cache_key:
             raise _MetadataError(KEY_MISMATCH, "ASR metadata key does not match request")
-        expected_fields = (
-            "schema_version", "layer", "cache_key", "key_payload", "key_payload_sha256",
-            "payload_filename", "payload_type", "payload_sha256", "expected_shape", "dtype",
-            "sample_rate_hz", "channel_order", "semantic_identities", "provenance", "input_shape",
-        )
-        _exact_fields(payload, expected_fields, "asr_metadata")
         try:
-            _metadata_common(
+            _metadata_identity_common(
                 payload,
                 ASR_CACHE_METADATA_SCHEMA_VERSION,
                 CACHE_LAYER_ASR,
                 parsed_key,
                 "asr_metadata",
-                extra_fields=("input_shape",),
+                fields=(
+                    "schema_version", "layer", "cache_key", "key_payload", "key_payload_sha256",
+                    "payload_filename", "payload_type", "payload_sha256", "input_layout", "input_shape",
+                    "input_dtype", "sample_rate_hz", "semantic_identities", "provenance",
+                ),
             )
-            _float32_metadata(payload, "asr_metadata")
-            shape = _shape(payload["expected_shape"], "asr_metadata.expected_shape", 1)
+            if payload["input_layout"] != ASR_INPUT_LAYOUT:
+                raise CacheError("asr_metadata.input_layout must be mono")
+            if payload["input_dtype"] != "float32":
+                raise CacheError("asr_metadata.input_dtype must be float32")
+            if payload["sample_rate_hz"] != NATIVE_SAMPLE_RATE_HZ:
+                raise CacheError("asr_metadata.sample_rate_hz must be native16")
             input_shape = _shape(payload["input_shape"], "asr_metadata.input_shape", 1)
-            if shape != input_shape:
-                raise CacheError("ASR metadata shape fields disagree")
             if payload["semantic_identities"] != {name: parsed_key.to_payload()[name] for name in parsed_key.to_payload() if name not in ("schema_version", "layer")}:
                 raise _MetadataError(SEMANTIC_IDENTITY_MISMATCH, "ASR semantic identities do not match key")
             return cls(
                 key=parsed_key,
                 payload_sha256=payload["payload_sha256"],
-                expected_shape=shape,
                 input_shape=input_shape,
                 provenance=payload["provenance"],
-                dtype=payload["dtype"],
+                input_layout=payload["input_layout"],
+                input_dtype=payload["input_dtype"],
                 sample_rate_hz=payload["sample_rate_hz"],
-                channel_order=tuple(payload["channel_order"]),
                 schema_version=payload["schema_version"],
                 payload_filename=payload["payload_filename"],
                 payload_type=payload["payload_type"],
@@ -890,7 +919,7 @@ class CacheStore:
         normalized = _validate_asr_result(payload, key)
         shape = _validate_mono_shape(input_shape, "asr_input_shape")
         data = _result_json_bytes(normalized)
-        metadata = AsrCacheMetadata(key, sha256_bytes(data), shape, provenance or {}, input_shape=shape)
+        metadata = AsrCacheMetadata(key, sha256_bytes(data), shape, provenance or {})
         return self._write(key, metadata, data)
 
     def _missing_result(self, metadata_path: Path, payload_path: Path) -> Optional[CacheReadResult]:
@@ -987,8 +1016,11 @@ class CacheStore:
 
 
 __all__ = [
+    "A2_ACOUSTIC_CONTRACT_SHA256",
+    "A3_ASR_CONTRACT_SHA256",
     "ASR_CACHE_KEY_SCHEMA_VERSION",
     "ASR_CACHE_METADATA_SCHEMA_VERSION",
+    "ASR_INPUT_LAYOUT",
     "ASR_RESULT_SCHEMA_VERSION",
     "CACHE_ALGORITHM_IDENTITY",
     "CACHE_ATOMIC_COMMIT_IDENTITY",
@@ -1008,6 +1040,7 @@ __all__ = [
     "MISS",
     "MixtureCacheKey",
     "MixtureCacheMetadata",
+    "NOISE_SOURCE_TIME_IDENTITY",
     "NONFINITE_PAYLOAD",
     "PAYLOAD_HASH_MISMATCH",
     "PAYLOAD_PARSE_ERROR",

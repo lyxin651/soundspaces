@@ -140,9 +140,13 @@ cache_resume:
   key_serialization: active-asr-a4-cache-key-canonical-json-v1
   key_schemas:
     rir: active-asr-a4-rir-cache-key-v1
-    mixture: active-asr-a4-mixture-cache-key-v1
+    mixture: active-asr-a4-mixture-cache-key-v2
     asr: active-asr-a4-asr-cache-key-v1
   metadata_schema: active-asr-a4-cache-metadata-v1
+  metadata_schemas:
+    rir: active-asr-a4-rir-cache-metadata-v1
+    mixture: active-asr-a4-mixture-cache-metadata-v1
+    asr: active-asr-a4-asr-cache-metadata-v2
   integrity_algorithm: active-asr-a4-cache-key-metadata-payload-integrity-v1
   integrity: [key_recompute, metadata_schema, payload_exists, payload_sha256, shape_dtype, finite_payload, semantic_identities]
   atomic_commit: active-asr-a4-payload-then-metadata-atomic-commit-v1

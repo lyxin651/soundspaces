@@ -371,6 +371,7 @@ def _cache(value: Mapping, state: str) -> None:
         "key_serialization",
         "key_schemas",
         "metadata_schema",
+        "metadata_schemas",
         "integrity_algorithm",
         "integrity",
         "atomic_commit",
@@ -385,9 +386,15 @@ def _cache(value: Mapping, state: str) -> None:
     _only(schemas, ("rir", "mixture", "asr"), _path(path, "key_schemas"))
     _require(schemas, ("rir", "mixture", "asr"), _path(path, "key_schemas"))
     _string(schemas["rir"], _path(path, "key_schemas.rir"), "active-asr-a4-rir-cache-key-v1")
-    _string(schemas["mixture"], _path(path, "key_schemas.mixture"), "active-asr-a4-mixture-cache-key-v1")
+    _string(schemas["mixture"], _path(path, "key_schemas.mixture"), "active-asr-a4-mixture-cache-key-v2")
     _string(schemas["asr"], _path(path, "key_schemas.asr"), "active-asr-a4-asr-cache-key-v1")
     _string(value["metadata_schema"], _path(path, "metadata_schema"), "active-asr-a4-cache-metadata-v1")
+    metadata_schemas = _mapping(value["metadata_schemas"], _path(path, "metadata_schemas"))
+    _only(metadata_schemas, ("rir", "mixture", "asr"), _path(path, "metadata_schemas"))
+    _require(metadata_schemas, ("rir", "mixture", "asr"), _path(path, "metadata_schemas"))
+    _string(metadata_schemas["rir"], _path(path, "metadata_schemas.rir"), "active-asr-a4-rir-cache-metadata-v1")
+    _string(metadata_schemas["mixture"], _path(path, "metadata_schemas.mixture"), "active-asr-a4-mixture-cache-metadata-v1")
+    _string(metadata_schemas["asr"], _path(path, "metadata_schemas.asr"), "active-asr-a4-asr-cache-metadata-v2")
     _string(value["integrity_algorithm"], _path(path, "integrity_algorithm"), "active-asr-a4-cache-key-metadata-payload-integrity-v1")
     if value["integrity"] != ["key_recompute", "metadata_schema", "payload_exists", "payload_sha256", "shape_dtype", "finite_payload", "semantic_identities"]:
         raise A4ContractError("cache_resume.integrity is incomplete")
