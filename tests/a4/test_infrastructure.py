@@ -27,6 +27,7 @@ from active_audition.a4.identity import (
     identity_sha256,
     stable_id,
 )
+from active_audition.a4.mixer import GlobalGainSpec
 from active_audition.a4.records import (
     BlockRecord,
     CalibrationArtifact,
@@ -99,7 +100,7 @@ def _block_from_plan(geometry, plan):
         "selection_utterance_ids": ["utt-s1", "utt-s2"],
         "evaluation_utterance_ids": ["utt-e1", "utt-e2"],
         "noise_segment_plan_identity": plan.plan_id,
-        "global_gain_identity": "gain-v1",
+        "global_gain_identity": GlobalGainSpec(1.0).identity,
     }
     return BlockRecord(schema_version="active-asr-a4-block-v1", block_id=stable_id("block", payload), **payload)
 
@@ -126,8 +127,8 @@ def _concrete_frozen_contract():
     contract = copy.deepcopy(load_contract(str(CONTRACT_PATH)))
     contract["contract"]["state"] = "FROZEN"
     contract["calibration_boundary"]["active_mask"] = ACTIVE_MASK_ALGORITHM_IDENTITY
-    contract["mixture_boundary"]["reconstruction"] = "dual-source-reconstruction-v1"
-    contract["mixture_boundary"]["algorithm"] = "synthetic-mixer-v1"
+    contract["mixture_boundary"]["reconstruction"] = "active-asr-a4-linear-reconstruction-v1"
+    contract["mixture_boundary"]["algorithm"] = "active-asr-a4-dual-source-linear-mixer-v1"
     contract["cache_resume"]["algorithm"] = "cache-resume-v1"
     return contract
 
@@ -190,6 +191,14 @@ class A4ContractTests(unittest.TestCase):
     def test_fully_concrete_draft_validates(self):
         contract = _concrete_frozen_contract()
         contract["contract"]["state"] = "DRAFT"
+        validate_contract(contract)
+
+    def test_b2_mixer_is_concrete_while_cache_remains_deferred(self):
+        contract = load_contract(str(CONTRACT_PATH))
+        self.assertEqual(contract["mixture_boundary"]["reconstruction"], "active-asr-a4-linear-reconstruction-v1")
+        self.assertEqual(contract["mixture_boundary"]["algorithm"], "active-asr-a4-dual-source-linear-mixer-v1")
+        self.assertEqual(contract["mixture_boundary"]["residual_gate_threshold"], 1.0e-6)
+        self.assertEqual(contract["cache_resume"]["algorithm"], "DEFERRED_TO_A4_3")
         validate_contract(contract)
 
     def test_frozen_with_any_deferred_field_rejects(self):
@@ -308,7 +317,7 @@ class A4RecordTests(unittest.TestCase):
             "speaker_id": "speaker-2",
             "noise_parent_id": stable_id("noise-parent", {"fixture": "musan-parent-2"}),
             "nominal_initial_snr_db": 3.0,
-            "global_gain_identity": "gain-v2",
+            "global_gain_identity": GlobalGainSpec(2.0).identity,
             "selection_utterance_ids": ["utt-s1", "utt-s3"],
             "evaluation_utterance_ids": ["utt-e1", "utt-e3"],
             "noise_segment_plan_identity": stable_id("noise-segment-plan", {"fixture": "noise-plan-v2"}),

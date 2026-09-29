@@ -16,6 +16,7 @@ typed_records:
   block: active-asr-a4-block-v1
   episode: active-asr-a4-episode-v1
   calibration: active-asr-a4-calibration-v1
+  mixture: active-asr-a4-mixture-v1
   noise_segment: active-asr-a4-noise-segment-v2
   active_mask: active-asr-a4-active-mask-v1
 sampler_boundary:
@@ -124,8 +125,15 @@ mixture_boundary:
   timeline_schema: active-asr-a4-receiver-timeline-v1
   timeline_source_time_convention: active-asr-a4-target-dry-onset-zero-v1
   timeline_direct_onset_convention: active-asr-a2-direct-window-first-absolute-sample-10-percent-peak-v1
-  reconstruction: DEFERRED_TO_A4_2
-  algorithm: DEFERRED_TO_A4_2
+  reconstruction: active-asr-a4-linear-reconstruction-v1
+  algorithm: active-asr-a4-dual-source-linear-mixer-v1
+  arithmetic_identity: active-asr-a4-float32-single-cast-arithmetic-v1
+  global_gain: active-asr-a4-block-global-gain-v1
+  residual_gate_threshold: 1.0e-6
+  dtype_policy: native16_float32_finite_v1
+  channel_policy: canonical_binaural_lr_v1
+  normalization_policy: no_limiter_no_source_pose_channel_normalization_v1
+  artifact_schema: active-asr-a4-mixture-v1
 cache_resume:
   keying: content_addressed_semantic_payload
   integrity: [key_recompute, metadata_schema, payload_exists, payload_sha256, shape_dtype, semantic_identities]

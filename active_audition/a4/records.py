@@ -532,8 +532,8 @@ def validate_block_record(record: BlockRecord) -> BlockRecord:
     except A4IdentityError as exc:
         _error(str(exc))
     _identity_string(record.speaker_id, "block.speaker_id")
-    _identity_string(record.global_gain_identity, "block.global_gain_identity")
     try:
+        validate_stable_id(record.global_gain_identity, "global-gain", "block.global_gain_identity")
         validate_stable_id(record.noise_parent_id, "noise-parent", "block.noise_parent_id")
         validate_stable_id(record.noise_segment_plan_identity, "noise-segment-plan", "block.noise_segment_plan_identity")
     except A4IdentityError as exc:

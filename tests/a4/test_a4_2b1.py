@@ -14,6 +14,7 @@ from active_audition.a4.calibration import (
     calibrate_block_noise_gain,
 )
 from active_audition.a4.identity import canonical_json_bytes, stable_id
+from active_audition.a4.mixer import GlobalGainSpec
 from active_audition.a4.records import BlockRecord
 from active_audition.a4.timeline import (
     TimelineContract,
@@ -58,7 +59,7 @@ class A42B1FixtureMixin:
             "selection_utterance_ids": ["selection-0", "selection-1"],
             "evaluation_utterance_ids": ["evaluation-0", "evaluation-1"],
             "noise_segment_plan_identity": stable_id("noise-segment-plan", {"fixture": "a4-2b1"}),
-            "global_gain_identity": "gain-a4-2b1",
+            "global_gain_identity": GlobalGainSpec(1.0).identity,
         }
         return BlockRecord(
             schema_version="active-asr-a4-block-v1",

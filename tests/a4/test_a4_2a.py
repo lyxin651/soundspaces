@@ -22,6 +22,7 @@ from active_audition.a4.noise_segments import (
     plan_noise_segments,
 )
 from active_audition.a4.records import BlockRecord, EpisodeRecord
+from active_audition.a4.mixer import GlobalGainSpec
 
 
 def _parent(sample_count=1000000, sample_rate_hz=16000):
@@ -66,7 +67,7 @@ def _plan_block_episode_chain():
         "selection_utterance_ids": ["utterance-s1", "utterance-s2"],
         "evaluation_utterance_ids": ["utterance-e1", "utterance-e2"],
         "noise_segment_plan_identity": plan.plan_id,
-        "global_gain_identity": "gain-dag-v1",
+        "global_gain_identity": GlobalGainSpec(1.0).identity,
     }
     block = BlockRecord(
         schema_version="active-asr-a4-block-v1",

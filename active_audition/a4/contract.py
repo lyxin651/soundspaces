@@ -3,9 +3,10 @@
 The contract freezes long-lived interfaces and points back to the already
 closed A0--A3 contracts.  A4-1 supplies the sampler and motion algorithm
 identities, A4-2A supplies source-time segment planning and dry-speech mask
-semantics, and A4-2B1 supplies the common timeline and selection-only
-calibration semantics.  Exact smoke sources/geometries and later reconstruction,
-mixer, and cache execution remain versioned in later A4 slices.
+semantics, A4-2B1 supplies the common timeline and selection-only calibration
+semantics, and A4-2B2 supplies dual-source reconstruction and mixer integrity.
+Exact smoke sources/geometries and cache execution remain versioned in later
+A4 slices.
 """
 
 import hashlib
@@ -114,6 +115,7 @@ def _schema(value: Mapping) -> None:
         "block": "active-asr-a4-block-v1",
         "episode": "active-asr-a4-episode-v1",
         "calibration": "active-asr-a4-calibration-v1",
+        "mixture": "active-asr-a4-mixture-v1",
         "noise_segment": "active-asr-a4-noise-segment-v2",
         "active_mask": "active-asr-a4-active-mask-v1",
     }
@@ -319,7 +321,9 @@ def _mixture(value: Mapping, state: str) -> None:
     keys = (
         "target_noise_propagation", "calibration_input", "timeline", "timeline_schema",
         "timeline_source_time_convention", "timeline_direct_onset_convention",
-        "reconstruction", "algorithm",
+        "reconstruction", "algorithm", "arithmetic_identity", "global_gain",
+        "residual_gate_threshold", "dtype_policy", "channel_policy",
+        "normalization_policy", "artifact_schema",
     )
     _only(value, keys, path)
     _require(value, keys, path)
@@ -341,8 +345,22 @@ def _mixture(value: Mapping, state: str) -> None:
         value["timeline_direct_onset_convention"], _path(path, "timeline_direct_onset_convention"),
         "active-asr-a2-direct-window-first-absolute-sample-10-percent-peak-v1",
     )
-    _lifecycle_identity(value["reconstruction"], _path(path, "reconstruction"), "DEFERRED_TO_A4_2", state)
-    _lifecycle_identity(value["algorithm"], _path(path, "algorithm"), "DEFERRED_TO_A4_2", state)
+    _concrete_or_deferred_identity(
+        value["reconstruction"], _path(path, "reconstruction"),
+        "DEFERRED_TO_A4_2", "active-asr-a4-linear-reconstruction-v1", state,
+    )
+    _concrete_or_deferred_identity(
+        value["algorithm"], _path(path, "algorithm"),
+        "DEFERRED_TO_A4_2", "active-asr-a4-dual-source-linear-mixer-v1", state,
+    )
+    _string(value["arithmetic_identity"], _path(path, "arithmetic_identity"), "active-asr-a4-float32-single-cast-arithmetic-v1")
+    _string(value["global_gain"], _path(path, "global_gain"), "active-asr-a4-block-global-gain-v1")
+    if _number(value["residual_gate_threshold"], _path(path, "residual_gate_threshold")) != 1.0e-6:
+        raise A4ContractError("mixture_boundary.residual_gate_threshold must be 1e-6")
+    _string(value["dtype_policy"], _path(path, "dtype_policy"), "native16_float32_finite_v1")
+    _string(value["channel_policy"], _path(path, "channel_policy"), "canonical_binaural_lr_v1")
+    _string(value["normalization_policy"], _path(path, "normalization_policy"), "no_limiter_no_source_pose_channel_normalization_v1")
+    _string(value["artifact_schema"], _path(path, "artifact_schema"), "active-asr-a4-mixture-v1")
 
 
 def _cache(value: Mapping, state: str) -> None:
