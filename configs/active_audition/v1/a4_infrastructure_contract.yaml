@@ -12,23 +12,54 @@ serialization:
   hash_algorithm: sha256
 typed_records:
   geometry: active-asr-a4-geometry-v1
-  pose: active-asr-a4-pose-v1
+  pose: active-asr-a4-pose-v2
   block: active-asr-a4-block-v1
   episode: active-asr-a4-episode-v1
   calibration: active-asr-a4-calibration-v1
 sampler_boundary:
   source_free: true
   selection_inputs: [navmesh_legality, pathfinder, stable_probe_identity]
+  forbidden_inputs: [target_world_pose, noise_world_pose, source_direction, rir, snr, asr, wer, oracle_landscape]
   post_sampling_source_clearance: legality_annotation_only
-  exact_lattice: DEFERRED_TO_A4_1
+  exact_lattice:
+    schema_version: active-asr-a4-candidate-contract-v1
+    algorithm_identity: active-asr-a4-local-polar-sampler-v1
+    coordinate_convention_identity: active-asr-a0-positive-left-forward-minus-z-v1
+    technical_filter_order: [requested_point, snap_point, finite_check, navigability, snap_error, shortest_path, geodesic_radius, duplicate_filter]
+    coverage_selection_identity: active-asr-a4-farthest-coverage-v1
+    tie_break_identity: active-asr-a4-probe-id-lexical-tie-break-v1
+    parameter_schema:
+      radii_m: ordered_positive_finite_meters
+      azimuth_offsets_deg: unique_finite_degrees_in_[0,360)
+      max_geodesic_radius_m: finite_nonnegative_meters
+      max_snap_error_m: finite_nonnegative_meters
+      duplicate_position_tolerance_m: finite_nonnegative_meters
+      max_noninitial_positions: nonnegative_integer
+      yaw_offsets_deg: unique_finite_degrees_in_[0,360)
+      source_clearance_m: finite_nonnegative_meters
+geometry_legality:
+  phase: post_sampling_only
+  receiver_reference: actual_listener_sensor_xyz
+  source_reference: acoustic_source_world_xyz
+  distance_metric: euclidean_3d
+  threshold_parameter: candidate_contract.source_clearance_m
+  replacement_sampling: false
+  invalid_reasons: [TARGET_SOURCE_CLEARANCE, NOISE_SOURCE_CLEARANCE, TARGET_AND_NOISE_SOURCE_CLEARANCE]
 motion_cost:
-  formula_identity: DEFERRED_TO_A4_1
-  parameters:
-    translation_speed_mps: 0.25
-    rotation_speed_dps: 90.0
-    settling_sec: 0.5
-    budget_sec: 10.0
-  exact_execution: DEFERRED_TO_A4_1
+  formula_identity: active-asr-a4-motion-cost-v1
+  parameter_schema:
+    translation_speed_mps: finite_positive_meters_per_second
+    rotation_speed_dps: finite_positive_degrees_per_second
+    settling_sec: finite_nonnegative_seconds
+    budget_sec: finite_nonnegative_seconds
+  exact_execution: active-asr-a4-polyline-turn-execution-v1
+  distance_authority: pathfinder_shortest_path_geodesic_distance_m_v1
+  turn_plane: horizontal_xz_positive_left_v1
+  zero_length_segment_policy: remove_near_zero_horizontal_segments_v1
+  special_cases:
+    stay: exact_zero_cost_and_zero_settling
+    rotate_only: zero_translation_plus_shortest_yaw_rotation_plus_settling
+    translation: geodesic_translation_plus_all_turns_plus_settling
 production_acoustics:
   sample_rate_hz: 16000
   channel_layout: binaural

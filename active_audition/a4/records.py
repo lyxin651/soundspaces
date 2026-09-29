@@ -8,6 +8,7 @@ an alpha; calibration is represented by a separate immutable artifact.
 
 from dataclasses import dataclass
 from collections.abc import Mapping
+import math
 from types import MappingProxyType
 from typing import Any, Dict, Iterable, Optional, Tuple
 
@@ -21,7 +22,7 @@ from active_audition.a4.identity import (
 
 
 GEOMETRY_SCHEMA_VERSION = "active-asr-a4-geometry-v1"
-POSE_SCHEMA_VERSION = "active-asr-a4-pose-v1"
+POSE_SCHEMA_VERSION = "active-asr-a4-pose-v2"
 BLOCK_SCHEMA_VERSION = "active-asr-a4-block-v1"
 EPISODE_SCHEMA_VERSION = "active-asr-a4-episode-v1"
 CALIBRATION_SCHEMA_VERSION = "active-asr-a4-calibration-v1"
@@ -89,6 +90,11 @@ def _finite(value: Any, path: str) -> float:
     return result
 
 
+def _normalize_yaw_deg(value: Any, path: str) -> float:
+    result = _finite(value, path)
+    return ((result + 180.0) % 360.0) - 180.0
+
+
 def _positive_int(value: Any, path: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
         _error("{} must be a positive integer".format(path))
@@ -99,6 +105,16 @@ def _xyz(value: Any, path: str) -> Tuple[float, float, float]:
     if not isinstance(value, (list, tuple)) or len(value) != 3:
         _error("{} must contain three coordinates".format(path))
     return tuple(_finite(item, "{}[{}]".format(path, index)) for index, item in enumerate(value))
+
+
+def _polyline_length(value: Any, path: str) -> float:
+    if not isinstance(value, (list, tuple)) or not value:
+        _error("{} must not be empty".format(path))
+    points = tuple(_xyz(point, "{}[{}]".format(path, index)) for index, point in enumerate(value))
+    return sum(
+        math.sqrt(sum((end[index] - start[index]) ** 2 for index in range(3)))
+        for start, end in zip(points, points[1:])
+    )
 
 
 def _mapping(value: Any, path: str, nonempty: bool = True) -> Mapping:
@@ -177,6 +193,43 @@ def _check_id(actual: str, namespace: str, payload: Mapping, path: str) -> None:
 
 def _plain_record(record: Any) -> Dict[str, Any]:
     return {field: _plain(getattr(record, field)) for field in record.__dataclass_fields__}
+
+
+def _pose_identity_payload(record: Any) -> Dict[str, Any]:
+    """Return only the geometry-bound pose-plan semantics.
+
+    Motion breakdown values and legality annotations are derived/provenance
+    fields.  They remain serialized and validated, but changing one of them
+    cannot silently create a second plan identity.  The motion contract and
+    geometry identities bind the semantics that produced those values.
+    """
+
+    def value(key: str) -> Any:
+        if isinstance(record, Mapping):
+            return record[key]
+        return getattr(record, key)
+
+    return {
+        "schema_version": value("schema_version"),
+        "geometry_id": value("geometry_id"),
+        "position_id": value("position_id"),
+        "yaw_id": value("yaw_id"),
+        "requested_base_xyz": _plain(value("requested_base_xyz")),
+        "actual_snapped_base_xyz": _plain(value("actual_snapped_base_xyz")),
+        "sensor_transform_identity": value("sensor_transform_identity"),
+        "sensor_xyz": _plain(value("sensor_xyz")),
+        "yaw_deg": value("yaw_deg"),
+        "snap_error_m": value("snap_error_m"),
+        "path_polyline": _plain(value("path_polyline")),
+        "geodesic_path_length_m": value("geodesic_path_length_m"),
+        "motion_contract_identity": value("motion_contract_identity"),
+    }
+
+
+def pose_identity_payload(value: Any) -> Dict[str, Any]:
+    """Public identity projection for record builders and audit tests."""
+
+    return _pose_identity_payload(value)
 
 
 def _from_payload(cls: Any, payload: Mapping) -> Any:
@@ -294,39 +347,35 @@ class PoseRecord:
     final_turn_deg: float
     settling_sec: float
     total_cost_sec: float
+    motion_contract_identity: str
+    path_polyline_length_m: float
+    translation_speed_mps: float
+    rotation_speed_dps: float
+    translation_sec: float
+    rotation_sec: float
+    budget_sec: float
     budget_feasible: bool
     geometry_legality: str
     invalid_reason: Optional[str]
 
     def __post_init__(self) -> None:
         for field in ("requested_base_xyz", "actual_snapped_base_xyz", "sensor_xyz"):
-            object.__setattr__(self, field, _freeze(getattr(self, field)))
-        object.__setattr__(self, "path_polyline", _freeze(self.path_polyline))
+            object.__setattr__(self, field, _freeze(_xyz(getattr(self, field), "pose." + field)))
+        object.__setattr__(self, "path_polyline", _freeze(tuple(
+            _xyz(point, "pose.path_polyline") for point in self.path_polyline
+        )))
+        object.__setattr__(self, "yaw_deg", _normalize_yaw_deg(self.yaw_deg, "pose.yaw_deg"))
+        for field in (
+            "snap_error_m", "geodesic_path_length_m", "initial_to_path_turn_deg",
+            "internal_path_turn_deg", "final_turn_deg", "settling_sec", "total_cost_sec",
+            "path_polyline_length_m", "translation_speed_mps", "rotation_speed_dps",
+            "translation_sec", "rotation_sec", "budget_sec",
+        ):
+            object.__setattr__(self, field, _finite(getattr(self, field), "pose." + field))
         validate_pose_record(self)
 
     def identity_payload(self) -> Dict[str, Any]:
-        return {
-            "schema_version": self.schema_version,
-            "geometry_id": self.geometry_id,
-            "position_id": self.position_id,
-            "yaw_id": self.yaw_id,
-            "requested_base_xyz": _plain(self.requested_base_xyz),
-            "actual_snapped_base_xyz": _plain(self.actual_snapped_base_xyz),
-            "sensor_transform_identity": self.sensor_transform_identity,
-            "sensor_xyz": _plain(self.sensor_xyz),
-            "yaw_deg": self.yaw_deg,
-            "snap_error_m": self.snap_error_m,
-            "path_polyline": _plain(self.path_polyline),
-            "geodesic_path_length_m": self.geodesic_path_length_m,
-            "initial_to_path_turn_deg": self.initial_to_path_turn_deg,
-            "internal_path_turn_deg": self.internal_path_turn_deg,
-            "final_turn_deg": self.final_turn_deg,
-            "settling_sec": self.settling_sec,
-            "total_cost_sec": self.total_cost_sec,
-            "budget_feasible": self.budget_feasible,
-            "geometry_legality": self.geometry_legality,
-            "invalid_reason": self.invalid_reason,
-        }
+        return _pose_identity_payload(self)
 
     def to_payload(self) -> Dict[str, Any]:
         return _plain_record(self)
@@ -356,14 +405,43 @@ def validate_pose_record(record: PoseRecord) -> PoseRecord:
     _xyz(record.actual_snapped_base_xyz, "pose.actual_snapped_base_xyz")
     _identity_string(record.sensor_transform_identity, "pose.sensor_transform_identity")
     _xyz(record.sensor_xyz, "pose.sensor_xyz")
-    for field in ("yaw_deg", "snap_error_m", "geodesic_path_length_m", "initial_to_path_turn_deg", "internal_path_turn_deg", "final_turn_deg", "settling_sec", "total_cost_sec"):
+    expected_snap_error = math.sqrt(sum(
+        (record.actual_snapped_base_xyz[index] - record.requested_base_xyz[index]) ** 2
+        for index in range(3)
+    ))
+    if not math.isclose(expected_snap_error, record.snap_error_m, rel_tol=1.0e-9, abs_tol=1.0e-9):
+        _error("pose.snap_error_m does not match requested and snapped coordinates")
+    try:
+        validate_stable_id(record.motion_contract_identity, "motion-contract", "pose.motion_contract_identity")
+    except A4IdentityError as exc:
+        _error(str(exc))
+    for field in ("yaw_deg", "snap_error_m", "geodesic_path_length_m", "initial_to_path_turn_deg", "internal_path_turn_deg", "final_turn_deg", "settling_sec", "total_cost_sec", "path_polyline_length_m", "translation_speed_mps", "rotation_speed_dps", "translation_sec", "rotation_sec", "budget_sec"):
         if _finite(getattr(record, field), "pose." + field) < 0.0 and field not in ("yaw_deg",):
             _error("pose.{} must not be negative".format(field))
+    if _finite(record.translation_speed_mps, "pose.translation_speed_mps") <= 0.0:
+        _error("pose.translation_speed_mps must be positive")
+    if _finite(record.rotation_speed_dps, "pose.rotation_speed_dps") <= 0.0:
+        _error("pose.rotation_speed_dps must be positive")
     if not isinstance(record.path_polyline, (list, tuple)) or len(record.path_polyline) == 0:
         _error("pose.path_polyline must not be empty")
     for index, point in enumerate(record.path_polyline):
         _xyz(point, "pose.path_polyline[{}]".format(index))
+    polyline_length = _polyline_length(record.path_polyline, "pose.path_polyline")
+    if not math.isclose(polyline_length, record.path_polyline_length_m, rel_tol=1.0e-9, abs_tol=1.0e-9):
+        _error("pose.path_polyline_length_m does not match path_polyline")
+    if not math.isclose(record.translation_sec, record.geodesic_path_length_m / record.translation_speed_mps, rel_tol=1.0e-9, abs_tol=1.0e-9):
+        _error("pose.translation_sec does not match geodesic distance authority")
+    expected_rotation = (record.initial_to_path_turn_deg + record.internal_path_turn_deg + record.final_turn_deg) / record.rotation_speed_dps
+    if not math.isclose(record.rotation_sec, expected_rotation, rel_tol=1.0e-9, abs_tol=1.0e-9):
+        _error("pose.rotation_sec does not match turn breakdown")
+    if math.isclose(record.geodesic_path_length_m, 0.0, abs_tol=1.0e-9) and math.isclose(expected_rotation, 0.0, abs_tol=1.0e-9):
+        if record.settling_sec != 0.0 or record.total_cost_sec != 0.0:
+            _error("stay pose must have exact zero settling and total cost")
+    if not math.isclose(record.total_cost_sec, record.translation_sec + record.rotation_sec + record.settling_sec, rel_tol=1.0e-9, abs_tol=1.0e-9):
+        _error("pose.total_cost_sec does not match cost breakdown")
     _bool(record.budget_feasible, "pose.budget_feasible")
+    if record.budget_feasible != (record.total_cost_sec <= record.budget_sec + 1.0e-12):
+        _error("pose.budget_feasible does not match total cost and budget")
     _string(record.geometry_legality, "pose.geometry_legality")
     if record.geometry_legality not in ("LEGAL", "ILLEGAL", "NOT_EVALUATED"):
         _error("pose.geometry_legality is invalid")
@@ -614,4 +692,5 @@ __all__ = [
     "validate_episode_record",
     "validate_geometry_record",
     "validate_pose_record",
+    "pose_identity_payload",
 ]

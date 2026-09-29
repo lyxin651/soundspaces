@@ -1,9 +1,9 @@
 """Strict validator for the A4 infrastructure contract.
 
 The contract freezes long-lived interfaces and points back to the already
-closed A0--A3 contracts.  It intentionally leaves exact smoke sources,
-geometries, sampler lattice, calibration algorithm, and mixer execution for
-later A4 slices.
+closed A0--A3 contracts.  A4-1 supplies the sampler and motion algorithm
+identities here; exact smoke sources/geometries and later calibration, mixer,
+and cache execution remain versioned in later A4 slices.
 """
 
 import hashlib
@@ -22,7 +22,7 @@ A4_GATE = "A4"
 
 
 class A4ContractError(ValueError):
-    """Raised when the A4-0 contract is malformed or semantically incomplete."""
+    """Raised when the A4 contract is malformed or semantically incomplete."""
 
 
 def _path(path: str, key: Any) -> str:
@@ -109,7 +109,7 @@ def _schema(value: Mapping) -> None:
     path = "typed_records"
     expected = {
         "geometry": "active-asr-a4-geometry-v1",
-        "pose": "active-asr-a4-pose-v1",
+        "pose": "active-asr-a4-pose-v2",
         "block": "active-asr-a4-block-v1",
         "episode": "active-asr-a4-episode-v1",
         "calibration": "active-asr-a4-calibration-v1",
@@ -130,28 +130,75 @@ def _lifecycle_identity(value: Any, path: str, deferred: str, state: str) -> Non
 
 def _sampler_boundary(value: Mapping, state: str) -> None:
     path = "sampler_boundary"
-    keys = ("source_free", "selection_inputs", "post_sampling_source_clearance", "exact_lattice")
+    keys = ("source_free", "selection_inputs", "forbidden_inputs", "post_sampling_source_clearance", "exact_lattice")
     _only(value, keys, path)
     _require(value, keys, path)
     _bool(value["source_free"], _path(path, "source_free"), True)
     if value["selection_inputs"] != ["navmesh_legality", "pathfinder", "stable_probe_identity"]:
         raise A4ContractError("sampler_boundary.selection_inputs is not the frozen source-free boundary")
+    if value["forbidden_inputs"] != ["target_world_pose", "noise_world_pose", "source_direction", "rir", "snr", "asr", "wer", "oracle_landscape"]:
+        raise A4ContractError("sampler_boundary.forbidden_inputs is not the frozen source-free boundary")
     _string(value["post_sampling_source_clearance"], _path(path, "post_sampling_source_clearance"), "legality_annotation_only")
-    _lifecycle_identity(value["exact_lattice"], _path(path, "exact_lattice"), "DEFERRED_TO_A4_1", state)
+    lattice = _mapping(value["exact_lattice"], _path(path, "exact_lattice"))
+    lattice_keys = (
+        "schema_version", "algorithm_identity", "coordinate_convention_identity",
+        "technical_filter_order", "coverage_selection_identity", "tie_break_identity",
+        "parameter_schema",
+    )
+    _only(lattice, lattice_keys, _path(path, "exact_lattice"))
+    _require(lattice, lattice_keys, _path(path, "exact_lattice"))
+    _string(lattice["schema_version"], _path(path, "exact_lattice.schema_version"), "active-asr-a4-candidate-contract-v1")
+    _string(lattice["algorithm_identity"], _path(path, "exact_lattice.algorithm_identity"), "active-asr-a4-local-polar-sampler-v1")
+    _string(lattice["coordinate_convention_identity"], _path(path, "exact_lattice.coordinate_convention_identity"), "active-asr-a0-positive-left-forward-minus-z-v1")
+    if lattice["technical_filter_order"] != ["requested_point", "snap_point", "finite_check", "navigability", "snap_error", "shortest_path", "geodesic_radius", "duplicate_filter"]:
+        raise A4ContractError("sampler_boundary.exact_lattice.technical_filter_order is invalid")
+    _string(lattice["coverage_selection_identity"], _path(path, "exact_lattice.coverage_selection_identity"), "active-asr-a4-farthest-coverage-v1")
+    _string(lattice["tie_break_identity"], _path(path, "exact_lattice.tie_break_identity"), "active-asr-a4-probe-id-lexical-tie-break-v1")
+    schema = _mapping(lattice["parameter_schema"], _path(path, "exact_lattice.parameter_schema"))
+    schema_keys = ("radii_m", "azimuth_offsets_deg", "max_geodesic_radius_m", "max_snap_error_m", "duplicate_position_tolerance_m", "max_noninitial_positions", "yaw_offsets_deg", "source_clearance_m")
+    _only(schema, schema_keys, _path(path, "exact_lattice.parameter_schema"))
+    _require(schema, schema_keys, _path(path, "exact_lattice.parameter_schema"))
+    for key in schema_keys:
+        _string(schema[key], _path(path, "exact_lattice.parameter_schema." + key))
 
 
 def _motion(value: Mapping, state: str) -> None:
     path = "motion_cost"
-    keys = ("formula_identity", "parameters", "exact_execution")
+    keys = ("formula_identity", "parameter_schema", "exact_execution", "distance_authority", "turn_plane", "zero_length_segment_policy", "special_cases")
     _only(value, keys, path)
     _require(value, keys, path)
-    _lifecycle_identity(value["formula_identity"], _path(path, "formula_identity"), "DEFERRED_TO_A4_1", state)
-    _lifecycle_identity(value["exact_execution"], _path(path, "exact_execution"), "DEFERRED_TO_A4_1", state)
-    params = _mapping(value["parameters"], _path(path, "parameters"))
-    _only(params, ("translation_speed_mps", "rotation_speed_dps", "settling_sec", "budget_sec"), _path(path, "parameters"))
-    _require(params, ("translation_speed_mps", "rotation_speed_dps", "settling_sec", "budget_sec"), _path(path, "parameters"))
-    for key in params:
-        _number(params[key], _path(path, "parameters") + "." + key)
+    _string(value["formula_identity"], _path(path, "formula_identity"), "active-asr-a4-motion-cost-v1")
+    _string(value["exact_execution"], _path(path, "exact_execution"), "active-asr-a4-polyline-turn-execution-v1")
+    _string(value["distance_authority"], _path(path, "distance_authority"), "pathfinder_shortest_path_geodesic_distance_m_v1")
+    _string(value["turn_plane"], _path(path, "turn_plane"), "horizontal_xz_positive_left_v1")
+    _string(value["zero_length_segment_policy"], _path(path, "zero_length_segment_policy"), "remove_near_zero_horizontal_segments_v1")
+    schema = _mapping(value["parameter_schema"], _path(path, "parameter_schema"))
+    schema_keys = ("translation_speed_mps", "rotation_speed_dps", "settling_sec", "budget_sec")
+    _only(schema, schema_keys, _path(path, "parameter_schema"))
+    _require(schema, schema_keys, _path(path, "parameter_schema"))
+    for key in schema_keys:
+        _string(schema[key], _path(path, "parameter_schema." + key))
+    special = _mapping(value["special_cases"], _path(path, "special_cases"))
+    special_keys = ("stay", "rotate_only", "translation")
+    _only(special, special_keys, _path(path, "special_cases"))
+    _require(special, special_keys, _path(path, "special_cases"))
+    for key in special_keys:
+        _string(special[key], _path(path, "special_cases." + key))
+
+
+def _geometry_legality(value: Mapping) -> None:
+    path = "geometry_legality"
+    keys = ("phase", "receiver_reference", "source_reference", "distance_metric", "threshold_parameter", "replacement_sampling", "invalid_reasons")
+    _only(value, keys, path)
+    _require(value, keys, path)
+    _string(value["phase"], _path(path, "phase"), "post_sampling_only")
+    _string(value["receiver_reference"], _path(path, "receiver_reference"), "actual_listener_sensor_xyz")
+    _string(value["source_reference"], _path(path, "source_reference"), "acoustic_source_world_xyz")
+    _string(value["distance_metric"], _path(path, "distance_metric"), "euclidean_3d")
+    _string(value["threshold_parameter"], _path(path, "threshold_parameter"), "candidate_contract.source_clearance_m")
+    _bool(value["replacement_sampling"], _path(path, "replacement_sampling"), False)
+    if value["invalid_reasons"] != ["TARGET_SOURCE_CLEARANCE", "NOISE_SOURCE_CLEARANCE", "TARGET_AND_NOISE_SOURCE_CLEARANCE"]:
+        raise A4ContractError("geometry_legality.invalid_reasons is invalid")
 
 
 def _acoustic(value: Mapping) -> None:
@@ -243,7 +290,7 @@ def validate_contract(value: Mapping[str, Any], require_frozen: bool = False) ->
         raise A4ContractError("A4 contract must be a mapping")
     keys = (
         "contract", "serialization", "typed_records", "sampler_boundary", "motion_cost",
-        "production_acoustics", "calibration_boundary", "mixture_boundary", "cache_resume",
+        "geometry_legality", "production_acoustics", "calibration_boundary", "mixture_boundary", "cache_resume",
         "access_boundary", "frozen_parents",
     )
     _only(value, keys, "root")
@@ -256,6 +303,7 @@ def validate_contract(value: Mapping[str, Any], require_frozen: bool = False) ->
     _schema(_mapping(value["typed_records"], "typed_records"))
     _sampler_boundary(_mapping(value["sampler_boundary"], "sampler_boundary"), state)
     _motion(_mapping(value["motion_cost"], "motion_cost"), state)
+    _geometry_legality(_mapping(value["geometry_legality"], "geometry_legality"))
     _acoustic(_mapping(value["production_acoustics"], "production_acoustics"))
     _calibration(_mapping(value["calibration_boundary"], "calibration_boundary"), state)
     _mixture(_mapping(value["mixture_boundary"], "mixture_boundary"), state)

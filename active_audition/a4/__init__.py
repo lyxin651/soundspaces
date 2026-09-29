@@ -1,9 +1,10 @@
 """A4 infrastructure contracts and immutable experiment-plan records.
 
 The A4 namespace is intentionally separate from the legacy V0 records and
-from the frozen A0--A3 runtime contracts.  This package contains only data
-validation and identity construction; it does not render audio, run ASR, or
-choose experimental geometries.
+from the frozen A0--A3 runtime contracts.  This package contains pure data
+validation, identity construction, source-free pose planning,
+geometry-legality annotation, and motion-budget computation.  It does not
+render audio, run ASR, or choose experimental geometries.
 """
 
 from active_audition.a4.contract import (
@@ -23,6 +24,27 @@ from active_audition.a4.identity import (
     sha256_bytes,
     stable_id,
 )
+from active_audition.a4.budget import (
+    MotionCost,
+    MotionCostError,
+    MotionParameters,
+    compute_motion_cost,
+    normalize_yaw_deg,
+    shortest_yaw_delta_deg,
+)
+from active_audition.a4.pose_sampler import (
+    CandidateContract,
+    PathFinderLike,
+    ProbeAttemptRecord,
+    SamplerContext,
+    SamplerError,
+    SamplerOutput,
+    SampledPositionPlan,
+    SampledYawPlan,
+    annotate_geometry_legality,
+    make_sampler_context,
+    sample_source_free,
+)
 from active_audition.a4.records import (
     BlockRecord,
     CalibrationArtifact,
@@ -34,6 +56,7 @@ from active_audition.a4.records import (
     validate_calibration_artifact,
     validate_episode_record,
     validate_geometry_record,
+    pose_identity_payload,
     validate_pose_record,
 )
 
@@ -42,19 +65,37 @@ __all__ = [
     "A4_CONTRACT_VERSION",
     "A4_GATE",
     "A4IdentityError",
+    "CandidateContract",
     "BlockRecord",
     "CalibrationArtifact",
     "EpisodeRecord",
     "GeometryRecord",
     "PoseRecord",
+    "ProbeAttemptRecord",
+    "PathFinderLike",
     "RecordError",
+    "SamplerContext",
+    "SamplerError",
+    "SamplerOutput",
+    "SampledPositionPlan",
+    "SampledYawPlan",
+    "MotionCost",
+    "MotionCostError",
+    "MotionParameters",
+    "annotate_geometry_legality",
     "canonical_contract_json",
     "canonical_json",
     "canonical_json_bytes",
     "contract_sha256",
+    "compute_motion_cost",
     "identity_sha256",
     "load_contract",
+    "make_sampler_context",
+    "normalize_yaw_deg",
+    "pose_identity_payload",
+    "sample_source_free",
     "sha256_bytes",
+    "shortest_yaw_delta_deg",
     "stable_id",
     "validate_block_record",
     "validate_calibration_artifact",

@@ -8,6 +8,12 @@ from active_audition.a4.contract import (
     load_contract,
     validate_contract,
 )
+from active_audition.a4.budget import (
+    MOTION_COST_ALGORITHM_IDENTITY,
+    MOTION_EXECUTION_IDENTITY,
+    MotionParameters,
+    compute_motion_cost,
+)
 from active_audition.a4.identity import (
     A4IdentityError,
     canonical_json_bytes,
@@ -21,6 +27,7 @@ from active_audition.a4.records import (
     GeometryRecord,
     PoseRecord,
     RecordError,
+    pose_identity_payload,
 )
 
 
@@ -70,9 +77,6 @@ def _block(geometry):
 def _concrete_frozen_contract():
     contract = copy.deepcopy(load_contract(str(CONTRACT_PATH)))
     contract["contract"]["state"] = "FROZEN"
-    contract["sampler_boundary"]["exact_lattice"] = "sampler-lattice-v1"
-    contract["motion_cost"]["formula_identity"] = "motion-cost-formula-v1"
-    contract["motion_cost"]["exact_execution"] = "motion-cost-execution-v1"
     contract["calibration_boundary"]["active_mask"] = "active-mask-v1"
     contract["calibration_boundary"]["algorithm"] = "selection-calibration-v1"
     contract["mixture_boundary"]["timeline"] = "source-time-timeline-v1"
@@ -154,8 +158,20 @@ class A4RecordTests(unittest.TestCase):
 
     def test_pose_record_has_stable_identity_and_rejects_illegal_shape(self):
         geometry = _geometry()
+        parameters = MotionParameters(
+            schema_version="active-asr-a4-motion-parameters-v1",
+            algorithm_identity=MOTION_COST_ALGORITHM_IDENTITY,
+            execution_identity=MOTION_EXECUTION_IDENTITY,
+            translation_speed_mps=0.25,
+            rotation_speed_dps=90.0,
+            settling_sec=0.5,
+            budget_sec=10.0,
+        )
+        cost = compute_motion_cost(
+            (0.0, 0.0, 0.0), 0.0, ((0.0, 0.0, 0.0),), 0.0, 0.0, parameters
+        )
         payload = {
-            "schema_version": "active-asr-a4-pose-v1",
+            "schema_version": "active-asr-a4-pose-v2",
             "geometry_id": geometry.geometry_id,
             "position_id": "position-0",
             "yaw_id": "yaw-0",
@@ -172,11 +188,18 @@ class A4RecordTests(unittest.TestCase):
             "final_turn_deg": 0.0,
             "settling_sec": 0.0,
             "total_cost_sec": 0.0,
+            "motion_contract_identity": cost.motion_contract_identity,
+            "path_polyline_length_m": 0.0,
+            "translation_speed_mps": cost.translation_speed_mps,
+            "rotation_speed_dps": cost.rotation_speed_dps,
+            "translation_sec": 0.0,
+            "rotation_sec": 0.0,
+            "budget_sec": 10.0,
             "budget_feasible": True,
             "geometry_legality": "LEGAL",
             "invalid_reason": None,
         }
-        pose = PoseRecord(pose_id=stable_id("pose", payload), **payload)
+        pose = PoseRecord(pose_id=stable_id("pose", pose_identity_payload(payload)), **payload)
         self.assertEqual(pose.to_payload()["pose_id"], pose.pose_id)
         with self.assertRaises((A4IdentityError, RecordError)):
             PoseRecord(pose_id="pose-" + "0" * 64, **payload)
