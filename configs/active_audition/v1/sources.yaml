@@ -1,0 +1,27 @@
+schema_version: active-asr-a3-source-locations-v1
+
+librispeech:
+  corpus: LibriSpeech
+  root: data/active_asr_a3/corpora/LibriSpeech
+  archive_source: https://www.openslr.org/resources/12
+  splits:
+    dev-clean:
+      archive: data/active_asr_a3/downloads/dev-clean.tar.gz
+      archive_md5: 42e2234ba48799c1f50f24a7926300a1
+    dev-other:
+      archive: data/active_asr_a3/downloads/dev-other.tar.gz
+      archive_md5: c8d0bcc9cca99d4f8b62fcc847357931
+    test-clean:
+      archive: data/active_asr_a3/downloads/test-clean.tar.gz
+      archive_md5: 32fa31d27d2e1cad72775fee3f4849a9
+    test-other:
+      archive: data/active_asr_a3/downloads/test-other.tar.gz
+      archive_md5: fb5a50374b501bb3bac4815ee91d3135
+
+musan:
+  corpus: MUSAN
+  subset: noise
+  root: data/active_asr_a3/corpora/musan
+  archive: data/active_asr_a3/downloads/musan.tar.gz
+  archive_source: https://www.openslr.org/resources/17/musan.tar.gz
+  archive_md5: 0c472d4fc0c5141eca47ad1ffeb2a7df

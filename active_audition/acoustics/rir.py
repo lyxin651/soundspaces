@@ -12,8 +12,8 @@ class RIRRenderError(ValueError):
     """Raised when a native RIR or live acoustic observation is invalid."""
 
 
-def canonicalize_binaural_rir(native: Any) -> np.ndarray:
-    """Map native ``(2, N)`` LEFT/RIGHT float64 to canonical ``(N, 2)`` float32."""
+def _native_channels_to_time_major(native: Any) -> np.ndarray:
+    """Validate native ``(2, N)`` data and expose raw channel 0/1 as ``(N, 2)``."""
 
     array = np.asarray(native)
     if array.ndim != 2 or array.shape[0] != 2 or array.shape[1] <= 0:
@@ -26,6 +26,22 @@ def canonicalize_binaural_rir(native: Any) -> np.ndarray:
     return result
 
 
+def canonicalize_binaural_rir(native: Any) -> np.ndarray:
+    """Map proven native ``[R, L]`` channels to canonical ``[L, R]``.
+
+    The native channel order is an A2 behavioral finding, not an A1 API claim.
+    Direction calibration records raw channel 0/1 before this mapping.  The
+    mapping is kept in this single adapter so downstream V1 code only sees the
+    A0 canonical ``[L, R]`` order.
+    """
+
+    raw = _native_channels_to_time_major(native)
+    result = np.asarray(raw[:, [1, 0]], dtype=np.float32)
+    if not np.isfinite(result).all():
+        raise RIRRenderError("canonical RIR contains NaN/Inf")
+    return result
+
+
 def _set_listener(context: Any, base_position: Iterable[float], yaw_deg: float) -> None:
     state = context.agent.get_state()
     state.position = np.asarray(tuple(base_position), dtype=np.float32)
@@ -33,8 +49,8 @@ def _set_listener(context: Any, base_position: Iterable[float], yaw_deg: float) 
     context.agent.set_state(state, infer_sensor_states=True)
 
 
-def render_native_rir(context: Any, source_position_world: Iterable[float], listener_pose: Any) -> np.ndarray:
-    """Render one live RIR; source position is already acoustic world XYZ."""
+def _render_native_observation(context: Any, source_position_world: Iterable[float], listener_pose: Any) -> Any:
+    """Render and return the native AudioSensor observation without mapping."""
 
     # Native AudioSensor keeps simulator state across observations.  Reset it
     # before each viewpoint so repeated renders in one scene context are
@@ -45,7 +61,19 @@ def render_native_rir(context: Any, source_position_world: Iterable[float], list
     observations = context.simulator.get_sensor_observations()
     if "audio_sensor" not in observations:
         raise RIRRenderError("audio_sensor observation is missing")
-    return canonicalize_binaural_rir(observations["audio_sensor"])
+    return observations["audio_sensor"]
+
+
+def render_native_rir_raw(context: Any, source_position_world: Iterable[float], listener_pose: Any) -> np.ndarray:
+    """Render raw native channel 0/1 as ``(N, 2)`` for A2 evidence only."""
+
+    return _native_channels_to_time_major(_render_native_observation(context, source_position_world, listener_pose))
+
+
+def render_native_rir(context: Any, source_position_world: Iterable[float], listener_pose: Any) -> np.ndarray:
+    """Render one live RIR and return the canonical A0 ``[L, R]`` channels."""
+
+    return canonicalize_binaural_rir(_render_native_observation(context, source_position_world, listener_pose))
 
 
 def _channel_stats(rir: np.ndarray) -> Mapping[str, float]:

@@ -4,7 +4,7 @@ from unittest.mock import Mock, call, patch
 
 import numpy as np
 
-from active_audition.acoustics.rir import RIRRenderError, canonicalize_binaural_rir, render_native_rir
+from active_audition.acoustics.rir import RIRRenderError, canonicalize_binaural_rir, render_native_rir, render_native_rir_raw
 from active_audition.acoustics.rir import run_channel_order_gate
 
 
@@ -40,8 +40,25 @@ class RIRCanonicalizationTests(unittest.TestCase):
         result = canonicalize_binaural_rir(native)
         self.assertEqual(result.shape, (3, 2))
         self.assertEqual(result.dtype, np.float32)
-        np.testing.assert_array_equal(result[:, 0], [1.0, 2.0, 3.0])
-        np.testing.assert_array_equal(result[:, 1], [10.0, 20.0, 30.0])
+        np.testing.assert_array_equal(result[:, 0], [10.0, 20.0, 30.0])
+        np.testing.assert_array_equal(result[:, 1], [1.0, 2.0, 3.0])
+
+    def test_raw_native_channels_are_available_before_canonical_mapping(self):
+        native = np.asarray([[1.0, 2.0], [10.0, 20.0]], dtype=np.float64)
+        result = render_native_rir_raw(
+            SimpleNamespace(
+                audio_sensor=Mock(),
+                agent=SimpleNamespace(
+                    get_state=lambda: SimpleNamespace(),
+                    set_state=lambda state, infer_sensor_states: None,
+                ),
+                simulator=SimpleNamespace(get_sensor_observations=lambda: {"audio_sensor": native}),
+            ),
+            (1.0, 0.0, 0.0),
+            SimpleNamespace(base_position_world=(0.0, 0.0, 0.0), yaw_deg=0.0),
+        )
+        np.testing.assert_array_equal(result[:, 0], [1.0, 2.0])
+        np.testing.assert_array_equal(result[:, 1], [10.0, 20.0])
 
     def test_empty_bad_shape_and_nonfinite_native_are_rejected(self):
         for native in (np.zeros((2, 0)), np.zeros((3, 2)), np.asarray([[np.inf], [0.0]])):

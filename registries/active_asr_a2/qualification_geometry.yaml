@@ -1,0 +1,65 @@
+schema_version: active-asr-a2-qualification-geometry-v1
+generator_version: a2-symmetric-shoebox-generator-v1
+
+geometries:
+  - id: a2_symmetric_shoebox_v1
+    kind: symmetric_shoebox
+    mesh_path: assets/active_asr_a2/a2_symmetric_shoebox_v1.ply
+    mesh_sha256: c9bbf650ef35e1ac1d0c337f9b7550afeaab31ec77f9c9273f3a378a832e7e4e
+    dimensions_m: {x: 24.0, y: 12.0, z: 24.0}
+    coordinate_convention:
+      up: +Y
+      forward: -Z
+      positive_relative_azimuth: left
+      yaw_positive: left
+    receiver:
+      sensor_position_world: [0.0, 6.0, 0.0]
+      yaw_deg: 0.0
+    los_distances_m: [1.0, 4.0]
+    relative_azimuth_deg: [0, -30, 30, -60, 60, -90, 90, 180]
+    mirror_pairs: [[-30, 30], [-60, 60], [-90, 90]]
+    symmetry:
+      declaration: mathematical_reflection_about_x_zero
+      reflected_axis: x=0
+      direct_case_scope: direct_dominant_only
+    generation:
+      method: deterministic_ascii_ply_from_closed_shoebox_faces
+      generator_version: a2-symmetric-shoebox-generator-v1
+    qualification_purpose: independent_controlled_direction_repeatability_sample_rate_and_convergence_geometry
+    requires_navmesh: false
+    requires_semantic_mesh: false
+    nlos:
+      enabled: false
+      direct_metric_policy: not_applicable
+
+  - id: a2_symmetric_shoebox_occluder_v1
+    kind: occluder_variant
+    mesh_path: assets/active_asr_a2/a2_symmetric_shoebox_occluder_v1.ply
+    mesh_sha256: 7e6281c3961d68fdea83d6e41cee00491d8a60b84fb96095065a0cc4d6fb5585
+    dimensions_m: {x: 24.0, y: 12.0, z: 24.0}
+    coordinate_convention:
+      up: +Y
+      forward: -Z
+      positive_relative_azimuth: left
+      yaw_positive: left
+    receiver:
+      sensor_position_world: [0.0, 6.0, 0.0]
+      yaw_deg: 0.0
+    los_distances_m: [1.0, 4.0]
+    relative_azimuth_deg: [0, -30, 30, -60, 60, -90, 90, 180]
+    mirror_pairs: [[-30, 30], [-60, 60], [-90, 90]]
+    symmetry:
+      declaration: mathematical_reflection_about_x_zero_with_fixed_front_occluder
+      reflected_axis: x=0
+      direct_case_scope: direct_dominant_only
+    generation:
+      method: deterministic_ascii_ply_from_closed_shoebox_faces_plus_fixed_vertical_occluder
+      generator_version: a2-symmetric-shoebox-generator-v1
+    qualification_purpose: controlled_nlos_direct_metric_na_control
+    requires_navmesh: false
+    requires_semantic_mesh: false
+    nlos:
+      enabled: true
+      occluder_plane: {z: -2.0, x_min: -5.0, x_max: 5.0, y_min: 0.05, y_max: 11.95}
+      formal_cases: [{distance_m: 4.0, relative_azimuth_deg: 0.0}]
+      direct_metric_policy: N/A

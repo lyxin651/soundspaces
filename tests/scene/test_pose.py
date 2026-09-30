@@ -39,8 +39,8 @@ class PoseTests(unittest.TestCase):
     def test_relative_azimuth_is_front_right_left_back(self):
         listener = (0.0, 1.5, 0.0)
         self.assertAlmostEqual(relative_azimuth_deg((0.0, 1.5, -1.0), listener, 0.0), 0.0)
-        self.assertAlmostEqual(relative_azimuth_deg((1.0, 1.5, 0.0), listener, 0.0), 90.0)
-        self.assertAlmostEqual(relative_azimuth_deg((-1.0, 1.5, 0.0), listener, 0.0), -90.0)
+        self.assertAlmostEqual(relative_azimuth_deg((1.0, 1.5, 0.0), listener, 0.0), -90.0)
+        self.assertAlmostEqual(relative_azimuth_deg((-1.0, 1.5, 0.0), listener, 0.0), 90.0)
         self.assertAlmostEqual(abs(relative_azimuth_deg((0.0, 1.5, 1.0), listener, 0.0)), 180.0)
 
     def test_rotation_actions_are_geometrically_named(self):

@@ -1,0 +1,91 @@
+contract:
+  namespace: active-asr
+  version: active-asr-v1.1
+  gate: A0
+  state: FROZEN
+
+audio:
+  # Main SS2 chain: native 16 kHz render into the 16 kHz ASR input.
+  render_sample_rate_hz: 16000
+  asr_sample_rate_hz: 16000
+  # Native 24 kHz -> 16 kHz is an A2 qualification reference only.
+  sample_rate_qualification_reference:
+    scope: A2_only
+    render_sample_rate_hz: 24000
+    target_sample_rate_hz: 16000
+    algorithm: resample_poly
+    anti_aliasing: true
+  waveform_dtype: float32
+  dry_shape: [T]
+  binaural_shape: [T, 2]
+  channel_layout: binaural
+  channel_order: [L, R]
+  asr_frontend: mean_lr
+
+actions:
+  kind: safe_waypoint_macro_action
+  execution: [move, stop, listen]
+  primitive_controls_in_action_space: false
+
+coordinates:
+  position_order: [x, y, z]
+  world_axes: {x: right, y: up, z: backward}
+  agent_axes: {x: right, y: up, z: backward}
+  forward_world: [0.0, 0.0, -1.0]
+  right_world: [1.0, 0.0, 0.0]
+  up_world: [0.0, 1.0, 0.0]
+  yaw_positive: left
+  yaw_range_deg: [-180.0, 180.0]
+  listener_sensor_offset_m: [0.0, 1.5, 0.0]
+
+sources:
+  target:
+    dataset: LibriSpeech
+    split_policy:
+      o1: [dev-clean, dev-other]
+      o2: [test-clean, test-other]
+      speaker_disjoint: true
+      source_registry_freeze: A3
+    modality: speech
+    utterance_unit: complete
+  noise:
+    dataset: MUSAN
+    subset: noise
+    modality: non_speech
+    localized_source_approximation: true
+
+asr:
+  provider: SpeechBrain
+  family: LibriSpeech Transformer family
+  default_checkpoint: speechbrain/asr-transformer-transformerlm-librispeech
+  checkpoint_status: reference_only_not_A3_frozen
+  revision_decoder_freeze: A3
+  input_sample_rate_hz: 16000
+  input_channels: mono
+  reference_access: forbidden
+
+mix:
+  source_count: 2
+  independent_propagation: true
+  normalization:
+    mode: none
+    per_pose: false
+    per_channel: false
+    per_source: false
+    global_gain: fixed
+  noise_gain:
+    calibration_pose: initial
+    calibration_scope: per_block
+    reuse_scope: all_poses_and_evaluation_utterances
+    calibration_frontend: binaural_mean_power
+
+seed_policy:
+  master_seed: 20260923
+  derivation: sha256-domain-separated-v1
+  component_order: [contract_version, purpose, geometry_id, block_id, episode_id]
+  retry_policy: same_inputs_same_seed_no_search
+
+artifacts:
+  schema_version: active-asr-artifact-v1.1
+  serialization: canonical-json-v1
+  hash_algorithm: sha256

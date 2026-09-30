@@ -1,0 +1,169 @@
+contract:
+  namespace: active-asr-a4
+  version: active-asr-a4-infrastructure-v2
+  gate: A4
+  state: FROZEN
+serialization:
+  version: canonical-json-v1
+  encoding: utf-8
+  sort_keys: true
+  allow_nan: false
+  separators: [",", ":"]
+  hash_algorithm: sha256
+typed_records:
+  geometry: active-asr-a4-geometry-v1
+  pose: active-asr-a4-pose-v2
+  block: active-asr-a4-block-v1
+  episode: active-asr-a4-episode-v1
+  calibration: active-asr-a4-calibration-v1
+  mixture: active-asr-a4-mixture-v1
+  noise_segment: active-asr-a4-noise-segment-v2
+  active_mask: active-asr-a4-active-mask-v1
+sampler_boundary:
+  source_free: true
+  selection_inputs: [navmesh_legality, pathfinder, stable_probe_identity]
+  forbidden_inputs: [target_world_pose, noise_world_pose, source_direction, rir, snr, asr, wer, oracle_landscape]
+  post_sampling_source_clearance: legality_annotation_only
+  exact_lattice:
+    schema_version: active-asr-a4-candidate-contract-v1
+    algorithm_identity: active-asr-a4-local-polar-sampler-v1
+    coordinate_convention_identity: active-asr-a0-positive-left-forward-minus-z-v1
+    technical_filter_order: [requested_point, snap_point, finite_check, navigability, snap_error, shortest_path, geodesic_radius, duplicate_filter]
+    coverage_selection_identity: active-asr-a4-farthest-coverage-v1
+    tie_break_identity: active-asr-a4-probe-id-lexical-tie-break-v1
+    parameter_schema:
+      radii_m: ordered_positive_finite_meters
+      azimuth_offsets_deg: unique_finite_degrees_in_[0,360)
+      max_geodesic_radius_m: finite_nonnegative_meters
+      max_snap_error_m: finite_nonnegative_meters
+      duplicate_position_tolerance_m: finite_nonnegative_meters
+      max_noninitial_positions: nonnegative_integer
+      yaw_offsets_deg: unique_finite_degrees_in_[0,360)
+      source_clearance_m: finite_nonnegative_meters
+geometry_legality:
+  phase: post_sampling_only
+  receiver_reference: actual_listener_sensor_xyz
+  source_reference: acoustic_source_world_xyz
+  distance_metric: euclidean_3d
+  threshold_parameter: candidate_contract.source_clearance_m
+  replacement_sampling: false
+  invalid_reasons: [TARGET_SOURCE_CLEARANCE, NOISE_SOURCE_CLEARANCE, TARGET_AND_NOISE_SOURCE_CLEARANCE]
+noise_segment_planner:
+  algorithm_identity: active-asr-a4-noise-segment-planner-v2
+  schema_version: active-asr-a4-noise-segment-plan-v2
+  source_time_convention: active-asr-a4-target-dry-onset-zero-v1
+  sample_index_convention: active-asr-a4-half-open-sample-range-v1
+  episode_order_identity: active-asr-a4-stable-episode-order-v1
+  sample_rounding_identity: active-asr-a4-seconds-to-samples-nearest-half-up-v1
+  target_sample_authority: episode_request.target_sample_count
+  range_layout: pre_target_post_half_open_samples_v1
+  guard_semantics: intermediate_guard_final_zero_v1
+  selection_evaluation_nonoverlap: true
+  parent_ranges_nonoverlap: true
+  no_looping: true
+  no_provenance_free_concat: true
+  parameter_schema:
+    sample_rate_hz: positive_integer_hz
+    pre_roll_sec: finite_nonnegative_seconds
+    post_roll_sec: finite_nonnegative_seconds
+    guard_interval_sec: finite_nonnegative_seconds
+    episode_count: exactly_four_block_episodes
+    target_sample_count: positive_integer_samples_per_episode_request
+active_mask:
+  algorithm_identity: active-asr-a4-dry-speech-active-mask-v1
+  schema_version: active-asr-a4-active-mask-v1
+  input_identity: dry_target_speech_only_v1
+  frame_rms_identity: frame_rms_no_padding_v1
+  percentile_identity: linear_interpolated_finite_percentile_v1
+  threshold_identity: reference_plus_db_offset_v1
+  expansion_identity: frame_to_sample_half_open_union_v1
+  parameter_schema:
+    frame_duration_ms: finite_positive_milliseconds
+    hop_duration_ms: finite_positive_milliseconds
+    reference_percentile: finite_percentile_0_to_100
+    threshold_db: finite_negative_decibels
+motion_cost:
+  formula_identity: active-asr-a4-motion-cost-v1
+  parameter_schema:
+    translation_speed_mps: finite_positive_meters_per_second
+    rotation_speed_dps: finite_positive_degrees_per_second
+    settling_sec: finite_nonnegative_seconds
+    budget_sec: finite_nonnegative_seconds
+  exact_execution: active-asr-a4-polyline-turn-execution-v1
+  distance_authority: pathfinder_shortest_path_geodesic_distance_m_v1
+  turn_plane: horizontal_xz_positive_left_v1
+  zero_length_segment_policy: remove_near_zero_horizontal_segments_v1
+  special_cases:
+    stay: exact_zero_cost_and_zero_settling
+    rotate_only: zero_translation_plus_shortest_yaw_rotation_plus_settling
+    translation: geodesic_translation_plus_all_turns_plus_settling
+production_acoustics:
+  sample_rate_hz: 16000
+  channel_layout: binaural
+  channel_order: [L, R]
+  materials: "OFF"
+  convolution: full
+  convolution_implementation_identity: active-asr-a4-scipy-fftconvolve-full-float32-v1
+  speech_emission_scale: 1.0
+  normalization:
+    per_pose: false
+    per_source: false
+    per_channel: false
+  time_convention: source_time_common_receiver_time
+calibration_boundary:
+  scope: selection_only_initial_pose_once
+  active_mask: active-asr-a4-dry-speech-active-mask-v1
+  selection_episode_count: 2
+  algorithm: active-asr-a4-selection-initial-snr-calibration-v1
+  power_definition: active-asr-a4-two-ear-mean-square-v1
+  receiver_mask_mapping: active-asr-a4-dry-mask-to-receiver-time-v1
+  measured_snr_tolerance_db: 0.1
+  artifact_schema: active-asr-a4-calibration-v1
+mixture_boundary:
+  target_noise_propagation: independent_rirs
+  calibration_input: calibration_artifact_identity_only
+  timeline: active-asr-a4-common-receiver-timeline-v2
+  timeline_schema: active-asr-a4-receiver-timeline-v2
+  timeline_source_time_convention: active-asr-a4-target-dry-onset-zero-v1
+  timeline_direct_onset_convention: active-asr-a2-direct-window-first-absolute-sample-10-percent-peak-v1
+  reconstruction: active-asr-a4-linear-reconstruction-v1
+  algorithm: active-asr-a4-dual-source-linear-mixer-v1
+  arithmetic_identity: active-asr-a4-float32-input-float64-intermediate-single-final-cast-v1
+  global_gain: active-asr-a4-block-global-gain-v1
+  residual_gate_threshold: 1.0e-6
+  residual_denominator: max_1_actual_mixture_peak_v1
+  dtype_policy: native16_float32_finite_v1
+  channel_policy: canonical_binaural_lr_v1
+  normalization_policy: no_limiter_no_source_pose_channel_normalization_v1
+  artifact_schema: active-asr-a4-mixture-v1
+cache_resume:
+  keying: content_addressed_semantic_payload
+  key_serialization: active-asr-a4-cache-key-canonical-json-v1
+  key_schemas:
+    rir: active-asr-a4-rir-cache-key-v1
+    mixture: active-asr-a4-mixture-cache-key-v3
+    asr: active-asr-a4-asr-cache-key-v1
+  metadata_schema: active-asr-a4-cache-metadata-v1
+  metadata_schemas:
+    rir: active-asr-a4-rir-cache-metadata-v1
+    mixture: active-asr-a4-mixture-cache-metadata-v1
+    asr: active-asr-a4-asr-cache-metadata-v2
+  integrity_algorithm: active-asr-a4-cache-key-metadata-payload-integrity-v1
+  integrity: [key_recompute, metadata_schema, payload_exists, payload_sha256, shape_dtype, finite_payload, semantic_identities]
+  atomic_commit: active-asr-a4-payload-then-metadata-atomic-commit-v1
+  resume: active-asr-a4-deterministic-resume-reconciliation-v1
+  expected_manifest_schema: active-asr-a4-cache-expected-manifest-v1
+  reconciliation_record_schema: active-asr-a4-cache-reconciliation-record-v1
+  reconciliation_algorithm: active-asr-a4-cache-reconciliation-v1
+  completion_marker_schema: active-asr-a4-cache-completion-marker-v1
+  completion_algorithm: active-asr-a4-strict-completion-marker-v1
+  completion_marker_scope: manifest_scoped_resume_v1
+  algorithm: active-asr-a4-content-addressed-cache-v1
+access_boundary:
+  selection: selection_only_for_calibration_and_pose_choice
+  evaluation: evaluation_never_changes_pose_choice
+  result_dependent_selection: false
+frozen_parents:
+  a0_contract_sha256: d731393cda3ddb29f0bdf58249f104da59f29d012b976eeb2de1f160e1df8107
+  a2_contract_sha256: c8f3ff23c5dca6f6d18dcb25613e6df6e20663e552f5df76170077ca67b13e7c
+  a3_contract_sha256: 70864c814a55db5d184ef8a6835b65cb564c4c90fc86112f8705b7ecf6df1ffe
