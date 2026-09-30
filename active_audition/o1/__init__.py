@@ -11,6 +11,7 @@ from .landscape import (
     analyze_landscape,
     load_asr_diagnostics,
 )
+from .replacement import O1ReplacementCandidateBatch, O1ReplacementError
 
 __all__ = [
     "BUDGETS_SEC",
@@ -22,6 +23,8 @@ __all__ = [
     "O1PoseScore",
     "analyze_landscape",
     "load_asr_diagnostics",
+    "O1ReplacementCandidateBatch",
+    "O1ReplacementError",
 ]
 """Exploratory O1 landscape analysis, isolated from A4 authority."""
 

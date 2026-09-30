@@ -22,6 +22,12 @@ from active_audition.o1.noise_audit import (
     O1NoiseAuditError,
     O1NoiseParentAuditRecord,
 )
+from active_audition.o1.replacement import (
+    O1_REPLACEMENT_BATCH_SCHEMA_VERSION,
+    O1_REPLACEMENT_POLICY_IDENTITY,
+    O1ReplacementCandidateBatch,
+    O1ReplacementError,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -138,6 +144,58 @@ class O1HardeningTests(unittest.TestCase):
         payload["summary_id"] = _o1_result_id("o1-summary", payload)
         value = O1LandscapeSummary.from_payload(payload)
         self.assertEqual(value.to_payload(), payload)
+
+    def test_finalized_audit_decisions_gate_scientific_use(self):
+        preview = {
+            "relative_preview_path": "previews/clip_01.wav", "clip_index": 1, "center_fraction": 0.08,
+            "start_sample": 0, "end_sample": 240000, "start_sec": 0.0, "end_sec": 15.0,
+            "clip_sample_count": 240000, "expected_source_slice_float32_sha256": "1" * 64,
+            "written_clip_decoded_float32_sha256": "1" * 64, "verification_status": "SAMPLE_EXACT",
+        }
+        previews = tuple(dict(preview, clip_index=index, relative_preview_path="previews/clip_{:02d}.wav".format(index)) for index in range(1, 7))
+        base = dict(
+            schema_version=O1_NOISE_AUDIT_SCHEMA_VERSION,
+            audit_policy_identity=O1_NOISE_AUDIT_POLICY_IDENTITY,
+            decision_source="user_manual_listening", parent_recording_id="noise/free-sound/noise-free-sound-0032",
+            relative_source_path="noise/free-sound/noise-free-sound-0032.wav", source_file_sha256="2" * 64,
+            decoded_waveform_sha256="3" * 64, sample_rate_hz=16000, sample_count=240000,
+            reviewed_preview_identities=previews, review_scope={"dimensions": list(("speech_leakage", "strong_reverberation", "indoor_localized_source_compatibility"))},
+            manual_decision_provenance={"decision_source": "user_manual_listening", "decision_status": "FINALIZED_USER_DECISION"},
+            speech_leakage="PASS", strong_reverberation="PASS", indoor_localized_source_compatibility="PASS",
+            selected_for_o1_scientific_use=True, exclusion_reason="", engineering_only=True,
+        )
+        self.assertTrue(O1NoiseParentAuditRecord.from_payload(O1NoiseParentAuditRecord(**base).to_payload()).selected_for_o1_scientific_use)
+        excluded = dict(base, speech_leakage="NOT_EVALUATED", strong_reverberation="NOT_EVALUATED", indoor_localized_source_compatibility="FLAGGED", selected_for_o1_scientific_use=False, exclusion_reason="MOVING_CAR_DRIVING_SOURCE")
+        self.assertFalse(O1NoiseParentAuditRecord(**excluded).selected_for_o1_scientific_use)
+
+    def test_replacement_batch_is_lexical_and_exclusion_strict(self):
+        def candidate(index, parent):
+            return {
+                "candidate_index": index, "parent_recording_id": parent, "relative_source_path": parent + ".wav",
+                "source_file_sha256": "1" * 64, "decoded_waveform_sha256": "2" * 64, "sample_rate_hz": 16000, "sample_count": 900000,
+                "technical_audit": {
+                    "corpus": "MUSAN", "subset": "noise", "excluded": False, "readable": True, "too_short": False, "extreme_silence": False,
+                    "sample_rate_hz": 16000, "source_file_exists": True, "source_file_sha256_matches": True,
+                    "decoded_waveform_sha256_matches": True, "decoded_mono_finite_float32": True, "sample_count_sufficient": True,
+                },
+            }
+        payload = dict(
+            schema_version=O1_REPLACEMENT_BATCH_SCHEMA_VERSION,
+            selection_policy_identity=O1_REPLACEMENT_POLICY_IDENTITY,
+            registry_relative_path="registries/active_asr_a3/musan_noise.jsonl", registry_sha256="3" * 64,
+            required_parent_sample_count=882720, required_parent_duration_sec=55.17,
+            excluded_parent_recording_ids=("noise/free-sound/noise-free-sound-0015",),
+            candidate_records=tuple(candidate(i, "noise/free-sound/noise-free-sound-00{:02d}".format(i + 41)) for i in range(1, 5)),
+            engineering_only=True, batch_id="", batch_sha256="",
+        )
+        batch = O1ReplacementCandidateBatch(**payload)
+        self.assertEqual(O1ReplacementCandidateBatch.from_payload(batch.to_payload()).to_payload(), batch.to_payload())
+        tampered = dict(batch.to_payload(), candidate_records=tuple(reversed(batch.candidate_records)))
+        with self.assertRaises(O1ReplacementError):
+            O1ReplacementCandidateBatch.from_payload(tampered)
+        tampered = dict(batch.to_payload(), excluded_parent_recording_ids=tuple(sorted(batch.excluded_parent_recording_ids + (batch.candidate_records[0]["parent_recording_id"],))))
+        with self.assertRaises(O1ReplacementError):
+            O1ReplacementCandidateBatch.from_payload(tampered)
 
 
 if __name__ == "__main__":
