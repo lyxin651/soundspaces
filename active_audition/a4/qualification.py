@@ -12,8 +12,10 @@ from typing import Any, Dict, Mapping, Sequence
 from active_audition.a4.identity import canonical_json, identity_sha256, stable_id, validate_sha256
 
 
-QUALIFICATION_SCHEMA_VERSION = "active-asr-a4-engineering-qualification-v2"
-QUALIFICATION_ALGORITHM_IDENTITY = "active-asr-a4-g1-g9-technical-qualification-v1"
+QUALIFICATION_SCHEMA_VERSION = "active-asr-a4-engineering-qualification-v3"
+QUALIFICATION_ALGORITHM_IDENTITY = "active-asr-a4-g1-g9-technical-qualification-v2"
+RESOURCE_PROFILE_SCHEMA_VERSION = "active-asr-a4-resource-profile-v2"
+RESOURCE_PROFILE_ALGORITHM_IDENTITY = "active-asr-a4-resource-disk-accounting-v2"
 QUALIFICATION_STATES = (
     "SERVER_RUN_COMPLETE_PENDING_REVIEW",
     "RESOURCE_PROFILE_PENDING_GPU_REPLAY",
@@ -113,6 +115,8 @@ class A4QualificationArtifact:
     calibration_evidence: Mapping[str, Any]
     cache_reconciliation_identity: Mapping[str, Any]
     completion_marker_identity: Mapping[str, Any]
+    resource_profile_identity: Mapping[str, Any]
+    resource_profile_semantic_payload: Mapping[str, Any]
     resource_profile_references: Mapping[str, Any]
     asr_diagnostic_references: Mapping[str, Any]
     qualification_state: str
@@ -152,10 +156,27 @@ class A4QualificationArtifact:
             ("calibration_evidence", self.calibration_evidence),
             ("cache_reconciliation_identity", self.cache_reconciliation_identity),
             ("completion_marker_identity", self.completion_marker_identity),
+            ("resource_profile_identity", self.resource_profile_identity),
+            ("resource_profile_semantic_payload", self.resource_profile_semantic_payload),
             ("resource_profile_references", self.resource_profile_references),
             ("asr_diagnostic_references", self.asr_diagnostic_references),
         ):
             _mapping(value, "qualification." + name)
+        _exact(self.resource_profile_identity, ("schema_version", "semantic_sha256"), "qualification.resource_profile_identity")
+        if self.resource_profile_identity["schema_version"] != RESOURCE_PROFILE_SCHEMA_VERSION:
+            raise QualificationError("qualification.resource_profile_identity.schema_version is invalid")
+        _sha(self.resource_profile_identity["semantic_sha256"], "qualification.resource_profile_identity.semantic_sha256")
+        semantic = _plain(self.resource_profile_semantic_payload)
+        if semantic.get("schema_version") != RESOURCE_PROFILE_SCHEMA_VERSION or semantic.get("algorithm_identity") != RESOURCE_PROFILE_ALGORITHM_IDENTITY:
+            raise QualificationError("qualification.resource_profile_semantic_payload identity is invalid")
+        if identity_sha256(semantic) != self.resource_profile_identity["semantic_sha256"]:
+            raise QualificationError("qualification.resource_profile_semantic_payload hash mismatch")
+        _exact(self.resource_profile_references, ("path", "sha256", "run_evidence_bytes_snapshot"), "qualification.resource_profile_references")
+        _string(self.resource_profile_references["path"], "qualification.resource_profile_references.path")
+        _sha(self.resource_profile_references["sha256"], "qualification.resource_profile_references.sha256")
+        snapshot = self.resource_profile_references["run_evidence_bytes_snapshot"]
+        if isinstance(snapshot, bool) or not isinstance(snapshot, int) or snapshot < 0:
+            raise QualificationError("qualification.resource_profile_references.run_evidence_bytes_snapshot must be a non-negative integer")
         _reject_forbidden(self.identity_payload())
         expected_id = stable_id("a4-qualification", self.identity_payload())
         expected_sha = identity_sha256(self.identity_payload())
@@ -186,7 +207,7 @@ class A4QualificationArtifact:
             "calibration_evidence": _plain(self.calibration_evidence),
             "cache_reconciliation_identity": _plain(self.cache_reconciliation_identity),
             "completion_marker_identity": _plain(self.completion_marker_identity),
-            "resource_profile_references": _plain(self.resource_profile_references),
+            "resource_profile_identity": _plain(self.resource_profile_identity),
             "asr_diagnostic_references": _plain(self.asr_diagnostic_references),
             "qualification_state": self.qualification_state,
         }
@@ -194,6 +215,8 @@ class A4QualificationArtifact:
     def to_payload(self) -> Dict[str, Any]:
         return dict(
             self.identity_payload(),
+            resource_profile_semantic_payload=_plain(self.resource_profile_semantic_payload),
+            resource_profile_references=_plain(self.resource_profile_references),
             code_head=self.code_head,
             artifact_id=self.artifact_id,
             artifact_sha256=self.artifact_sha256,
@@ -207,7 +230,8 @@ class A4QualificationArtifact:
                 "schema_version", "algorithm_identity", "infrastructure_contract_sha256",
                 "smoke_manifest_sha256", "code_head", "gate_records", "expected_counts",
                 "valid_counts", "calibration_evidence", "cache_reconciliation_identity",
-                "completion_marker_identity", "resource_profile_references",
+                "completion_marker_identity", "resource_profile_identity",
+                "resource_profile_semantic_payload", "resource_profile_references",
                 "asr_diagnostic_references", "qualification_state", "artifact_id",
                 "artifact_sha256",
             ),
@@ -223,5 +247,7 @@ __all__ = [
     "QUALIFICATION_SCHEMA_VERSION",
     "QUALIFICATION_STATES",
     "PENDING_RESOURCE_PROFILE",
+    "RESOURCE_PROFILE_ALGORITHM_IDENTITY",
+    "RESOURCE_PROFILE_SCHEMA_VERSION",
     "QualificationError",
 ]

@@ -35,7 +35,7 @@ from active_audition.a4.cache_resume import (  # noqa: E402
 )
 from active_audition.a4.calibration import CalibrationContract  # noqa: E402
 from active_audition.a4.contract import contract_sha256, load_contract  # noqa: E402
-from active_audition.a4.identity import canonical_json, canonical_json_bytes  # noqa: E402
+from active_audition.a4.identity import canonical_json, canonical_json_bytes, identity_sha256  # noqa: E402
 from active_audition.a4.mixer import (  # noqa: E402
     GlobalGainSpec,
     MixtureContract,
@@ -43,7 +43,12 @@ from active_audition.a4.mixer import (  # noqa: E402
     build_mixture,
 )
 from active_audition.a4.noise_segments import NoiseSegmentPlan  # noqa: E402
-from active_audition.a4.qualification import A4QualificationArtifact, PENDING_RESOURCE_PROFILE  # noqa: E402
+from active_audition.a4.qualification import (  # noqa: E402
+    A4QualificationArtifact,
+    PENDING_RESOURCE_PROFILE,
+    RESOURCE_PROFILE_ALGORITHM_IDENTITY,
+    RESOURCE_PROFILE_SCHEMA_VERSION,
+)
 from active_audition.a4.records import (  # noqa: E402
     BlockRecord,
     CalibrationArtifact,
@@ -499,6 +504,40 @@ def _validate_replay_profile(replay: Mapping[str, Any], final_manifest: CacheExp
     return replay
 
 
+def _resource_profile_semantic_payload(rir_profile: Mapping[str, Any], asr_summary: Mapping[str, Any], replay: Mapping[str, Any] | None, layer_bytes: Mapping[str, int]) -> dict[str, Any]:
+    production_decode = {
+        key: asr_summary[key]
+        for key in ("expected", "new_decodes", "total_audio_seconds", "decode_wall_seconds", "rtf")
+        if key in asr_summary
+    }
+    resource_replay = dict(replay) if replay is not None else {"status": "PENDING_GPU_REPLAY"}
+    return {
+        "schema_version": RESOURCE_PROFILE_SCHEMA_VERSION,
+        "algorithm_identity": RESOURCE_PROFILE_ALGORITHM_IDENTITY,
+        "rir": {
+            "count": rir_profile["count"],
+            "total_render_seconds": rir_profile["total_render_seconds"],
+            "mean_render_seconds": rir_profile["mean_render_seconds"],
+            "median_render_seconds": rir_profile["median_render_seconds"],
+            "p95_render_seconds": rir_profile["p95_render_seconds"],
+            "min_render_seconds": rir_profile["min_render_seconds"],
+            "max_render_seconds": rir_profile["max_render_seconds"],
+        },
+        "production_asr": production_decode,
+        "gpu_replay": resource_replay,
+        "effective_cache_footprint": {
+            "effective_rir_cache_bytes": layer_bytes["rir"],
+            "effective_mixture_v3_cache_bytes": layer_bytes["mixture"],
+            "effective_asr_cache_bytes": layer_bytes["asr"],
+            "effective_cache_total_bytes": sum(layer_bytes.values()),
+        },
+    }
+
+
+def _resource_profile_semantic_sha256(payload: Mapping[str, Any]) -> str:
+    return identity_sha256(payload)
+
+
 def _resource_profile(repo: Path, run_root: Path, rir_profile: Mapping[str, Any], asr_summary: Mapping[str, Any], final: CacheExpectedManifest, store: CacheStore):
     layer_bytes = {}
     effective_keys = {
@@ -529,10 +568,19 @@ def _resource_profile(repo: Path, run_root: Path, rir_profile: Mapping[str, Any]
         "status": "PENDING_GPU_REPLAY",
         "path": str(replay_path.relative_to(repo)),
     }
+    semantic_payload = _resource_profile_semantic_payload(rir_profile, asr_summary, replay, layer_bytes)
+    semantic_sha = _resource_profile_semantic_sha256(semantic_payload)
+    profile_path = run_root / "a4_resource_profile.json"
     profile = {
-        "schema_version": "active-asr-a4-resource-profile-v1",
-        "rir": dict(rir_profile),
-        "asr": {"production_decode": production_decode, "resource_replay": resource_replay},
+        "schema_version": RESOURCE_PROFILE_SCHEMA_VERSION,
+        "semantic_payload": semantic_payload,
+        "resource_profile_semantic_sha256": semantic_sha,
+        "reporting_provenance": {
+            "algorithm_identity": RESOURCE_PROFILE_ALGORITHM_IDENTITY,
+            "profile_path": str(profile_path.relative_to(repo)),
+            "run_evidence_bytes_snapshot": run_bytes,
+            "legacy_superseded_mixture_cache_bytes": legacy_mixture,
+        },
         "disk_bytes": {
             "effective_rir_cache": layer_bytes["rir"],
             "effective_mixture_cache_v3": layer_bytes["mixture"],
@@ -543,11 +591,13 @@ def _resource_profile(repo: Path, run_root: Path, rir_profile: Mapping[str, Any]
         },
         "asr_peak_memory": "RECORDED" if replay is not None else "PENDING_GPU_REPLAY",
     }
-    path = run_root / "a4_resource_profile.json"
-    sha = _write_json(path, profile)
-    profile["path"] = str(path.relative_to(repo))
+    sha = _write_json(profile_path, profile)
+    profile["path"] = str(profile_path.relative_to(repo))
     profile["sha256"] = sha
     profile["resource_replay_valid"] = replay is not None
+    profile["semantic_payload"] = semantic_payload
+    profile["resource_profile_semantic_sha256"] = semantic_sha
+    profile["run_evidence_bytes_snapshot"] = run_bytes
     return profile
 
 
@@ -604,7 +654,16 @@ def qualify(repo: Path = REPO) -> A4QualificationArtifact:
         calibration_evidence=calibration_evidence,
         cache_reconciliation_identity={"manifest_id": final_manifest.manifest_id, "record_id": final_record.record_id, "record_sha256": final_record.record_sha256, "expected_counts": dict(final_record.expected_counts)},
         completion_marker_identity={"marker_id": marker.marker_id, "reconciliation_record_id": marker.reconciliation_record_id, "reconciliation_record_sha256": marker.reconciliation_record_sha256},
-        resource_profile_references={"path": resource["path"], "sha256": resource["sha256"]},
+        resource_profile_identity={
+            "schema_version": RESOURCE_PROFILE_SCHEMA_VERSION,
+            "semantic_sha256": resource["resource_profile_semantic_sha256"],
+        },
+        resource_profile_semantic_payload=resource["semantic_payload"],
+        resource_profile_references={
+            "path": resource["path"],
+            "sha256": resource["sha256"],
+            "run_evidence_bytes_snapshot": resource["run_evidence_bytes_snapshot"],
+        },
         asr_diagnostic_references={"jsonl": diagnostics["jsonl"], "summary": diagnostics["summary"], "summary_sha256": diagnostics["summary_sha256"], "record_count": diagnostics["record_count"]},
         qualification_state="SERVER_RUN_COMPLETE_PENDING_REVIEW" if profile_ready else "RESOURCE_PROFILE_PENDING_GPU_REPLAY",
     )

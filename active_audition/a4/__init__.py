@@ -218,6 +218,8 @@ from active_audition.a4.qualification import (
     QUALIFICATION_SCHEMA_VERSION,
     QUALIFICATION_STATES,
     QualificationError,
+    RESOURCE_PROFILE_ALGORITHM_IDENTITY,
+    RESOURCE_PROFILE_SCHEMA_VERSION,
 )
 
 __all__ = [
@@ -405,4 +407,6 @@ __all__ = [
     "QUALIFICATION_SCHEMA_VERSION",
     "QUALIFICATION_STATES",
     "QualificationError",
+    "RESOURCE_PROFILE_ALGORITHM_IDENTITY",
+    "RESOURCE_PROFILE_SCHEMA_VERSION",
 ]
