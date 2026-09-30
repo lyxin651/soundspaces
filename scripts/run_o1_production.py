@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import time
 from pathlib import Path
 
@@ -24,7 +25,7 @@ from active_audition.a4.records import BlockRecord, CalibrationArtifact, Episode
 from active_audition.a4.smoke_manifest import EXPECTED_FRONTENDS
 from active_audition.a4.timeline import map_dry_mask_to_receiver_time
 from active_audition.evaluation.asr_metrics import error_counts
-from active_audition.o1.manifest import O1ExploratoryManifest
+from active_audition.o1.manifest import O1ExploratoryManifest, O1ManifestError, O1_MANIFEST_SCHEMA_VERSION_V2
 from active_audition.o1.component_snr import build_component_snr_record
 
 from scripts.run_a4_production import (
@@ -61,6 +62,19 @@ def _registry_rows(path: Path):
 
 def _manifest(path: Path) -> O1ExploratoryManifest:
     return O1ExploratoryManifest.from_payload(_json(path))
+
+
+def _require_scientific_manifest(manifest: O1ExploratoryManifest, stage: str) -> None:
+    """Fail closed before any noise-dependent or result-producing O1 stage."""
+
+    if stage == "rir":
+        return
+    if manifest.schema_version != O1_MANIFEST_SCHEMA_VERSION_V2:
+        raise RuntimeError("O1_SCIENTIFIC_MANIFEST_REQUIRED: {} requires manifest v2".format(stage))
+    try:
+        manifest.require_scientific_noise_audit()
+    except O1ManifestError as exc:
+        raise RuntimeError("O1_SCIENTIFIC_MANIFEST_REQUIRED: {}".format(exc)) from exc
 
 
 def _run_root(manifest: O1ExploratoryManifest, supplied: Path | None) -> Path:
@@ -163,6 +177,7 @@ def run_mixture(manifest_path: Path, run_root: Path) -> None:
     from active_audition.a4.calibration import CalibrationContract, calibrate_block_noise_gain
 
     manifest = _manifest(manifest_path)
+    _require_scientific_manifest(manifest, "mixture")
     store = CacheStore(str(ROOT / CACHE_ROOT))
     all_keys = []
     index = []
@@ -185,8 +200,25 @@ def run_mixture(manifest_path: Path, run_root: Path) -> None:
             timeline = _build_timeline(block, episode_payload, initial_pose, speech[uid], dry_noise, store)
             receiver_mask = map_dry_mask_to_receiver_time(masks[uid], timeline)
             selection_components.append(_make_selection_component(block_record, episode_record, timeline, masks[uid], receiver_mask))
-        artifact = calibrate_block_noise_gain(block_record, selection_components, CalibrationContract(nominal_snr_db=block_record.nominal_initial_snr_db))
+        fresh_artifact = calibrate_block_noise_gain(block_record, selection_components, CalibrationContract(nominal_snr_db=block_record.nominal_initial_snr_db))
         run_root.mkdir(parents=True, exist_ok=True)
+        calibration_path = run_root / "calibration_block_{}.json".format(block_index)
+        artifact = fresh_artifact
+        if calibration_path.is_file():
+            existing = CalibrationArtifact.from_payload(_json(calibration_path))
+            reusable = (
+                existing.block_id == fresh_artifact.block_id
+                and existing.selection_episode_ids == fresh_artifact.selection_episode_ids
+                and existing.calibration_contract_identity == fresh_artifact.calibration_contract_identity
+                and existing.input_component_identities == fresh_artifact.input_component_identities
+                and existing.active_sample_count == fresh_artifact.active_sample_count
+                and math.isclose(existing.ps, fresh_artifact.ps, rel_tol=0.0, abs_tol=1.0e-12)
+                and math.isclose(existing.pn, fresh_artifact.pn, rel_tol=0.0, abs_tol=1.0e-12)
+                and math.isclose(existing.alpha, fresh_artifact.alpha, rel_tol=0.0, abs_tol=1.0e-12)
+                and math.isclose(existing.measured_snr_db, fresh_artifact.measured_snr_db, rel_tol=0.0, abs_tol=1.0e-12)
+            )
+            if reusable:
+                artifact = existing
         (run_root / "calibration_block_{}.json".format(block_index)).write_bytes(canonical_json_bytes(artifact.to_payload()) + b"\n")
         gain = GlobalGainSpec.from_payload(block["global_gain"])
         contract = MixtureContract()
@@ -277,6 +309,7 @@ def run_asr(manifest_path: Path, run_root: Path, batch_size: int = 4) -> None:
     torch.zeros(1, device="cuda:0")
     torch.cuda.synchronize()
     manifest = _manifest(manifest_path)
+    _require_scientific_manifest(manifest, "asr")
     store = CacheStore(str(ROOT / CACHE_ROOT))
     a3_v2 = load_a3_v2_contract(str(ROOT / "configs/active_audition/v1/asr_contract_v2.yaml"), require_frozen=True, repo_root=str(ROOT))
     a3_sha = a3_v2_contract_sha256(a3_v2)
@@ -334,6 +367,7 @@ def run_component_snr(manifest_path: Path, run_root: Path) -> None:
     from active_audition.a4.active_mask import ActiveMaskContract, build_active_mask
 
     manifest = _manifest(manifest_path)
+    _require_scientific_manifest(manifest, "component-snr")
     store = CacheStore(str(ROOT / CACHE_ROOT))
     records = []
     for block_index, block in enumerate(manifest.blocks, 1):
@@ -389,6 +423,7 @@ def run_component_snr(manifest_path: Path, run_root: Path) -> None:
 def build_diagnostics(manifest_path: Path, run_root: Path) -> None:
     from active_audition.a4.cache import AsrCacheKey
     manifest = _manifest(manifest_path)
+    _require_scientific_manifest(manifest, "diagnostics")
     store = CacheStore(str(ROOT / CACHE_ROOT))
     index = _json(run_root / "o1_mixture_index.json")["entries"]
     asr_by_mix_frontend = {}

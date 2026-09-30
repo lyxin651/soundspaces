@@ -26,8 +26,12 @@ __all__ = [
     "O1ReplacementCandidateBatch",
     "O1ReplacementError",
 ]
-"""Exploratory O1 landscape analysis, isolated from A4 authority."""
-
 from .manifest import O1ExploratoryManifest, O1ManifestError
+from .replacement_audit import O1FinalizedReplacementAuditBatch, O1FinalizedReplacementAuditError
 
-__all__ = ["O1ExploratoryManifest", "O1ManifestError"]
+__all__ += [
+    "O1ExploratoryManifest",
+    "O1ManifestError",
+    "O1FinalizedReplacementAuditBatch",
+    "O1FinalizedReplacementAuditError",
+]

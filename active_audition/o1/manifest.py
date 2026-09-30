@@ -172,6 +172,15 @@ def _validate_block(block: Mapping[str, Any], index: int, require_noise_audit: b
             raise O1ManifestError("{} noise audit is invalid: {}".format(path, exc)) from exc
         if audit.parent_recording_id != block["noise_parent"]["parent_recording_id"]:
             raise O1ManifestError("{} noise audit parent binding mismatch".format(path))
+        for audit_field, parent_field in (
+            ("relative_source_path", "relative_source_path"),
+            ("source_file_sha256", "source_file_sha256"),
+            ("decoded_waveform_sha256", "decoded_waveform_sha256"),
+            ("sample_rate_hz", "sample_rate_hz"),
+            ("sample_count", "samples"),
+        ):
+            if audit.__getattribute__(audit_field) != block["noise_parent"].get(parent_field):
+                raise O1ManifestError("{} noise audit/source provenance mismatch: {}".format(path, audit_field))
         if not audit.selected_for_o1_scientific_use:
             raise O1ManifestError("{} noise audit is not scientifically eligible".format(path))
 

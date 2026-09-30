@@ -18,6 +18,51 @@ class ComponentSnrError(ValueError):
     pass
 
 
+def merge_reused_component_snr_records(
+    current_records: Sequence["O1ComponentSnrRecord"],
+    reference_records: Sequence["O1ComponentSnrRecord"],
+    retained_block_ids: Sequence[str],
+) -> tuple["O1ComponentSnrRecord", ...]:
+    """Reuse retained result-independent records after strict component binding.
+
+    A rerun may differ in harmless floating reduction order even when the
+    propagated component identities are byte-identical.  Retained blocks must
+    keep their prior diagnostic record authority; replacement blocks keep the
+    newly computed records.  This helper never compares or consumes ASR/WER
+    results.
+    """
+
+    retained = frozenset(retained_block_ids)
+    current = {record.record_id: record for record in current_records}
+    reference = {record.record_id: record for record in reference_records}
+    current_by_semantics = {(record.block_id, record.episode_id, record.pose_id): record for record in current_records}
+    reference_by_semantics = {(record.block_id, record.episode_id, record.pose_id): record for record in reference_records}
+    if not retained:
+        raise ComponentSnrError("retained_block_ids must not be empty")
+    merged = []
+    for key, record in current_by_semantics.items():
+        if key[0] not in retained:
+            merged.append(record)
+            continue
+        prior = reference_by_semantics.get(key)
+        if prior is None:
+            raise ComponentSnrError("retained record is missing from reference: {}".format(key))
+        for field in (
+            "block_id", "episode_id", "role", "utterance_id", "pose_id", "timeline_identity",
+            "target_component_identity", "noise_component_identity", "receiver_mask_identity",
+            "calibration_artifact_identity", "active_sample_count",
+        ):
+            if getattr(record, field) != getattr(prior, field):
+                raise ComponentSnrError("retained component binding mismatch in {}: {}".format(key, field))
+        if not math.isclose(record.alpha, prior.alpha, rel_tol=0.0, abs_tol=1.0e-12):
+            raise ComponentSnrError("retained calibration alpha mismatch: {}".format(key))
+        # Parsing the reference above already revalidates its hash and formula.
+        merged.append(prior)
+    if len(merged) != len(current_records):
+        raise ComponentSnrError("component-SNR merge cardinality changed")
+    return tuple(sorted(merged, key=lambda item: item.record_id))
+
+
 def _finite(value: Any, path: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
         raise ComponentSnrError("{} must be finite numeric".format(path))
@@ -165,4 +210,5 @@ def build_component_snr_record(
 __all__ = [
     "COMPONENT_SNR_ALGORITHM_IDENTITY", "COMPONENT_SNR_POWER_IDENTITY", "COMPONENT_SNR_SCHEMA_VERSION",
     "ComponentSnrError", "O1ComponentSnrRecord", "build_component_snr_record",
+    "merge_reused_component_snr_records",
 ]
