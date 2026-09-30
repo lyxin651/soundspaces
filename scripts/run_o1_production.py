@@ -20,11 +20,12 @@ from active_audition.a4.cache import CacheStore, HIT_VALID, MixtureCacheKey, NOI
 from active_audition.a4.cache_resume import CacheExpectedManifest, reconcile_cache_manifest, write_completion_marker
 from active_audition.a4.identity import canonical_json, canonical_json_bytes
 from active_audition.a4.mixer import GlobalGainSpec, MixtureContract, WaveformComponent, build_mixture
-from active_audition.a4.records import BlockRecord, EpisodeRecord
+from active_audition.a4.records import BlockRecord, CalibrationArtifact, EpisodeRecord
 from active_audition.a4.smoke_manifest import EXPECTED_FRONTENDS
 from active_audition.a4.timeline import map_dry_mask_to_receiver_time
 from active_audition.evaluation.asr_metrics import error_counts
 from active_audition.o1.manifest import O1ExploratoryManifest
+from active_audition.o1.component_snr import build_component_snr_record
 
 from scripts.run_a4_production import (
     A2_ACOUSTIC_CONTRACT_SHA256,
@@ -328,6 +329,63 @@ def run_asr(manifest_path: Path, run_root: Path, batch_size: int = 4) -> None:
     print(json.dumps(counts, sort_keys=True), flush=True)
 
 
+def run_component_snr(manifest_path: Path, run_root: Path) -> None:
+    """Reconstruct only propagated components for the privileged SNR diagnostic."""
+    from active_audition.a4.active_mask import ActiveMaskContract, build_active_mask
+
+    manifest = _manifest(manifest_path)
+    store = CacheStore(str(ROOT / CACHE_ROOT))
+    records = []
+    for block_index, block in enumerate(manifest.blocks, 1):
+        block_record = BlockRecord.from_payload(block["block_record"])
+        episodes = [EpisodeRecord.from_payload(item) for item in block["episodes"]]
+        speech_by_id = {item["utterance_id"]: item for item in block["speech_sources"]}
+        speech = {uid: _load_verified_source(ROOT, row, "speech") for uid, row in speech_by_id.items()}
+        masks = {uid: build_active_mask(wave, 16000, ActiveMaskContract()) for uid, wave in speech.items()}
+        calibration = CalibrationArtifact.from_payload(_json(run_root / "calibration_block_{}.json".format(block_index)))
+        for episode_payload, episode_record in zip(block["episodes"], episodes):
+            uid = episode_record.utterance_identity["utterance_id"]
+            segment = episode_record.fixed_dry_noise_segment_identity
+            noise_parent = _load_verified_source(ROOT, block["noise_parent"], "noise")
+            dry_noise = noise_parent[int(segment["start_sample"]):int(segment["end_sample"])]
+            for pose in block["poses"]:
+                timeline = _build_timeline(block, episode_payload, pose, speech[uid], dry_noise, store)
+                target_component = WaveformComponent.from_array("target", timeline.timeline_id, timeline.target_binaural)
+                noise_component = WaveformComponent.from_array("noise", timeline.timeline_id, timeline.noise_binaural)
+                receiver_mask = map_dry_mask_to_receiver_time(masks[uid], timeline)
+                records.append(build_component_snr_record(
+                    block_id=block_record.block_id,
+                    episode_id=episode_record.episode_id,
+                    role=episode_record.role,
+                    utterance_id=uid,
+                    pose_id=pose["pose_id"],
+                    timeline_identity=timeline.timeline_id,
+                    target_component_identity=target_component.component_identity,
+                    noise_component_identity=noise_component.component_identity,
+                    receiver_mask_identity=receiver_mask.mask_id,
+                    calibration_artifact_identity=calibration.calibration_artifact_id,
+                    alpha=calibration.alpha,
+                    target_binaural=timeline.target_binaural,
+                    noise_binaural=timeline.noise_binaural,
+                    receiver_mask=receiver_mask.mask,
+                ))
+    if len(records) != 768:
+        raise RuntimeError("O1 component-SNR cardinality is not 768: {}".format(len(records)))
+    run_root.mkdir(parents=True, exist_ok=True)
+    payload = b"\n".join(canonical_json_bytes(record.to_payload()) for record in sorted(records, key=lambda item: item.record_id)) + b"\n"
+    (run_root / "o1_component_snr.jsonl").write_bytes(payload)
+    summary = {
+        "schema_version": "active-asr-o1-component-snr-summary-v1",
+        "manifest_id": manifest.manifest_id,
+        "manifest_sha256": manifest.manifest_sha256,
+        "records": len(records),
+        "algorithm_identity": "active-asr-o1-target-active-mask-two-ear-component-snr-v1",
+        "result_dependent_pose_selection": False,
+    }
+    (run_root / "o1_component_snr_summary.json").write_bytes(canonical_json_bytes(summary) + b"\n")
+    print(json.dumps(summary, sort_keys=True), flush=True)
+
+
 def build_diagnostics(manifest_path: Path, run_root: Path) -> None:
     from active_audition.a4.cache import AsrCacheKey
     manifest = _manifest(manifest_path)
@@ -368,7 +426,7 @@ def build_diagnostics(manifest_path: Path, run_root: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("stage", choices=("rir", "mixture", "asr", "diagnostics"))
+    parser.add_argument("stage", choices=("rir", "mixture", "component-snr", "asr", "diagnostics"))
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--run-root", type=Path)
     parser.add_argument("--batch-size", type=int, default=4)
@@ -381,6 +439,8 @@ def main() -> int:
         run_mixture(args.manifest, run_root)
     elif args.stage == "asr":
         run_asr(args.manifest, run_root, args.batch_size)
+    elif args.stage == "component-snr":
+        run_component_snr(args.manifest, run_root)
     else:
         build_diagnostics(args.manifest, run_root)
     return 0

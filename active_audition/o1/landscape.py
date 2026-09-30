@@ -9,6 +9,7 @@ not policy or held-out validation results.
 from dataclasses import dataclass
 from fractions import Fraction
 import functools
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -51,6 +52,19 @@ def o1_canonical_json_bytes(value: Any) -> bytes:
     return json.dumps(
         _plain(value), ensure_ascii=False, allow_nan=False, sort_keys=True, separators=(",", ":")
     ).encode("utf-8")
+
+
+def _o1_result_id(namespace: str, payload: Mapping[str, Any]) -> str:
+    """Hash O1 evidence without applying A4 semantic-input restrictions.
+
+    A4 stable IDs intentionally reject result-dependent fields such as WER.
+    O1 landscape summaries are result artifacts, so their identity must be
+    content-addressed by the O1 canonical serializer instead of borrowing the
+    A4 constructor-input identity boundary.
+    """
+
+    envelope = {"namespace": namespace, "payload": _plain(payload)}
+    return "{}-{}".format(namespace, hashlib.sha256(o1_canonical_json_bytes(envelope)).hexdigest())
 
 
 def _exact(value: Mapping[str, Any], expected: Iterable[str], path: str) -> None:
@@ -468,7 +482,7 @@ class O1LandscapeSummary:
         value = cls(**dict(payload))
         if value.schema_version != O1_SCHEMA_VERSION or value.algorithm_identity != O1_ALGORITHM_IDENTITY:
             raise O1AnalysisError("summary schema/algorithm mismatch")
-        if value.summary_id != stable_id("o1-summary", value.identity_payload()):
+        if value.summary_id != _o1_result_id("o1-summary", value.identity_payload()):
             raise O1AnalysisError("summary_id does not match canonical summary")
         return value
 
@@ -487,7 +501,13 @@ def _selection(
     reason: Optional[str] = None,
 ) -> O1BaselineSelection:
     candidate_ids = tuple(row.pose_id for row in candidate_rows)
-    selected = _best(rows)
+    if baseline == "Max-SNR":
+        selected = min(
+            rows,
+            key=lambda row: (-float(row.component_snr_db), row.motion_cost_sec, row.pose_id),
+        ) if rows and all(row.component_snr_db is not None for row in rows) else None
+    else:
+        selected = _best(rows)
     status = "SELECTED" if selected is not None else "NOT_AVAILABLE"
     expected = None if selected is None else selected.WER
     selected_error = None if selected is None else selected.error_count
@@ -723,7 +743,7 @@ def _transfer_selection(
         candidates = feasible
     selected = _best(candidates)
     selection = _selection(
-        block_id, frontend, budget, baseline, "block_selection", (selected,) if selected else (), aggregates,
+        block_id, frontend, budget, baseline, "block_selection", candidates, candidates,
         selection_episode_ids=episodes, reason=None if selected else "NO_FEASIBLE_SELECTION_CANDIDATE",
     )
     evaluation_records = []
@@ -737,6 +757,37 @@ def _transfer_selection(
                 reason=None if rows else "EVALUATION_SCORE_MISSING",
             ))
     return selection, evaluation_records
+
+
+def _paired_improvement(records: Sequence[O1BaselineSelection], baseline: str, frontend: str, budget: float) -> Dict[str, Any]:
+    """Compare each action to Stay for the same block/episode/frontend/budget."""
+
+    stay = {
+        (record.block_id, record.episode_id): record.expected_WER
+        for record in records
+        if record.baseline == "Stay" and record.frontend == frontend
+        and record.budget_sec == float(budget) and record.expected_WER is not None
+    }
+    action = {
+        (record.block_id, record.episode_id): record.expected_WER
+        for record in records
+        if record.baseline == baseline and record.frontend == frontend
+        and record.budget_sec == float(budget) and record.expected_WER is not None
+    }
+    deltas = [float(stay[key]) - float(action[key]) for key in sorted(set(stay) & set(action))]
+    improved = sum(delta > 0.0 for delta in deltas)
+    tied = sum(delta == 0.0 for delta in deltas)
+    worsened = sum(delta < 0.0 for delta in deltas)
+    ordered = sorted(deltas)
+    median = None if not ordered else ordered[len(ordered) // 2] if len(ordered) % 2 else (ordered[len(ordered) // 2 - 1] + ordered[len(ordered) // 2]) / 2.0
+    return {
+        "paired_episode_count": len(deltas),
+        "mean_delta_WER": sum(deltas) / len(deltas) if deltas else None,
+        "median_delta_WER": median,
+        "improved_count": improved,
+        "tied_count": tied,
+        "worsened_count": worsened,
+    }
 
 
 def analyze_landscape(
@@ -775,9 +826,12 @@ def analyze_landscape(
                     if not feasible:
                         all_flags.add("INCOMPLETE_NO_FEASIBLE_CANDIDATE")
                     for baseline in BASELINES:
-                        if baseline in ("Nearest-geodesic + best-heading", "Max-SNR"):
+                        if baseline == "Nearest-geodesic + best-heading":
                             rows, reason = _baseline_rows(block, episode_scores, budget, baseline)
                             record = _not_available(block_id, frontend, budget, baseline, "episode", reason, episode_id=episode_id)
+                        elif baseline == "Max-SNR":
+                            candidates, reason = _baseline_rows(block, episode_scores, budget, baseline)
+                            record = _selection(block_id, frontend, budget, baseline, "episode", candidates, candidates, episode_id=episode_id, reason=reason)
                         elif baseline == "Uniform-random feasible":
                             candidates = _feasible(episode_scores, budget)
                             if budget == 0.0:
@@ -852,15 +906,19 @@ def analyze_landscape(
             nearest = [record.expected_WER for record in entries if record.baseline == "Nearest-best-heading" and record.expected_WER is not None]
             oracle = [record.expected_WER for record in entries if record.baseline == "Local-Oracle(B)" and record.expected_WER is not None]
             stay_mean = sum(stay) / len(stay) if stay else None
+            rotate_pair = _paired_improvement(baseline_records, "Rotate-best", frontend, budget)
+            translation_pair = _paired_improvement(baseline_records, "Translation-fixed-yaw", frontend, budget)
             rotation_opportunity[str(budget)] = {
                 "stay_mean_WER": stay_mean,
                 "rotate_best_mean_WER": sum(rotate) / len(rotate) if rotate else None,
-                "episodes_improved_over_stay": sum(value < stay_mean for value in rotate) if stay_mean is not None else 0,
+                "episodes_improved_over_stay": rotate_pair["improved_count"],
+                "paired": rotate_pair,
             }
             translation_opportunity[str(budget)] = {
                 "stay_mean_WER": stay_mean,
                 "translation_fixed_yaw_mean_WER": sum(translation) / len(translation) if translation else None,
-                "episodes_improved_over_stay": sum(value < stay_mean for value in translation) if stay_mean is not None else 0,
+                "episodes_improved_over_stay": translation_pair["improved_count"],
+                "paired": translation_pair,
             }
             nearest_gap[str(budget)] = {
                 "nearest_best_heading_mean_WER": sum(nearest) / len(nearest) if nearest else None,
@@ -891,7 +949,10 @@ def analyze_landscape(
                 for frontend in FRONTENDS
             },
             "candidate_acoustic_diversity": "NOT_AVAILABLE_TO_RESULT_ONLY_ANALYZER",
-            "component_snr_spread": "NOT_AVAILABLE_TO_RESULT_ONLY_ANALYZER",
+            "component_snr_spread": {
+                frontend: _descriptive_stats([row.component_snr_db for row in scores if row.frontend == frontend and row.component_snr_db is not None])
+                for frontend in FRONTENDS
+            },
             "yaw_spread_deg": {
                 frontend: _descriptive_stats([row.yaw_deg for row in scores if row.frontend == frontend])
                 for frontend in FRONTENDS
@@ -931,7 +992,7 @@ def analyze_landscape(
         "incomplete": incomplete,
         "summary": summary_body,
     }
-    summary_payload["summary_id"] = stable_id("o1-summary", summary_payload)
+    summary_payload["summary_id"] = _o1_result_id("o1-summary", summary_payload)
     summary = O1LandscapeSummary.from_payload(summary_payload)
     return {
         "pose_scores": scores,

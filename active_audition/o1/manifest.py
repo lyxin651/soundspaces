@@ -24,10 +24,14 @@ from active_audition.a4.pose_sampler import (
     SamplerOutput,
 )
 from active_audition.a4.records import BlockRecord, EpisodeRecord, GeometryRecord, PoseRecord
+from active_audition.o1.noise_audit import O1NoiseParentAuditRecord, O1NoiseAuditError
 
 
 O1_MANIFEST_SCHEMA_VERSION = "active-asr-o1-exploratory-manifest-v1"
+O1_MANIFEST_SCHEMA_VERSION_V2 = "active-asr-o1-exploratory-manifest-v2"
 O1_MANIFEST_STATE = "FROZEN_EXPLORATORY"
+O1_MANIFEST_PRE_ASR_STATUS = "PRE_ASR_PENDING_NOISE_AUDIT"
+O1_MANIFEST_SCIENTIFIC_STATUS = "SCIENTIFIC_NOISE_AUDIT_READY"
 EXPECTED_FRONTENDS = ("mean_lr", "fixed_L", "fixed_R")
 FORBIDDEN_RESULT_INPUTS = (
     "RIR", "energy", "DRR", "ASR", "WER", "decoder_score", "Oracle", "movement_benefit"
@@ -112,13 +116,15 @@ def _sampler_output(payload: Mapping[str, Any]) -> SamplerOutput:
     )
 
 
-def _validate_block(block: Mapping[str, Any], index: int) -> None:
+def _validate_block(block: Mapping[str, Any], index: int, require_noise_audit: bool = False) -> None:
     path = "manifest.blocks[{}]".format(index)
     required = (
         "block_record", "candidate_contract", "episodes", "geometry_record", "global_gain",
         "noise_audit", "noise_parent", "noise_plan", "poses", "sampler_context",
         "sampler_output", "selection_evaluation_policy", "speech_sources",
     )
+    if require_noise_audit:
+        required = required + ("noise_audit_record",)
     _exact(block, required, path)
     geometry = GeometryRecord.from_payload(block["geometry_record"])
     record = BlockRecord.from_payload(block["block_record"])
@@ -159,6 +165,15 @@ def _validate_block(block: Mapping[str, Any], index: int) -> None:
     }:
         raise O1ManifestError("{} selection/evaluation policy is invalid".format(path))
     _reject_result_fields(block["selection_evaluation_policy"], path + ".selection_evaluation_policy")
+    if require_noise_audit:
+        try:
+            audit = O1NoiseParentAuditRecord.from_payload(block["noise_audit_record"])
+        except O1NoiseAuditError as exc:
+            raise O1ManifestError("{} noise audit is invalid: {}".format(path, exc)) from exc
+        if audit.parent_recording_id != block["noise_parent"]["parent_recording_id"]:
+            raise O1ManifestError("{} noise audit parent binding mismatch".format(path))
+        if not audit.selected_for_o1_scientific_use:
+            raise O1ManifestError("{} noise audit is not scientifically eligible".format(path))
 
 
 @dataclass(frozen=True)
@@ -178,7 +193,7 @@ class O1ExploratoryManifest:
 
     def __post_init__(self) -> None:
         _sha(self.infrastructure_contract_sha256, "manifest.infrastructure_contract_sha256")
-        if self.schema_version != O1_MANIFEST_SCHEMA_VERSION or self.state != O1_MANIFEST_STATE:
+        if self.schema_version not in (O1_MANIFEST_SCHEMA_VERSION, O1_MANIFEST_SCHEMA_VERSION_V2) or self.state != O1_MANIFEST_STATE:
             raise O1ManifestError("manifest schema/state is invalid")
         if self.exploratory_only is not True or tuple(self.expected_frontends) != EXPECTED_FRONTENDS:
             raise O1ManifestError("exploratory_only/frontends are invalid")
@@ -188,8 +203,9 @@ class O1ExploratoryManifest:
             raise O1ManifestError("O1 first landscape requires four distinct blocks")
         if len({block["geometry_record"]["scene_id"] for block in self.blocks}) != 1:
             raise O1ManifestError("first landscape must use one scene")
+        require_noise_audit = self.schema_version == O1_MANIFEST_SCHEMA_VERSION_V2
         for index, block in enumerate(self.blocks):
-            _validate_block(block, index)
+            _validate_block(block, index, require_noise_audit=require_noise_audit)
         if not isinstance(self.selection_policy, Mapping) or not self.selection_policy:
             raise O1ManifestError("selection_policy must be non-empty")
         if not isinstance(self.o2_exclusion, Mapping) or self.o2_exclusion.get("excluded") is not True:
@@ -208,6 +224,16 @@ class O1ExploratoryManifest:
         object.__setattr__(self, "blocks", tuple(_freeze(block) for block in self.blocks))
         object.__setattr__(self, "selection_policy", _freeze(self.selection_policy))
         object.__setattr__(self, "o2_exclusion", _freeze(self.o2_exclusion))
+
+    @property
+    def scientific_use_status(self) -> str:
+        return O1_MANIFEST_SCIENTIFIC_STATUS if self.schema_version == O1_MANIFEST_SCHEMA_VERSION_V2 else O1_MANIFEST_PRE_ASR_STATUS
+
+    def require_scientific_noise_audit(self) -> None:
+        if self.schema_version != O1_MANIFEST_SCHEMA_VERSION_V2:
+            raise O1ManifestError("pre-audit O1 manifest is {}".format(O1_MANIFEST_PRE_ASR_STATUS))
+        if self.scientific_use_status != O1_MANIFEST_SCIENTIFIC_STATUS:
+            raise O1ManifestError("O1 manifest is not scientifically audit-ready")
 
     def identity_payload(self) -> Mapping[str, Any]:
         return {
@@ -246,4 +272,8 @@ class O1ExploratoryManifest:
         )
 
 
-__all__ = ["O1ExploratoryManifest", "O1ManifestError", "O1_MANIFEST_SCHEMA_VERSION", "O1_MANIFEST_STATE"]
+__all__ = [
+    "O1ExploratoryManifest", "O1ManifestError", "O1_MANIFEST_PRE_ASR_STATUS",
+    "O1_MANIFEST_SCHEMA_VERSION", "O1_MANIFEST_SCHEMA_VERSION_V2", "O1_MANIFEST_SCIENTIFIC_STATUS",
+    "O1_MANIFEST_STATE",
+]

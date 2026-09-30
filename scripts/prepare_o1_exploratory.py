@@ -229,7 +229,7 @@ def main() -> int:
                 "block_id": block["block_record"]["block_id"],
                 "geometry_id": block["geometry_record"]["geometry_id"],
                 "sampler_context_id": block["sampler_context"]["sampler_context_id"],
-                "selected_position_ids": [item["position_id"] for item in block["poses"][:6]],
+                "selected_position_ids": [item["position_id"] for item in block["sampler_output"]["selected_positions"]],
                 "pose_count": len(block["poses"]),
                 "legal_pose_count": legal,
             })
