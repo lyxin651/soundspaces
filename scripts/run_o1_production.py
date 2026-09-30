@@ -28,6 +28,7 @@ from active_audition.a4.timeline import map_dry_mask_to_receiver_time
 from active_audition.evaluation.asr_metrics import error_counts
 from active_audition.o1.manifest import O1ExploratoryManifest, O1ManifestError, O1_MANIFEST_SCHEMA_VERSION_V2
 from active_audition.o1.component_snr import build_component_snr_record
+from active_audition.o1.landscape import o1_canonical_json_bytes
 
 from scripts.run_a4_production import (
     A2_ACOUSTIC_CONTRACT_SHA256,
@@ -478,9 +479,9 @@ def build_diagnostics(manifest_path: Path, run_root: Path) -> None:
             metrics = error_counts(item["reference"], result.payload["hypothesis"])
             rows.append({"block_id": item["block_id"], "episode_id": item["episode_id"], "role": item["role"], "utterance_id": item["utterance_id"], "pose_id": item["pose_id"], "frontend": frontend, "reference": item["reference"], "hypothesis": result.payload["hypothesis"], "S": metrics["S"], "D": metrics["D"], "I": metrics["I"], "N": metrics["N"], "WER": metrics["WER"], "motion_cost_sec": item["motion_cost_sec"], "geometry_legality": item["geometry_legality"]})
     rows.sort(key=lambda row: (row["block_id"], row["episode_id"], row["frontend"], row["pose_id"]))
-    (run_root / "o1_asr_diagnostics.jsonl").write_bytes(b"\n".join(canonical_json_bytes(row) for row in rows) + b"\n")
+    (run_root / "o1_asr_diagnostics.jsonl").write_bytes(b"\n".join(o1_canonical_json_bytes(row) for row in rows) + b"\n")
     summary = {"schema_version": "active-asr-o1-asr-diagnostics-summary-v1", "manifest_id": manifest.manifest_id, "manifest_sha256": manifest.manifest_sha256, "records": len(rows), "frontends": list(EXPECTED_FRONTENDS), "result_dependent_pose_selection": False}
-    (run_root / "o1_asr_diagnostics_summary.json").write_bytes(canonical_json_bytes(summary) + b"\n")
+    (run_root / "o1_asr_diagnostics_summary.json").write_bytes(o1_canonical_json_bytes(summary) + b"\n")
     print(json.dumps(summary, sort_keys=True))
 
 

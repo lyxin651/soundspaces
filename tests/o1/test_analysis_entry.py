@@ -13,7 +13,7 @@ from active_audition.o1.analysis_entry import (
     resolve_analysis_kind,
     validate_scientific_run_root,
 )
-from active_audition.o1.landscape import O1_REAL_KIND, O1_DRY_RUN_KIND
+from active_audition.o1.landscape import O1_REAL_KIND, O1_DRY_RUN_KIND, o1_canonical_json_bytes
 from scripts.run_o1_production import _asr_cache_key_for_mono
 
 
@@ -66,6 +66,10 @@ class O1AnalysisEntryTests(unittest.TestCase):
         payload = json.loads(ENGINEERING.read_text(encoding="utf-8"))
         parsed = EngineeringSmokeManifest.from_payload(payload)
         self.assertTrue(parsed.engineering_only)
+
+    def test_result_diagnostics_use_o1_serializer_boundary(self):
+        payload = {"reference": "REF", "hypothesis": "HYP", "S": 0, "D": 0, "I": 0, "N": 1, "WER": 0.0}
+        self.assertIn(b"hypothesis", o1_canonical_json_bytes(payload))
 
     def test_diagnostics_key_reconstruction_is_exact_and_frontend_bound(self):
         index = json.loads((RUN_ROOT / "o1_mixture_index.json").read_text(encoding="utf-8"))["entries"]
