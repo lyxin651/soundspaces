@@ -1,6 +1,7 @@
 import unittest
 from dataclasses import replace
 
+from active_audition.a4.identity import stable_id
 from active_audition.o1.landscape import (
     BASELINES,
     O1PoseScore,
@@ -116,3 +117,9 @@ class O1LandscapeUnitTests(unittest.TestCase):
         self.assertIn("Uniform-random feasible", BASELINES)
         self.assertIn("Nearest-best-heading", BASELINES)
         self.assertNotIn("best-ear", BASELINES)
+
+    def test_pose_score_round_trip_preserves_result_text(self):
+        score = _score("pose-a", error_count=1)
+        score = replace(score, score_id=stable_id("o1-pose-score", score.identity_payload()))
+        payload = score.to_payload()
+        self.assertEqual(O1PoseScore.from_payload(payload).to_payload(), payload)

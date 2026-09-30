@@ -249,7 +249,13 @@ class O1PoseScore:
         }
 
     def to_payload(self) -> Dict[str, Any]:
-        return dict(self.identity_payload(), score_id=self.score_id, WER=self.WER)
+        return dict(
+            self.identity_payload(),
+            score_id=self.score_id,
+            WER=self.WER,
+            reference=self.reference,
+            hypothesis=self.hypothesis,
+        )
 
     @classmethod
     def from_payload(cls, payload: Mapping[str, Any]) -> "O1PoseScore":
