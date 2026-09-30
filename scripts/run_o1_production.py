@@ -13,6 +13,7 @@ import hashlib
 import json
 import math
 import time
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -81,6 +82,46 @@ def _run_root(manifest: O1ExploratoryManifest, supplied: Path | None) -> Path:
     if supplied is not None:
         return supplied
     return RUN_BASE / "o1_replica_apartment_2_{}".format(manifest.manifest_sha256[:12])
+
+
+@lru_cache(maxsize=1)
+def _frozen_asr_key_contract() -> tuple[str, object, object, object, object, object]:
+    """Return the exact A3-v2/key identities shared by decode and diagnostics."""
+
+    from active_audition.asr.contract import load_asr_contract
+    from active_audition.asr.contract_v2 import a3_v2_contract_sha256, load_a3_v2_contract
+
+    a3_v2 = load_a3_v2_contract(
+        str(ROOT / "configs/active_audition/v1/asr_contract_v2.yaml"),
+        require_frozen=True,
+        repo_root=str(ROOT),
+    )
+    a3_sha = a3_v2_contract_sha256(a3_v2)
+    if a3_sha != "70864c814a55db5d184ef8a6835b65cb564c4c90fc86112f8705b7ecf6df1ffe":
+        raise RuntimeError("frozen A3-v2 contract SHA mismatch")
+    contract = load_asr_contract(str(ROOT / "configs/active_audition/v1/asr_contract.yaml"), require_frozen=True)
+    _, model_identity, lm_identity, tokenizer_identity, decoder_identity, runtime_identity = _asr_key_contract(contract)
+    return a3_sha, model_identity, lm_identity, tokenizer_identity, decoder_identity, runtime_identity
+
+
+def _asr_cache_key_for_mono(mono: np.ndarray, frontend: str):
+    from active_audition.a4.cache import AsrCacheKey
+    from active_audition.asr.frontends import FRONTENDS as FROZEN_FRONTENDS
+    from active_audition.asr.speechbrain_adapter import waveform_sha256
+
+    if frontend not in FROZEN_FRONTENDS:
+        raise RuntimeError("unknown frozen frontend: {}".format(frontend))
+    a3_sha, model_identity, lm_identity, tokenizer_identity, decoder_identity, runtime_identity = _frozen_asr_key_contract()
+    return AsrCacheKey(
+        mono_payload_sha256=waveform_sha256(mono),
+        frontend=frontend,
+        model_identity=model_identity,
+        language_model_identity=lm_identity,
+        tokenizer_identity=tokenizer_identity,
+        decoder_identity=decoder_identity,
+        precision_runtime_identity=runtime_identity,
+        asr_contract_identity=a3_sha,
+    )
 
 
 def _scene_override() -> dict:
@@ -296,13 +337,12 @@ def run_asr(manifest_path: Path, run_root: Path, batch_size: int = 4) -> None:
     import platform
     import torch
     import yaml
-    from active_audition.a4.cache import ASR_RESULT_SCHEMA_VERSION, AsrCacheKey
+    from active_audition.a4.cache import ASR_RESULT_SCHEMA_VERSION
     from active_audition.a4.contract import load_contract
     from active_audition.a4.cache_resume import reconcile_cache_manifest, write_completion_marker
     from active_audition.asr.contract import load_asr_contract
-    from active_audition.asr.contract_v2 import a3_v2_contract_sha256, load_a3_v2_contract
     from active_audition.asr.frontends import apply_frontend
-    from active_audition.asr.speechbrain_adapter import SpeechBrainASRAdapter, waveform_sha256
+    from active_audition.asr.speechbrain_adapter import SpeechBrainASRAdapter
 
     if not torch.cuda.is_available() or torch.cuda.device_count() < 1:
         raise RuntimeError("FROZEN_GPU_REQUIRED: O1 ASR requires cuda:0; CPU fallback is forbidden")
@@ -311,12 +351,8 @@ def run_asr(manifest_path: Path, run_root: Path, batch_size: int = 4) -> None:
     manifest = _manifest(manifest_path)
     _require_scientific_manifest(manifest, "asr")
     store = CacheStore(str(ROOT / CACHE_ROOT))
-    a3_v2 = load_a3_v2_contract(str(ROOT / "configs/active_audition/v1/asr_contract_v2.yaml"), require_frozen=True, repo_root=str(ROOT))
-    a3_sha = a3_v2_contract_sha256(a3_v2)
-    if a3_sha != "70864c814a55db5d184ef8a6835b65cb564c4c90fc86112f8705b7ecf6df1ffe":
-        raise RuntimeError("frozen A3-v2 contract SHA mismatch")
+    a3_sha, model_identity, lm_identity, tokenizer_identity, decoder_identity, runtime_identity = _frozen_asr_key_contract()
     contract = load_asr_contract(str(ROOT / "configs/active_audition/v1/asr_contract.yaml"), require_frozen=True)
-    _, model_identity, lm_identity, tokenizer_identity, decoder_identity, runtime_identity = _asr_key_contract(contract)
     mixture_manifest = CacheExpectedManifest.from_payload(_json(run_root / "mixture_expected_manifest.json"))
     jobs = []
     expected = []
@@ -327,7 +363,7 @@ def run_asr(manifest_path: Path, run_root: Path, batch_size: int = 4) -> None:
         binaural = np.asarray(result.payload, dtype=np.float32)
         for frontend in EXPECTED_FRONTENDS:
             mono = np.asarray(apply_frontend(binaural, frontend), dtype=np.float32)
-            key = AsrCacheKey(mono_payload_sha256=waveform_sha256(mono), frontend=frontend, model_identity=model_identity, language_model_identity=lm_identity, tokenizer_identity=tokenizer_identity, decoder_identity=decoder_identity, precision_runtime_identity=runtime_identity, asr_contract_identity=a3_sha)
+            key = _asr_cache_key_for_mono(mono, frontend)
             expected.append(key)
             if store.read_asr(key).status != HIT_VALID:
                 jobs.append((key, mono, mixture_key.cache_key, frontend))
@@ -421,40 +457,29 @@ def run_component_snr(manifest_path: Path, run_root: Path) -> None:
 
 
 def build_diagnostics(manifest_path: Path, run_root: Path) -> None:
-    from active_audition.a4.cache import AsrCacheKey
+    from active_audition.asr.frontends import apply_frontend
     manifest = _manifest(manifest_path)
     _require_scientific_manifest(manifest, "diagnostics")
     store = CacheStore(str(ROOT / CACHE_ROOT))
     index = _json(run_root / "o1_mixture_index.json")["entries"]
-    asr_by_mix_frontend = {}
-    for metadata_path in (ROOT / CACHE_ROOT / "asr").glob("*/metadata.json"):
-        metadata = _json(metadata_path)
-        provenance = metadata.get("provenance", {})
-        key_payload = metadata.get("key_payload", {})
-        mixture_cache_key = provenance.get("mixture_cache_key")
-        frontend = key_payload.get("frontend")
-        if mixture_cache_key and frontend in EXPECTED_FRONTENDS:
-            asr_by_mix_frontend.setdefault((mixture_cache_key, frontend), []).append(AsrCacheKey.from_payload(key_payload))
     rows = []
     for item in index:
         mixture_key = MixtureCacheKey.from_payload(item["mixture_key_payload"])
         mixture = store.read_mixture(mixture_key)
         if mixture.status != HIT_VALID:
             raise RuntimeError("O1 diagnostics mixture invalid")
+        binaural = np.asarray(mixture.payload, dtype=np.float32)
         for frontend in EXPECTED_FRONTENDS:
-            # Recompute the exact ASR key from the actual cached mixture payload
-            # and the frozen frontend/model identity stored in its ASR sibling.
-            asr_candidates = asr_by_mix_frontend.get((item["mixture_cache_key"], frontend), [])
-            if len(asr_candidates) != 1:
-                raise RuntimeError("O1 diagnostics cannot resolve one ASR key for {} {}".format(item["mixture_cache_key"], frontend))
-            result = store.read_asr(asr_candidates[0])
+            mono = np.asarray(apply_frontend(binaural, frontend), dtype=np.float32)
+            asr_key = _asr_cache_key_for_mono(mono, frontend)
+            result = store.read_asr(asr_key)
             if result.status != HIT_VALID:
-                raise RuntimeError("O1 diagnostics ASR cache invalid")
+                raise RuntimeError("O1 diagnostics exact ASR key is not HIT_VALID for {} {}".format(item["mixture_cache_key"], frontend))
             metrics = error_counts(item["reference"], result.payload["hypothesis"])
             rows.append({"block_id": item["block_id"], "episode_id": item["episode_id"], "role": item["role"], "utterance_id": item["utterance_id"], "pose_id": item["pose_id"], "frontend": frontend, "reference": item["reference"], "hypothesis": result.payload["hypothesis"], "S": metrics["S"], "D": metrics["D"], "I": metrics["I"], "N": metrics["N"], "WER": metrics["WER"], "motion_cost_sec": item["motion_cost_sec"], "geometry_legality": item["geometry_legality"]})
     rows.sort(key=lambda row: (row["block_id"], row["episode_id"], row["frontend"], row["pose_id"]))
     (run_root / "o1_asr_diagnostics.jsonl").write_bytes(b"\n".join(canonical_json_bytes(row) for row in rows) + b"\n")
-    summary = {"schema_version": "active-asr-o1-asr-diagnostics-summary-v1", "manifest_id": manifest.manifest_id, "records": len(rows), "frontends": list(EXPECTED_FRONTENDS), "result_dependent_pose_selection": False}
+    summary = {"schema_version": "active-asr-o1-asr-diagnostics-summary-v1", "manifest_id": manifest.manifest_id, "manifest_sha256": manifest.manifest_sha256, "records": len(rows), "frontends": list(EXPECTED_FRONTENDS), "result_dependent_pose_selection": False}
     (run_root / "o1_asr_diagnostics_summary.json").write_bytes(canonical_json_bytes(summary) + b"\n")
     print(json.dumps(summary, sort_keys=True))
 

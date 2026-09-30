@@ -96,6 +96,21 @@ def _rebuild_block(old: dict, new_parent_id: str, audit: dict) -> dict:
     return rebuilt
 
 
+def _assert_retained_block_unchanged(old: dict, rebuilt: dict, expected_parent_id: str) -> None:
+    """Make retained-block provenance an assertion, not a no-op conditional."""
+
+    for field in (
+        "block_record", "geometry_record", "candidate_contract", "sampler_context",
+        "sampler_output", "poses", "speech_sources", "global_gain",
+        "selection_evaluation_policy",
+    ):
+        if rebuilt[field] != old[field]:
+            raise RuntimeError("retained block {} changed: {}".format(expected_parent_id, field))
+    if rebuilt["noise_parent"]["parent_recording_id"] != expected_parent_id:
+        raise RuntimeError("retained block noise parent changed: {}".format(expected_parent_id))
+    return rebuilt
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--old-manifest", type=Path, default=ROOT / "runs/active_asr_v1/o1_replica_apartment_2_c8c821eae922/o1_exploratory_manifest.json")
@@ -109,8 +124,8 @@ def main() -> int:
     blocks = []
     for old_block, parent_id in zip(old["blocks"], parents):
         blocks.append(_rebuild_block(old_block, parent_id, audits[parent_id]))
-    if blocks[2]["block_record"] == old["blocks"][2]["block_record"] and blocks[3]["block_record"] == old["blocks"][3]["block_record"]:
-        pass
+    _assert_retained_block_unchanged(old["blocks"][2], blocks[2], PARENT_ORDER[2])
+    _assert_retained_block_unchanged(old["blocks"][3], blocks[3], PARENT_ORDER[3])
     ledger_base = {
         "schema_version": "active-asr-o1-consumed-scene-ledger-v2",
         "supersedes_manifest_sha256": OLD_MANIFEST_SHA,
