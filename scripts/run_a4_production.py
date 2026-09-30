@@ -558,9 +558,117 @@ def run_asr(repo: Path, batch_size: int = 4) -> None:
     print(json.dumps(counts, sort_keys=True), flush=True)
 
 
+def run_asr_profile(repo: Path, batch_size: int = 4) -> None:
+    """Replay all frozen ASR inputs for GPU memory evidence only.
+
+    This stage deliberately does not write ASR cache entries or any semantic
+    decode result.  It uses the exact final mixture set and frozen frontend,
+    model, decoder, and runtime identities, then records only diagnostic
+    resource measurements.
+    """
+    import platform
+    import torch
+    from active_audition.a4.cache_resume import CacheExpectedManifest
+    from active_audition.a4.cache import AsrCacheKey
+    from active_audition.asr.contract import load_asr_contract
+    from active_audition.asr.contract_v2 import a3_v2_contract_sha256, load_a3_v2_contract
+    from active_audition.asr.frontends import apply_frontend
+    from active_audition.asr.speechbrain_adapter import SpeechBrainASRAdapter, waveform_sha256
+
+    if not torch.cuda.is_available() or torch.cuda.device_count() < 1:
+        raise RuntimeError("FROZEN_GPU_REQUIRED: CUDA device cuda:0 is not available; CPU fallback is forbidden")
+    torch.zeros(1, device="cuda:0")
+    torch.cuda.synchronize()
+    manifest = _load_manifest(repo)
+    run_root = _run_root(manifest)
+    store = CacheStore(str(repo / CACHE_ROOT))
+    v2_path = repo / "configs/active_audition/v1/asr_contract_v2.yaml"
+    v1_path = repo / "configs/active_audition/v1/asr_contract.yaml"
+    a3_v2 = load_a3_v2_contract(str(v2_path), require_frozen=True, repo_root=str(repo))
+    a3_v2_sha = a3_v2_contract_sha256(a3_v2)
+    if a3_v2_sha != "70864c814a55db5d184ef8a6835b65cb564c4c90fc86112f8705b7ecf6df1ffe":
+        raise RuntimeError("frozen A3-v2 contract SHA mismatch: {}".format(a3_v2_sha))
+    contract = load_asr_contract(str(v1_path), require_frozen=True)
+    _, model_identity, lm_identity, tokenizer_identity, decoder_identity, runtime_identity = _asr_key_contract(contract)
+    final_manifest = CacheExpectedManifest.from_payload(json.loads((repo / run_root / "final_cache_expected_manifest.json").read_text(encoding="utf-8")))
+    if final_manifest.expected_counts != {"rir": 192, "mixture": 384, "asr": 1152}:
+        raise RuntimeError("final manifest counts are not 192/384/1152")
+    jobs = []
+    expected_key_ids = {key.cache_key for key in final_manifest.expected_asr_keys}
+    existing_results = {}
+    total_audio_seconds = 0.0
+    for mixture_key in final_manifest.expected_mixture_keys:
+        result = store.read_mixture(mixture_key)
+        if result.status != HIT_VALID:
+            raise RuntimeError("profile mixture prerequisite is not valid: {} {}".format(result.status, result.reason))
+        binaural = np.asarray(result.payload, dtype=np.float32)
+        for frontend in ("mean_lr", "fixed_L", "fixed_R"):
+            mono = np.asarray(apply_frontend(binaural, frontend), dtype=np.float32)
+            key = AsrCacheKey(
+                mono_payload_sha256=waveform_sha256(mono),
+                frontend=frontend,
+                model_identity=model_identity,
+                language_model_identity=lm_identity,
+                tokenizer_identity=tokenizer_identity,
+                decoder_identity=decoder_identity,
+                precision_runtime_identity=runtime_identity,
+                asr_contract_identity=a3_v2_sha,
+            )
+            if key.cache_key not in expected_key_ids:
+                raise RuntimeError("profile recomputed an ASR key outside the frozen manifest")
+            jobs.append((key, mono))
+            total_audio_seconds += float(mono.size) / 16000.0
+            cached = store.read_asr(key)
+            if cached.status != HIT_VALID:
+                raise RuntimeError("profile reference ASR cache is not valid: {} {}".format(cached.status, cached.reason))
+            existing_results[key.cache_key] = cached.payload["hypothesis"]
+    adapter = SpeechBrainASRAdapter(contract)
+    torch.cuda.reset_peak_memory_stats(device="cuda:0")
+    started = time.monotonic()
+    decoded = 0
+    mismatch_count = 0
+    for start in range(0, len(jobs), batch_size):
+        batch = jobs[start:start + batch_size]
+        outputs = adapter.transcribe_batch([item[1] for item in batch], 16000, frontend="mono_input")
+        if len(outputs) != len(batch):
+            raise RuntimeError("ASR profile batch output count mismatch")
+        for (key, _), output in zip(batch, outputs):
+            decoded += 1
+            if output.hypothesis != existing_results[key.cache_key]:
+                mismatch_count += 1
+    torch.cuda.synchronize()
+    wall_seconds = time.monotonic() - started
+    profile = {
+        "schema_version": "active-asr-a4-asr-resource-profile-replay-v1",
+        "profile_status": "DIAGNOSTIC_RESOURCE_REPLAY",
+        "semantic_cache_authority": "NOT_SEMANTIC_CACHE_AUTHORITY",
+        "expected": len(jobs),
+        "decoded": decoded,
+        "batch_size": batch_size,
+        "frontends": ["mean_lr", "fixed_L", "fixed_R"],
+        "total_audio_seconds": total_audio_seconds,
+        "wall_seconds": wall_seconds,
+        "rtf": wall_seconds / total_audio_seconds if total_audio_seconds else 0.0,
+        "hypothesis_mismatch_count_against_cached_diagnostic": mismatch_count,
+        "device": "cuda:0",
+        "device_name": torch.cuda.get_device_name(0),
+        "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES", "<unset>"),
+        "torch": str(torch.__version__),
+        "torch_cuda": str(torch.version.cuda),
+        "python": platform.python_version(),
+        "a3_v2_contract_sha256": a3_v2_sha,
+        "final_manifest_id": final_manifest.manifest_id,
+        "final_manifest_sha256": final_manifest.manifest_sha256,
+        "cache_write_count": 0,
+    }
+    run_root.mkdir(parents=True, exist_ok=True)
+    (repo / run_root / "asr_resource_profile_replay.json").write_bytes(canonical_json_bytes(profile) + b"\n")
+    print(json.dumps(profile, sort_keys=True), flush=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("stage", choices=("rir", "mixture", "asr"))
+    parser.add_argument("stage", choices=("rir", "mixture", "asr", "asr-profile"))
     parser.add_argument("--block", type=int, choices=(1, 2), default=0)
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[1]
@@ -570,6 +678,8 @@ def main() -> None:
         run_mixture(repo)
     elif args.stage == "asr":
         run_asr(repo)
+    elif args.stage == "asr-profile":
+        run_asr_profile(repo)
 
 
 if __name__ == "__main__":

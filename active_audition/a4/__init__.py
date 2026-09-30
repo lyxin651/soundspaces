@@ -210,6 +210,14 @@ from active_audition.a4.smoke_manifest import (
     EngineeringSmokeManifest,
     EngineeringSmokeManifestError,
 )
+from active_audition.a4.qualification import (
+    A4QualificationArtifact,
+    GATE_NAMES,
+    QUALIFICATION_ALGORITHM_IDENTITY,
+    QUALIFICATION_SCHEMA_VERSION,
+    QUALIFICATION_STATES,
+    QualificationError,
+)
 
 __all__ = [
     "A4ContractError",
@@ -389,4 +397,10 @@ __all__ = [
     "ENGINEERING_SMOKE_MANIFEST_STATE",
     "EngineeringSmokeManifest",
     "EngineeringSmokeManifestError",
+    "A4QualificationArtifact",
+    "GATE_NAMES",
+    "QUALIFICATION_ALGORITHM_IDENTITY",
+    "QUALIFICATION_SCHEMA_VERSION",
+    "QUALIFICATION_STATES",
+    "QualificationError",
 ]
