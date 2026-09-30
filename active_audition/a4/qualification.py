@@ -12,12 +12,13 @@ from typing import Any, Dict, Mapping, Sequence
 from active_audition.a4.identity import canonical_json, identity_sha256, stable_id, validate_sha256
 
 
-QUALIFICATION_SCHEMA_VERSION = "active-asr-a4-engineering-qualification-v1"
+QUALIFICATION_SCHEMA_VERSION = "active-asr-a4-engineering-qualification-v2"
 QUALIFICATION_ALGORITHM_IDENTITY = "active-asr-a4-g1-g9-technical-qualification-v1"
 QUALIFICATION_STATES = (
     "SERVER_RUN_COMPLETE_PENDING_REVIEW",
     "RESOURCE_PROFILE_PENDING_GPU_REPLAY",
 )
+PENDING_RESOURCE_PROFILE = "PENDING_RESOURCE_PROFILE"
 GATE_NAMES = tuple("G{}".format(index) for index in range(1, 10))
 _FORBIDDEN_KEYS = frozenset(
     {
@@ -135,8 +136,13 @@ class A4QualificationArtifact:
             raise QualificationError("qualification.gate_records must contain exactly G1..G9")
         for gate in GATE_NAMES:
             record = _mapping(self.gate_records[gate], "qualification.gate_records." + gate)
-            if record.get("status") != "PASS":
-                raise QualificationError("{} must have status PASS".format(gate))
+            status = record.get("status")
+            if self.qualification_state == "RESOURCE_PROFILE_PENDING_GPU_REPLAY":
+                expected = PENDING_RESOURCE_PROFILE if gate == "G9" else "PASS"
+            else:
+                expected = "PASS"
+            if status != expected:
+                raise QualificationError("{} must have status {!r} for state {!r}".format(gate, expected, self.qualification_state))
         for name, value in (("expected_counts", self.expected_counts), ("valid_counts", self.valid_counts)):
             mapping = _mapping(value, "qualification." + name)
             for key, count in mapping.items():
@@ -216,5 +222,6 @@ __all__ = [
     "QUALIFICATION_ALGORITHM_IDENTITY",
     "QUALIFICATION_SCHEMA_VERSION",
     "QUALIFICATION_STATES",
+    "PENDING_RESOURCE_PROFILE",
     "QualificationError",
 ]

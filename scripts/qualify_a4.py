@@ -43,7 +43,7 @@ from active_audition.a4.mixer import (  # noqa: E402
     build_mixture,
 )
 from active_audition.a4.noise_segments import NoiseSegmentPlan  # noqa: E402
-from active_audition.a4.qualification import A4QualificationArtifact  # noqa: E402
+from active_audition.a4.qualification import A4QualificationArtifact, PENDING_RESOURCE_PROFILE  # noqa: E402
 from active_audition.a4.records import (  # noqa: E402
     BlockRecord,
     CalibrationArtifact,
@@ -455,6 +455,50 @@ def _write_asr_diagnostics(repo: Path, run_root: Path, manifest: EngineeringSmok
     return {"record_count": len(rows), "jsonl": str(jsonl.relative_to(REPO)), "summary": str(summary_path.relative_to(REPO)), "summary_sha256": summary_sha, "by_frontend": summary["by_frontend"]}
 
 
+REPLAY_PROFILE_FIELDS = (
+    "schema_version", "profile_status", "semantic_cache_authority", "expected", "decoded",
+    "batch_size", "frontends", "total_audio_seconds", "wall_seconds", "rtf",
+    "hypothesis_mismatch_count_against_cached_diagnostic", "peak_memory_allocated_bytes",
+    "peak_memory_reserved_bytes", "device", "device_name", "cuda_visible_devices", "torch",
+    "torch_cuda", "python", "a3_v2_contract_sha256", "final_manifest_id", "final_manifest_sha256",
+    "cache_write_count",
+)
+
+
+def _validate_replay_profile(replay: Mapping[str, Any], final_manifest: CacheExpectedManifest, asr_summary: Mapping[str, Any]) -> Mapping[str, Any]:
+    if not isinstance(replay, Mapping) or set(replay) != set(REPLAY_PROFILE_FIELDS):
+        raise RuntimeError("ASR resource replay schema is missing or has unknown fields")
+    if replay["schema_version"] != "active-asr-a4-asr-resource-profile-replay-v1":
+        raise RuntimeError("ASR resource replay schema version is invalid")
+    if replay["profile_status"] != "DIAGNOSTIC_RESOURCE_REPLAY" or replay["semantic_cache_authority"] != "NOT_SEMANTIC_CACHE_AUTHORITY":
+        raise RuntimeError("ASR resource replay authority markers are invalid")
+    for field, expected in (("expected", 1152), ("decoded", 1152), ("batch_size", 4)):
+        if isinstance(replay[field], bool) or not isinstance(replay[field], int) or replay[field] != expected:
+            raise RuntimeError("ASR resource replay count/batch contract is invalid")
+    if isinstance(replay["cache_write_count"], bool) or not isinstance(replay["cache_write_count"], int) or replay["cache_write_count"] != 0:
+        raise RuntimeError("ASR resource replay wrote semantic cache entries")
+    if isinstance(replay["hypothesis_mismatch_count_against_cached_diagnostic"], bool) or not isinstance(replay["hypothesis_mismatch_count_against_cached_diagnostic"], int) or replay["hypothesis_mismatch_count_against_cached_diagnostic"] != 0:
+        raise RuntimeError("ASR resource replay hypothesis mismatch is non-zero")
+    if tuple(replay["frontends"]) != FRONTENDS:
+        raise RuntimeError("ASR resource replay frontend set is invalid")
+    if replay["final_manifest_id"] != final_manifest.manifest_id or replay["final_manifest_sha256"] != final_manifest.manifest_sha256:
+        raise RuntimeError("ASR resource replay final manifest binding is invalid")
+    if replay["a3_v2_contract_sha256"] != EXPECTED_A3_V2_SHA:
+        raise RuntimeError("ASR resource replay A3-v2 contract binding is invalid")
+    if replay["device"] != "cuda:0" or "RTX 4090" not in str(replay["device_name"]):
+        raise RuntimeError("ASR resource replay device is not the frozen RTX 4090 cuda:0")
+    if isinstance(replay["peak_memory_allocated_bytes"], bool) or not isinstance(replay["peak_memory_allocated_bytes"], int) or replay["peak_memory_allocated_bytes"] <= 0:
+        raise RuntimeError("ASR resource replay allocated peak memory is invalid")
+    if isinstance(replay["peak_memory_reserved_bytes"], bool) or not isinstance(replay["peak_memory_reserved_bytes"], int) or replay["peak_memory_reserved_bytes"] < replay["peak_memory_allocated_bytes"]:
+        raise RuntimeError("ASR resource replay reserved peak memory is invalid")
+    if not math.isclose(float(replay["total_audio_seconds"]), float(asr_summary["total_audio_seconds"]), rel_tol=1.0e-9, abs_tol=1.0e-6):
+        raise RuntimeError("ASR resource replay audio duration differs from production decode")
+    for field in ("wall_seconds", "rtf", "total_audio_seconds"):
+        if not isinstance(replay[field], (int, float)) or not math.isfinite(float(replay[field])) or float(replay[field]) < 0.0:
+            raise RuntimeError("ASR resource replay {} is invalid".format(field))
+    return replay
+
+
 def _resource_profile(repo: Path, run_root: Path, rir_profile: Mapping[str, Any], asr_summary: Mapping[str, Any], final: CacheExpectedManifest, store: CacheStore):
     layer_bytes = {}
     effective_keys = {
@@ -476,10 +520,19 @@ def _resource_profile(repo: Path, run_root: Path, rir_profile: Mapping[str, Any]
             if directory.is_dir() and directory.name not in effective_keys["mixture"]:
                 legacy_mixture += sum(path.stat().st_size for path in directory.rglob("*") if path.is_file())
     run_bytes = sum(path.stat().st_size for path in run_root.rglob("*") if path.is_file())
+    replay_path = run_root / "asr_resource_profile_replay.json"
+    replay = None
+    if replay_path.is_file():
+        replay = _validate_replay_profile(_json(replay_path), final, asr_summary)
+    production_decode = {key: asr_summary[key] for key in ("expected", "cache_hits", "new_decodes", "total_audio_seconds", "decode_wall_seconds", "rtf") if key in asr_summary}
+    resource_replay = dict(replay) if replay is not None else {
+        "status": "PENDING_GPU_REPLAY",
+        "path": str(replay_path.relative_to(repo)),
+    }
     profile = {
         "schema_version": "active-asr-a4-resource-profile-v1",
         "rir": dict(rir_profile),
-        "asr": {key: asr_summary[key] for key in ("expected", "cache_hits", "new_decodes", "total_audio_seconds", "decode_wall_seconds", "rtf") if key in asr_summary},
+        "asr": {"production_decode": production_decode, "resource_replay": resource_replay},
         "disk_bytes": {
             "effective_rir_cache": layer_bytes["rir"],
             "effective_mixture_cache_v3": layer_bytes["mixture"],
@@ -488,12 +541,13 @@ def _resource_profile(repo: Path, run_root: Path, rir_profile: Mapping[str, Any]
             "effective_total": sum(layer_bytes.values()) + run_bytes,
             "legacy_superseded_mixture_cache": legacy_mixture,
         },
-        "asr_peak_memory": "NOT_RECORDED; use asr-profile replay",
+        "asr_peak_memory": "RECORDED" if replay is not None else "PENDING_GPU_REPLAY",
     }
     path = run_root / "a4_resource_profile.json"
     sha = _write_json(path, profile)
     profile["path"] = str(path.relative_to(repo))
     profile["sha256"] = sha
+    profile["resource_replay_valid"] = replay is not None
     return profile
 
 
@@ -522,6 +576,7 @@ def qualify(repo: Path = REPO) -> A4QualificationArtifact:
         raise RuntimeError("ASR stage summary does not match the completed manual GPU run")
     diagnostics = _write_asr_diagnostics(repo, run_root, manifest, final_manifest, store)
     resource = _resource_profile(repo, run_root, rir_profile, asr_summary, final_manifest, store)
+    profile_ready = bool(resource["resource_replay_valid"])
     calibration_evidence = {
         "blocks": [
             {"block_index": index, "calibration_artifact_id": artifact.calibration_artifact_id, "ps": artifact.ps, "pn": artifact.pn, "alpha": artifact.alpha, "nominal_snr_db": artifact.nominal_snr_db, "measured_snr_db": artifact.measured_snr_db, "error_db": abs(artifact.measured_snr_db - artifact.nominal_snr_db)}
@@ -537,7 +592,7 @@ def qualify(repo: Path = REPO) -> A4QualificationArtifact:
         "G6": {"status": "PASS", "evidence": {"calibration": calibration_evidence, "timeline_algorithm_identity": TIMELINE_ALGORITHM_IDENTITY, "convolution_implementation_identity": CONVOLUTION_IMPLEMENTATION_IDENTITY}},
         "G7": {"status": "PASS", "evidence": mixture_profile},
         "G8": {"status": "PASS", "evidence": {"expected_entries": 1728, "reuse": {"rir": 192, "mixture": 384, "asr": 1152}, "completion_marker": marker.marker_id}},
-        "G9": {"status": "PASS", "evidence": {"blocks": 2, "episodes": 8, "mixtures": 384, "asr_records": 1152, "frontends": list(FRONTENDS), "no_result_dependent_selection": True}},
+        "G9": {"status": "PASS" if profile_ready else PENDING_RESOURCE_PROFILE, "evidence": {"blocks": 2, "episodes": 8, "mixtures": 384, "asr_records": 1152, "frontends": list(FRONTENDS), "resource_profile": "PASS" if profile_ready else PENDING_RESOURCE_PROFILE, "no_result_dependent_selection": True}},
     }
     artifact = A4QualificationArtifact(
         infrastructure_contract_sha256=manifest.infrastructure_contract_sha256,
@@ -551,7 +606,7 @@ def qualify(repo: Path = REPO) -> A4QualificationArtifact:
         completion_marker_identity={"marker_id": marker.marker_id, "reconciliation_record_id": marker.reconciliation_record_id, "reconciliation_record_sha256": marker.reconciliation_record_sha256},
         resource_profile_references={"path": resource["path"], "sha256": resource["sha256"]},
         asr_diagnostic_references={"jsonl": diagnostics["jsonl"], "summary": diagnostics["summary"], "summary_sha256": diagnostics["summary_sha256"], "record_count": diagnostics["record_count"]},
-        qualification_state="RESOURCE_PROFILE_PENDING_GPU_REPLAY",
+        qualification_state="SERVER_RUN_COMPLETE_PENDING_REVIEW" if profile_ready else "RESOURCE_PROFILE_PENDING_GPU_REPLAY",
     )
     qualification_path = run_root / "a4_qualification.json"
     _write_json(qualification_path, artifact.to_payload())

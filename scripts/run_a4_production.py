@@ -638,6 +638,8 @@ def run_asr_profile(repo: Path, batch_size: int = 4) -> None:
                 mismatch_count += 1
     torch.cuda.synchronize()
     wall_seconds = time.monotonic() - started
+    peak_memory_allocated_bytes = int(torch.cuda.max_memory_allocated(device="cuda:0"))
+    peak_memory_reserved_bytes = int(torch.cuda.max_memory_reserved(device="cuda:0"))
     profile = {
         "schema_version": "active-asr-a4-asr-resource-profile-replay-v1",
         "profile_status": "DIAGNOSTIC_RESOURCE_REPLAY",
@@ -650,6 +652,8 @@ def run_asr_profile(repo: Path, batch_size: int = 4) -> None:
         "wall_seconds": wall_seconds,
         "rtf": wall_seconds / total_audio_seconds if total_audio_seconds else 0.0,
         "hypothesis_mismatch_count_against_cached_diagnostic": mismatch_count,
+        "peak_memory_allocated_bytes": peak_memory_allocated_bytes,
+        "peak_memory_reserved_bytes": peak_memory_reserved_bytes,
         "device": "cuda:0",
         "device_name": torch.cuda.get_device_name(0),
         "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES", "<unset>"),

@@ -213,6 +213,7 @@ from active_audition.a4.smoke_manifest import (
 from active_audition.a4.qualification import (
     A4QualificationArtifact,
     GATE_NAMES,
+    PENDING_RESOURCE_PROFILE,
     QUALIFICATION_ALGORITHM_IDENTITY,
     QUALIFICATION_SCHEMA_VERSION,
     QUALIFICATION_STATES,
@@ -399,6 +400,7 @@ __all__ = [
     "EngineeringSmokeManifestError",
     "A4QualificationArtifact",
     "GATE_NAMES",
+    "PENDING_RESOURCE_PROFILE",
     "QUALIFICATION_ALGORITHM_IDENTITY",
     "QUALIFICATION_SCHEMA_VERSION",
     "QUALIFICATION_STATES",
